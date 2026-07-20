@@ -1,0 +1,28 @@
+# Normalize line endings on checkin, auto-detect text files
+* text=auto eol=lf
+
+# Scripts must keep LF
+gradlew        text eol=lf
+*.sh           text eol=lf
+
+# Windows scripts must keep CRLF
+gradlew.bat    text eol=crlf
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+
+# Binary files — never diff or normalize
+*.jar          binary
+*.apk          binary
+*.aab          binary
+*.aar          binary
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.gif          binary
+*.webp         binary
+*.ico          binary
+*.ttf          binary
+*.otf          binary
+*.so           binary
+*.keystore     binary
+*.jks          binary
