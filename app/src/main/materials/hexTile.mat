@@ -1,0 +1,28 @@
+material {
+    name : hexTile,
+    shadingModel : lit,
+    parameters : [
+        { type : float3, name : colorFrom },
+        { type : float3, name : colorTo },
+        { type : float3, name : tileCenter },
+        { type : float,  name : waveRadius },
+        { type : float,  name : waveSoftness }
+    ],
+    requires : [
+        position
+    ]
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        float d = distance(getWorldPosition().xz, materialParams.tileCenter.xz);
+        float t = 1.0 - smoothstep(
+            materialParams.waveRadius - materialParams.waveSoftness,
+            materialParams.waveRadius,
+            d);
+        material.baseColor.rgb = mix(materialParams.colorFrom, materialParams.colorTo, t);
+        material.roughness = 0.9;
+        material.metallic = 0.0;
+    }
+}

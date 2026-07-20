@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "FightAndConquer"
 include(":app")
+include(":core")
  

@@ -6,9 +6,7 @@ plugins {
 android {
     namespace = "com.msa.fightandconquer"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
 
     defaultConfig {
@@ -38,6 +36,11 @@ android {
 }
 
 dependencies {
+    implementation(project(":core"))
+    implementation(libs.filament.android)
+    implementation(libs.kotlin.math)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

@@ -1,0 +1,19 @@
+material {
+    name : highlight,
+    shadingModel : unlit,
+    blending : transparent,
+    doubleSided : true,
+    parameters : [
+        { type : float4, name : color }
+    ],
+    requires : [
+        position
+    ]
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor = materialParams.color;
+    }
+}
