@@ -1,58 +1,49 @@
 package com.msa.fightandconquer.ui.theme
 
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import com.msa.fightandconquer.ui.UiColors
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+/**
+ * The game paints from the hand-authored neo-pastel [UiColors] palette (docs/game-idea.md
+ * section 7), so the Material scheme is derived from it rather than from the template
+ * purples.
+ *
+ * Deliberately light-only and NOT dynamic-color: the board, HUD panels and faction
+ * colors are fixed, so wallpaper-derived or dark schemes would only affect the
+ * Material components that don't set explicit colors (chips, buttons, cards) and
+ * make them clash with everything around them.
+ */
+private val GameColorScheme = lightColorScheme(
+    primary = UiColors.faction(0),
+    onPrimary = UiColors.ink,
+    primaryContainer = UiColors.faction(0).copy(alpha = 0.30f),
+    onPrimaryContainer = UiColors.ink,
+    secondary = UiColors.faction(3),
+    onSecondary = UiColors.ink,
+    secondaryContainer = UiColors.faction(0).copy(alpha = 0.30f),
+    onSecondaryContainer = UiColors.ink,
+    tertiary = UiColors.faction(2),
+    onTertiary = UiColors.ink,
+    background = UiColors.background,
+    onBackground = UiColors.ink,
+    surface = Color(0xFFFFFDFB),
+    onSurface = UiColors.ink,
+    surfaceVariant = UiColors.background,
+    onSurfaceVariant = UiColors.inkSecondary,
+    outline = UiColors.inkFaint,
+    outlineVariant = UiColors.inkFaint.copy(alpha = 0.3f),
+    error = UiColors.alert,
+    onError = Color.White,
 )
 
 @Composable
-fun FightAndConquerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
+fun FightAndConquerTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = GameColorScheme,
         typography = Typography,
-        content = content
+        content = content,
     )
 }

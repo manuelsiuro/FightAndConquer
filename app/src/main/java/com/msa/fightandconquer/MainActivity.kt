@@ -5,8 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.msa.fightandconquer.ui.GameScreen
 import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.MenuScreen
@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FightAndConquerTheme {
-                val screen by viewModel.screen.collectAsState()
+                val screen by viewModel.screen.collectAsStateWithLifecycle()
                 when (val s = screen) {
                     is Screen.Menu -> MenuScreen(
                         hasAutosave = s.hasAutosave,

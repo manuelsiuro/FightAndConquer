@@ -12,7 +12,10 @@ object Reducer {
     fun reduce(state: GameState, action: GameAction): ReduceResult {
         val legality = Legality.check(state, action)
         if (legality is LegalityResult.Rejected) {
-            return ReduceResult(state, listOf(GameEvent.ActionRejected(action, legality.reason)))
+            return ReduceResult(
+                state,
+                listOf(GameEvent.ActionRejected(action, legality.reason, legality.amount)),
+            )
         }
         val b = StateBuilder(state)
         when (action) {

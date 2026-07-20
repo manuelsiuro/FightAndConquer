@@ -16,7 +16,11 @@ enum class DeathCause { KILLED, STARVED, BANKRUPTCY }
  */
 @Serializable
 sealed interface GameEvent {
-    @Serializable data class ActionRejected(val action: GameAction, val reason: String) : GameEvent
+    @Serializable data class ActionRejected(
+        val action: GameAction,
+        val reason: RejectionReason,
+        val amount: Int? = null,
+    ) : GameEvent
     @Serializable data class UnitSpawned(val unit: GameUnit) : GameEvent
     @Serializable data class UnitMoved(val unit: UnitId, val from: Hex, val to: Hex) : GameEvent
     @Serializable data class HexCaptured(val hex: Hex, val newOwner: PlayerId, val oldOwner: PlayerId?) : GameEvent

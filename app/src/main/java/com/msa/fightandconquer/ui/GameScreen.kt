@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,8 +39,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,16 +52,37 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.engine.PurchaseOption
+import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.BuildingType
 import com.msa.fightandconquer.render.FilamentHost
 import com.msa.fightandconquer.render.scene.BoardScene
+import dev.romainguy.kotlin.math.Float2
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+
+/** HUD metrics — the overlays hang off the top bar, so its height is shared. */
+private val TopBarHeight = 56.dp
+private val HudGutter = 12.dp
+private val MinTouchTarget = 48.dp
+private val ChipHalfWidth = 24.dp
+private val ChipVerticalLift = 20.dp
+private val PopupHalfWidth = 30.dp
+private val PopupVerticalLift = 26.dp
 
 private class SceneRef {
     var scene by mutableStateOf<BoardScene?>(null)
@@ -78,9 +102,11 @@ fun GameScreen(viewModel: GameViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         // ----- 3D board + gestures -----
+        val boardDescription = hud?.let { boardContentDescription(it) } ?: ""
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .semantics { contentDescription = boardDescription }
                 .pointerInput(Unit) {
                     detectTapGestures { offset -> ref.scene?.tap(offset.x, offset.y) }
                 }
@@ -156,28 +182,52 @@ fun GameScreen(viewModel: GameViewModel) {
     }
 }
 
+@Composable
+private fun boardContentDescription(state: HudState): String = when {
+    state.winner != null -> stringResource(R.string.game_over_winner, state.winner + 1)
+    state.banner != null -> stringResource(R.string.banner_player, state.banner + 1)
+    !state.currentIsHuman -> stringResource(R.string.hud_ai_player, state.currentPlayer + 1)
+    else -> stringResource(R.string.hud_player, state.currentPlayer + 1)
+}
+
 // ---------- world-anchored overlay ----------
 
 @Composable
 private fun AnchorOverlay(scene: BoardScene?, labels: List<OverlayLabel>, popups: List<CoinPopup>) {
     if (scene == null || (labels.isEmpty() && popups.isEmpty())) return
-    val anchors by scene.anchors.collectAsState()
+    // Held as State and read inside the offset lambdas: anchors change every frame
+    // while the camera moves, and a composition-scope read would recompose the whole
+    // overlay instead of just re-placing it.
+    val anchors = scene.anchors.collectAsState()
+    val density = LocalDensity.current
+    val chipDx = with(density) { ChipHalfWidth.roundToPx() }
+    val chipDy = with(density) { ChipVerticalLift.roundToPx() }
+    val popupDx = with(density) { PopupHalfWidth.roundToPx() }
+    val popupDy = with(density) { PopupVerticalLift.roundToPx() }
+
     Box(Modifier.fillMaxSize()) {
         for (label in labels) {
-            val position = anchors[label.hex] ?: continue
-            DefenseChip(
-                label,
-                Modifier.offset { IntOffset(position.x.roundToInt() - 24, position.y.roundToInt() - 20) },
-            )
+            key(label.hex) {
+                DefenseChip(label, anchorOffset(anchors, label.hex, chipDx, chipDy))
+            }
         }
         for (popup in popups) {
-            val position = anchors[popup.hex] ?: continue
-            CoinPopupText(
-                popup,
-                Modifier.offset { IntOffset(position.x.roundToInt() - 30, position.y.roundToInt() - 26) },
-            )
+            key(popup.id) {
+                CoinPopupText(popup, anchorOffset(anchors, popup.hex, popupDx, popupDy))
+            }
         }
     }
+}
+
+/** Places a widget at a hex's projected screen position, deferring the state read to layout. */
+private fun anchorOffset(
+    anchors: State<Map<Hex, Float2>>,
+    hex: Hex,
+    dx: Int,
+    dy: Int,
+): Modifier = Modifier.offset {
+    val position = anchors.value[hex] ?: return@offset IntOffset(-10_000, -10_000)
+    IntOffset(position.x.roundToInt() - dx, position.y.roundToInt() - dy)
 }
 
 @Composable
@@ -186,13 +236,19 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
         LabelKind.CAPTURABLE -> UiColors.chipCapturable
         LabelKind.BLOCKED -> UiColors.chipBlocked
     }
+    val description = when (label.kind) {
+        LabelKind.CAPTURABLE -> stringResource(R.string.cd_defense_capturable, label.defense)
+        LabelKind.BLOCKED -> stringResource(R.string.cd_defense_blocked, label.defense)
+    }
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(visible, modifier = modifier, enter = fadeIn(tween(120))) {
         Surface(shape = RoundedCornerShape(50), color = background, shadowElevation = 2.dp) {
             Text(
-                "🛡${label.text}",
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                fontSize = 11.sp,
+                stringResource(R.string.overlay_defense_chip, label.defense),
+                modifier = Modifier
+                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                    .semantics { contentDescription = description },
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
             )
@@ -202,8 +258,8 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
 
 @Composable
 private fun CoinPopupText(popup: CoinPopup, modifier: Modifier) {
-    val rise = remember(popup.id) { Animatable(0f) }
-    LaunchedEffect(popup.id) { rise.animateTo(1f, tween(1100)) }
+    val rise = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { rise.animateTo(1f, tween(1100)) }
     Surface(
         modifier = modifier
             .offset { IntOffset(0, (-56f * rise.value).roundToInt()) }
@@ -213,7 +269,7 @@ private fun CoinPopupText(popup: CoinPopup, modifier: Modifier) {
         shadowElevation = 2.dp,
     ) {
         Text(
-            popup.text,
+            popup.text.resolve(),
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
@@ -230,22 +286,32 @@ private fun ToastStack(toasts: List<HudToast>) {
         Modifier
             .fillMaxWidth()
             .safeDrawingPadding()
-            .padding(top = 64.dp),
+            .padding(top = TopBarHeight + HudGutter),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         for (toast in toasts) {
-            androidx.compose.runtime.key(toast.id) {
+            key(toast.id) {
                 val visible = remember { MutableTransitionState(false).apply { targetState = true } }
                 val (bg, fg, size) = when (toast.kind) {
                     ToastKind.INFO -> Triple(UiColors.panel, UiColors.ink, 13.sp)
                     ToastKind.WARNING -> Triple(UiColors.toastWarning, UiColors.ink, 13.sp)
                     ToastKind.ALERT -> Triple(UiColors.alert, Color.White, 15.sp)
                 }
+                val urgency = if (toast.kind == ToastKind.ALERT) {
+                    LiveRegionMode.Assertive
+                } else {
+                    LiveRegionMode.Polite
+                }
                 AnimatedVisibility(visible, enter = fadeIn() + slideInVertically { -it / 2 }) {
-                    Surface(shape = RoundedCornerShape(12.dp), color = bg, shadowElevation = 4.dp) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = bg,
+                        shadowElevation = 4.dp,
+                        modifier = Modifier.semantics { liveRegion = urgency },
+                    ) {
                         Text(
-                            toast.text,
+                            toast.text.resolve(),
                             Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                             color = fg,
                             fontSize = size,
@@ -265,39 +331,67 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
     Surface(
         modifier = Modifier
             .safeDrawingPadding()
-            .padding(start = 12.dp, top = 68.dp)
+            .padding(start = HudGutter, top = TopBarHeight + HudGutter)
             .width(238.dp),
         shape = RoundedCornerShape(16.dp),
         color = UiColors.panel,
         shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text("Income", fontSize = 12.sp, color = UiColors.ink.copy(alpha = 0.55f))
-            EconomyRow("${economy.hexCount} hexes × 1", "+${economy.hexIncome}")
+            Text(stringResource(R.string.economy_income), fontSize = 12.sp, color = UiColors.inkMuted)
+            EconomyRow(
+                stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
+                stringResource(R.string.economy_amount_positive, economy.hexIncome),
+            )
             if (economy.farmCount > 0) {
-                EconomyRow("${economy.farmCount} farms × ${economy.farmIncome / maxOf(economy.farmCount, 1)}", "+${economy.farmIncome}")
+                EconomyRow(
+                    stringResource(R.string.economy_farms_row, economy.farmCount, economy.farmIncomePerFarm),
+                    stringResource(R.string.economy_amount_positive, economy.farmIncome),
+                )
             }
             if (economy.starvingCount > 0) {
-                EconomyRow("${economy.starvingCount} hexes cut off", "·0", valueColor = UiColors.alert)
+                EconomyRow(
+                    stringResource(R.string.economy_cut_off_row, economy.starvingCount),
+                    stringResource(R.string.economy_cut_off_value),
+                    valueColor = UiColors.alert,
+                )
             }
             if (economy.tiers.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text("Upkeep", fontSize = 12.sp, color = UiColors.ink.copy(alpha = 0.55f))
+                Text(stringResource(R.string.economy_upkeep), fontSize = 12.sp, color = UiColors.inkMuted)
                 for (tier in economy.tiers) {
-                    EconomyRow("${tier.count} ${tier.name}${if (tier.count > 1) "s" else ""} × ${tier.each}", "−${tier.total}")
+                    EconomyRow(
+                        stringResource(
+                            R.string.economy_upkeep_row,
+                            tier.count,
+                            stringResource(unitNameRes(tier.tier)),
+                            tier.each,
+                        ),
+                        stringResource(R.string.economy_amount_negative, tier.total),
+                    )
                 }
             }
             Spacer(Modifier.height(6.dp))
             EconomyRow(
-                "Net",
-                if (economy.net >= 0) "+${economy.net}" else "${economy.net}",
+                stringResource(R.string.economy_net),
+                if (economy.net >= 0) {
+                    stringResource(R.string.economy_amount_positive, economy.net)
+                } else {
+                    stringResource(R.string.economy_amount_negative, -economy.net)
+                },
                 bold = true,
                 valueColor = if (economy.net >= 0) UiColors.positive else UiColors.alert,
             )
-            EconomyRow("Treasury ${economy.treasury}", "→ ${economy.projected} next turn", bold = true)
+            EconomyRow(
+                stringResource(R.string.economy_treasury, economy.treasury),
+                stringResource(R.string.economy_projection, economy.projected),
+                bold = true,
+            )
             when {
-                economy.bankruptcyImminent -> WarningStrip("Bankruptcy next turn — all units will die!", UiColors.alert, Color.White)
-                economy.upkeepRisk -> WarningStrip("Treasury won't cover another round of upkeep", UiColors.toastWarning, UiColors.ink)
+                economy.bankruptcyImminent ->
+                    WarningStrip(stringResource(R.string.economy_warn_bankruptcy), UiColors.alert, Color.White)
+                economy.upkeepRisk ->
+                    WarningStrip(stringResource(R.string.economy_warn_upkeep), UiColors.toastWarning, UiColors.ink)
             }
         }
     }
@@ -305,16 +399,37 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
 
 @Composable
 private fun EconomyRow(label: String, value: String, bold: Boolean = false, valueColor: Color = UiColors.ink) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, fontSize = 13.sp, color = UiColors.ink, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal)
-        Text(value, fontSize = 13.sp, color = valueColor, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Medium)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            color = UiColors.ink,
+            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+        )
+        Text(
+            value,
+            fontSize = 13.sp,
+            color = valueColor,
+            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Medium,
+        )
     }
 }
 
 @Composable
 private fun WarningStrip(text: String, background: Color, foreground: Color) {
     Spacer(Modifier.height(8.dp))
-    Surface(shape = RoundedCornerShape(8.dp), color = background, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = background,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite },
+    ) {
         Text(
             text,
             Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -330,9 +445,11 @@ private fun WarningStrip(text: String, background: Color, foreground: Color) {
 @Composable
 private fun TopBar(state: HudState, viewModel: GameViewModel) {
     var menuOpen by remember { mutableStateOf(false) }
+    val factionDescription = stringResource(R.string.cd_faction_color, state.currentPlayer + 1)
+    val economyDescription = stringResource(R.string.cd_open_economy)
     Row(verticalAlignment = Alignment.Top) {
         Surface(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(HudGutter),
             shape = RoundedCornerShape(16.dp),
             color = UiColors.panel,
             shadowElevation = 4.dp,
@@ -344,82 +461,117 @@ private fun TopBar(state: HudState, viewModel: GameViewModel) {
                 Box(
                     Modifier
                         .size(14.dp)
-                        .background(UiColors.faction(state.currentPlayer), CircleShape),
+                        .background(UiColors.faction(state.currentPlayer), CircleShape)
+                        .semantics { contentDescription = factionDescription },
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (state.currentIsHuman) "Player ${state.currentPlayer + 1}" else "AI ${state.currentPlayer + 1}",
+                    if (state.currentIsHuman) {
+                        stringResource(R.string.hud_player, state.currentPlayer + 1)
+                    } else {
+                        stringResource(R.string.hud_ai_player, state.currentPlayer + 1)
+                    },
                     fontWeight = FontWeight.SemiBold,
                     color = UiColors.ink,
                 )
                 Spacer(Modifier.width(12.dp))
                 Row(
-                    modifier = Modifier.clickable { viewModel.toggleEconomyPanel() },
+                    modifier = Modifier
+                        .clickable(role = Role.Button) { viewModel.toggleEconomyPanel() }
+                        .semantics { contentDescription = economyDescription }
+                        .defaultMinSize(minHeight = MinTouchTarget)
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("🪙 ${state.treasury}", color = UiColors.ink, fontSize = 15.sp)
+                    Text(
+                        stringResource(R.string.hud_treasury, state.treasury),
+                        color = UiColors.ink,
+                        fontSize = 15.sp,
+                    )
                     Spacer(Modifier.width(6.dp))
                     val net = state.income - state.upkeep
                     Text(
-                        if (net >= 0) "+$net" else "$net",
+                        if (net >= 0) {
+                            stringResource(R.string.hud_net_positive, net)
+                        } else {
+                            stringResource(R.string.hud_net_negative, net)
+                        },
                         color = if (net >= 0) UiColors.positive else UiColors.alert,
                         fontSize = 14.sp,
                     )
                 }
                 Spacer(Modifier.width(12.dp))
-                Text("Turn ${state.turnNumber + 1}", color = UiColors.ink.copy(alpha = 0.6f), fontSize = 13.sp)
+                Text(
+                    stringResource(R.string.hud_turn, state.turnNumber + 1),
+                    color = UiColors.inkMuted,
+                    fontSize = 13.sp,
+                )
                 if (state.currentIsHuman && state.banner == null && state.freshUnitCount > 0) {
                     Spacer(Modifier.width(10.dp))
+                    val freshDescription =
+                        stringResource(R.string.cd_fresh_units, state.freshUnitCount)
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = UiColors.faction(state.currentPlayer).copy(alpha = 0.3f),
-                        modifier = Modifier.clickable { viewModel.focusNextFreshUnit() },
+                        modifier = Modifier
+                            .clickable(role = Role.Button) { viewModel.focusNextFreshUnit() }
+                            .semantics { contentDescription = freshDescription }
+                            .defaultMinSize(minHeight = MinTouchTarget),
                     ) {
                         Text(
-                            "${state.freshUnitCount} ⚑",
+                            stringResource(R.string.hud_fresh_units, state.freshUnitCount),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = UiColors.ink,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
                         )
                     }
                 }
                 if (state.aiThinking) {
                     Spacer(Modifier.width(10.dp))
-                    Text("thinking…", color = UiColors.ink.copy(alpha = 0.5f), fontSize = 13.sp)
+                    Text(
+                        stringResource(R.string.hud_ai_thinking),
+                        color = UiColors.inkMuted,
+                        fontSize = 13.sp,
+                    )
                 }
             }
         }
         Spacer(Modifier.weight(1f))
+        val menuDescription = stringResource(R.string.cd_open_menu)
         Surface(
-            modifier = Modifier.padding(top = 12.dp, end = 12.dp),
+            modifier = Modifier.padding(top = HudGutter, end = HudGutter),
             shape = RoundedCornerShape(16.dp),
             color = UiColors.panel,
             shadowElevation = 4.dp,
         ) {
             Column {
                 Text(
-                    "⋯",
+                    stringResource(R.string.hud_menu),
                     modifier = Modifier
-                        .clickable { menuOpen = !menuOpen }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .clickable(role = Role.Button) { menuOpen = !menuOpen }
+                        .semantics { contentDescription = menuDescription }
+                        .defaultMinSize(minWidth = MinTouchTarget, minHeight = MinTouchTarget)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     fontSize = 20.sp,
                     color = UiColors.ink,
                 )
                 if (menuOpen) {
                     Text(
-                        "Resign",
+                        stringResource(R.string.hud_resign),
                         modifier = Modifier
-                            .clickable { menuOpen = false; viewModel.surrender() }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .clickable(role = Role.Button) { menuOpen = false; viewModel.surrender() }
+                            .defaultMinSize(minHeight = MinTouchTarget)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         color = UiColors.alert,
                         fontSize = 14.sp,
                     )
                     Text(
-                        "Exit",
+                        stringResource(R.string.hud_exit),
                         modifier = Modifier
-                            .clickable { menuOpen = false; viewModel.backToMenu() }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .clickable(role = Role.Button) { menuOpen = false; viewModel.backToMenu() }
+                            .defaultMinSize(minHeight = MinTouchTarget)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         color = UiColors.ink,
                         fontSize = 14.sp,
                     )
@@ -433,7 +585,7 @@ private fun TopBar(state: HudState, viewModel: GameViewModel) {
 
 @Composable
 private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewModel) {
-    Column(Modifier.padding(12.dp)) {
+    Column(Modifier.padding(HudGutter)) {
         infoCard?.let { info ->
             InfoCardView(info)
             Spacer(Modifier.height(8.dp))
@@ -441,7 +593,7 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
         state.selectedUnitTier?.let { tier ->
             Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
                 Text(
-                    "${GameViewModel.unitName(tier)} — pick a highlighted hex",
+                    stringResource(R.string.hud_selected_unit_hint, stringResource(unitNameRes(tier))),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     color = UiColors.ink,
                     fontSize = 14.sp,
@@ -476,7 +628,9 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (state.canUndo && state.currentIsHuman) {
-                OutlinedButton(onClick = { viewModel.undo() }) { Text("Undo", color = UiColors.ink) }
+                OutlinedButton(onClick = { viewModel.undo() }) {
+                    Text(stringResource(R.string.hud_undo), color = UiColors.ink)
+                }
             }
             Spacer(Modifier.weight(1f))
             if (state.currentIsHuman && state.winner == null && state.banner == null) {
@@ -487,25 +641,33 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
                                 if (state.freshUnitCount == 0) viewModel.endTurn() else confirmEndTurn = true
                             },
                             containerColor = UiColors.faction(state.currentPlayer),
-                            contentColor = Color.White,
-                        ) { Text("End Turn", fontWeight = FontWeight.Bold) }
+                            contentColor = UiColors.ink,
+                        ) { Text(stringResource(R.string.hud_end_turn), fontWeight = FontWeight.Bold) }
                     } else {
+                        val cancelDescription = stringResource(R.string.cd_cancel_end_turn)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                "${state.freshUnitCount} unit${if (state.freshUnitCount > 1) "s" else ""} unmoved",
+                                pluralStringResource(
+                                    R.plurals.hud_units_unmoved,
+                                    state.freshUnitCount,
+                                    state.freshUnitCount,
+                                ),
                                 fontSize = 13.sp,
-                                color = UiColors.ink.copy(alpha = 0.7f),
+                                color = UiColors.inkSecondary,
                             )
                             Spacer(Modifier.width(8.dp))
-                            OutlinedButton(onClick = { confirmEndTurn = false }) {
-                                Text("✕", color = UiColors.ink)
+                            OutlinedButton(
+                                onClick = { confirmEndTurn = false },
+                                modifier = Modifier.semantics { contentDescription = cancelDescription },
+                            ) {
+                                Text(stringResource(R.string.hud_cancel_symbol), color = UiColors.ink)
                             }
                             Spacer(Modifier.width(8.dp))
                             ExtendedFloatingActionButton(
                                 onClick = { confirmEndTurn = false; viewModel.endTurn() },
                                 containerColor = UiColors.alert,
                                 contentColor = Color.White,
-                            ) { Text("End anyway", fontWeight = FontWeight.Bold) }
+                            ) { Text(stringResource(R.string.hud_end_anyway), fontWeight = FontWeight.Bold) }
                         }
                     }
                 }
@@ -518,24 +680,43 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
 private fun InfoCardView(info: InfoCard) {
     Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            info.factionIndex?.let {
-                Box(Modifier.size(12.dp).background(UiColors.faction(it), CircleShape))
+            info.factionIndex?.let { index ->
+                val description = stringResource(R.string.cd_faction_color, index + 1)
+                Box(
+                    Modifier
+                        .size(12.dp)
+                        .background(UiColors.faction(index), CircleShape)
+                        .semantics { contentDescription = description },
+                )
                 Spacer(Modifier.width(8.dp))
             }
             Column {
-                Text(info.title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = UiColors.ink)
-                Text(info.subtitle, fontSize = 12.sp, color = UiColors.ink.copy(alpha = 0.65f))
+                Text(
+                    info.title.resolve(),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = UiColors.ink,
+                )
+                Text(info.subtitle.resolve(), fontSize = 12.sp, color = UiColors.inkSecondary)
                 if (info.stats.isNotEmpty()) {
                     Row {
                         info.stats.forEachIndexed { index, stat ->
                             if (index > 0) {
-                                Text("  ·  ", fontSize = 12.sp, color = UiColors.ink.copy(alpha = 0.4f))
+                                Text(
+                                    stringResource(R.string.info_stat_separator),
+                                    fontSize = 12.sp,
+                                    color = UiColors.inkFaint,
+                                )
                             }
                             Text(
-                                "${stat.label} ${stat.value}",
+                                stringResource(
+                                    R.string.info_stat_pair,
+                                    stat.label.resolve(),
+                                    stat.value.resolve(),
+                                ),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = UiColors.ink.copy(alpha = 0.8f),
+                                color = UiColors.inkSecondary,
                             )
                         }
                     }
@@ -547,24 +728,48 @@ private fun InfoCardView(info: InfoCard) {
 
 @Composable
 private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boolean, onBuy: () -> Unit) {
-    val (name, emoji) = when (option) {
-        is PurchaseOption.Unit -> GameViewModel.unitName(option.tier) to listOf("♟", "♞", "♜", "♚")[option.tier - 1]
+    val nameRes = when (option) {
+        is PurchaseOption.Unit -> unitNameRes(option.tier)
         is PurchaseOption.Structure -> when (option.type) {
-            BuildingType.FARM -> "Farm" to "🌾"
-            BuildingType.TOWER -> "Tower" to "🗼"
-            BuildingType.STRONG_TOWER -> "Castle" to "🏰"
+            BuildingType.FARM -> R.string.building_farm
+            BuildingType.TOWER -> R.string.building_tower
+            BuildingType.STRONG_TOWER -> R.string.building_castle
+        }
+    }
+    val emojiRes = when (option) {
+        is PurchaseOption.Unit -> when (option.tier) {
+            1 -> R.string.emoji_peasant
+            2 -> R.string.emoji_spearman
+            3 -> R.string.emoji_baron
+            else -> R.string.emoji_knight
+        }
+        is PurchaseOption.Structure -> when (option.type) {
+            BuildingType.FARM -> R.string.emoji_farm
+            BuildingType.TOWER -> R.string.emoji_tower
+            BuildingType.STRONG_TOWER -> R.string.emoji_castle
         }
     }
     val detail = when (option) {
-        is PurchaseOption.Unit -> "${shop.unitUpkeep[option.tier - 1]}/turn"
+        is PurchaseOption.Unit -> stringResource(
+            R.string.shop_upkeep_per_turn,
+            shop.unitUpkeep[option.tier - 1],
+        )
         is PurchaseOption.Structure -> when (option.type) {
-            BuildingType.FARM -> "+${shop.farmIncome}/turn"
-            BuildingType.TOWER -> "Def ${shop.towerDefense}"
-            BuildingType.STRONG_TOWER -> "Def ${shop.strongTowerDefense}"
+            BuildingType.FARM -> stringResource(R.string.shop_income_per_turn, shop.farmIncome)
+            BuildingType.TOWER -> stringResource(R.string.shop_defense, shop.towerDefense)
+            BuildingType.STRONG_TOWER -> stringResource(R.string.shop_defense, shop.strongTowerDefense)
         }
     }
+    val name = stringResource(nameRes)
+    val description = if (affordable) {
+        stringResource(R.string.cd_purchase_card, name, option.cost)
+    } else {
+        stringResource(R.string.cd_purchase_unaffordable, name, option.cost)
+    }
     Card(
-        modifier = Modifier.clickable(enabled = affordable, onClick = onBuy),
+        modifier = Modifier
+            .clickable(enabled = affordable, role = Role.Button, onClick = onBuy)
+            .semantics { contentDescription = description },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (affordable) UiColors.panel else UiColors.panel.copy(alpha = 0.5f),
@@ -575,14 +780,14 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
             Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(emoji, fontSize = 18.sp)
+            Text(stringResource(emojiRes), fontSize = 18.sp)
             Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
             Text(
-                "${option.cost} 🪙",
+                stringResource(R.string.shop_cost, option.cost),
                 fontSize = 12.sp,
-                color = if (affordable) UiColors.ink.copy(alpha = 0.7f) else UiColors.alert,
+                color = if (affordable) UiColors.inkSecondary else UiColors.alert,
             )
-            Text(detail, fontSize = 10.sp, color = UiColors.ink.copy(alpha = 0.55f))
+            Text(detail, fontSize = 12.sp, color = UiColors.inkMuted)
         }
     }
 }
@@ -602,12 +807,12 @@ private fun TurnBanner(seat: Int, onBegin: () -> Unit) {
             Box(Modifier.size(48.dp).background(UiColors.faction(seat), CircleShape))
             Spacer(Modifier.height(16.dp))
             Text(
-                "Player ${seat + 1}",
+                stringResource(R.string.banner_player, seat + 1),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = UiColors.ink,
             )
-            Text("Tap to start your turn", color = UiColors.ink.copy(alpha = 0.6f))
+            Text(stringResource(R.string.banner_tap_to_start), color = UiColors.inkSecondary)
         }
     }
 }
@@ -624,12 +829,20 @@ private fun GameOverOverlay(winner: Int, onBackToMenu: () -> Unit) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(56.dp).background(UiColors.faction(winner), CircleShape))
             Spacer(Modifier.height(16.dp))
-            Text("Player ${winner + 1} conquers!", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = UiColors.ink)
+            Text(
+                stringResource(R.string.game_over_winner, winner + 1),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = UiColors.ink,
+            )
             Spacer(Modifier.height(24.dp))
             Button(
                 onClick = onBackToMenu,
-                colors = ButtonDefaults.buttonColors(containerColor = UiColors.faction(winner)),
-            ) { Text("Back to menu") }
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = UiColors.faction(winner),
+                    contentColor = UiColors.ink,
+                ),
+            ) { Text(stringResource(R.string.game_over_back_to_menu)) }
         }
     }
 }

@@ -25,6 +25,7 @@ import com.msa.fightandconquer.core.model.GameUnit
 import com.msa.fightandconquer.core.model.PlayerKind
 import com.msa.fightandconquer.core.model.UnitId
 import com.msa.fightandconquer.core.persist.SaveCodec
+import com.msa.fightandconquer.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -58,15 +59,17 @@ data class HighlightSet(
 
 /** Defense numbers shown on frontier hexes while a unit is selected. */
 enum class LabelKind { CAPTURABLE, BLOCKED }
-data class OverlayLabel(val hex: Hex, val text: String, val kind: LabelKind)
+data class OverlayLabel(val hex: Hex, val defense: Int, val kind: LabelKind)
 
 /** Coin counter breakdown panel. */
-data class TierUpkeep(val tier: Int, val name: String, val count: Int, val each: Int, val total: Int)
+data class TierUpkeep(val tier: Int, val count: Int, val each: Int, val total: Int)
 data class EconomyBreakdown(
     val hexCount: Int,
     val hexIncome: Int,
+    val hexIncomePerHex: Int,
     val farmCount: Int,
     val farmIncome: Int,
+    val farmIncomePerFarm: Int,
     val tiers: List<TierUpkeep>,
     val income: Int,
     val upkeep: Int,
@@ -80,16 +83,16 @@ data class EconomyBreakdown(
 
 /** Transient top-center notifications. */
 enum class ToastKind { INFO, WARNING, ALERT }
-data class HudToast(val id: Long, val text: String, val kind: ToastKind)
+data class HudToast(val id: Long, val text: UiText, val kind: ToastKind)
 
 /** World-anchored floating text (e.g. +3 on a tree clear). */
-data class CoinPopup(val id: Long, val hex: Hex, val text: String)
+data class CoinPopup(val id: Long, val hex: Hex, val text: UiText)
 
 /** Bottom card describing a tapped piece that isn't selectable. */
-data class InfoStat(val label: String, val value: String)
+data class InfoStat(val label: UiText, val value: UiText)
 data class InfoCard(
-    val title: String,
-    val subtitle: String,
+    val title: UiText,
+    val subtitle: UiText,
     val stats: List<InfoStat> = emptyList(),
     val factionIndex: Int? = null,
 )
@@ -383,7 +386,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun submit(action: GameAction): LegalityResult {
-        val result = engine?.submit(action) ?: LegalityResult.Rejected("no game")
+        val result = engine?.submit(action)
+            ?: LegalityResult.Rejected(com.msa.fightandconquer.core.engine.RejectionReason.NO_GAME)
         refreshHud()
         return result
     }
@@ -404,7 +408,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val capturable = hex in reach.captureTargets
             when {
                 capturable && defense == 0 -> null // undefended: the highlight disc already says it
-                else -> OverlayLabel(hex, defense.toString(), if (capturable) LabelKind.CAPTURABLE else LabelKind.BLOCKED)
+                else -> OverlayLabel(hex, defense, if (capturable) LabelKind.CAPTURABLE else LabelKind.BLOCKED)
             }
         }
     }
@@ -434,7 +438,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (count == 0) {
                 null
             } else {
-                TierUpkeep(tier, unitName(tier), count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
+                TierUpkeep(tier, count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
             }
         }
         val income = Rules.incomeOf(state, me)
@@ -445,8 +449,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return EconomyBreakdown(
             hexCount = hexCount,
             hexIncome = hexCount * rules.hexIncome,
+            hexIncomePerHex = rules.hexIncome,
             farmCount = farmCount,
             farmIncome = farmCount * rules.farmIncome,
+            farmIncomePerFarm = rules.farmIncome,
             tiers = tiers,
             income = income,
             upkeep = upkeep,
@@ -482,14 +488,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         when (event) {
             is GameEvent.TreeCleared -> {
-                if (actorIsHuman) pushPopup(event.hex, "+${event.bonus} 🪙")
+                if (actorIsHuman) pushPopup(event.hex, UiText.of(R.string.popup_coins, event.bonus))
             }
 
             is GameEvent.CapitalMoved -> {
                 if (event.loot > 0) {
-                    if (actorIsHuman) pushToast("Looted ${event.loot} coins", ToastKind.INFO)
+                    if (actorIsHuman) {
+                        pushToast(UiText.of(R.string.toast_looted, event.loot), ToastKind.INFO)
+                    }
                     if (state.players[event.player.value].kind is PlayerKind.Human) {
-                        pushToast("Your capital was looted (−${event.loot})", ToastKind.WARNING)
+                        pushToast(UiText.of(R.string.toast_capital_looted, event.loot), ToastKind.WARNING)
                     }
                 }
             }
@@ -500,7 +508,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (oldOwnerHuman) {
                     val nowStarving = currentHumanStarving(state)
                     if ((nowStarving - knownStarving).isNotEmpty() && !cutOffWarned) {
-                        pushToast("Territory cut off from your capital!", ToastKind.WARNING)
+                        pushToast(UiText.of(R.string.toast_territory_cut_off), ToastKind.WARNING)
                         cutOffWarned = true
                     }
                     knownStarving = nowStarving
@@ -510,7 +518,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             is GameEvent.TurnStarted -> {
                 if (state.players[event.player.value].kind is PlayerKind.Human) {
                     if (aiCapturedFromHumans > 0) {
-                        pushToast("AI took $aiCapturedFromHumans of your hexes", ToastKind.WARNING)
+                        pushToast(
+                            UiText.plural(R.plurals.toast_ai_captured, aiCapturedFromHumans, aiCapturedFromHumans),
+                            ToastKind.WARNING,
+                        )
                     }
                     aiCapturedFromHumans = 0
                     cutOffWarned = false
@@ -520,12 +531,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
             is GameEvent.Bankruptcy -> {
                 if (state.players[event.player.value].kind is PlayerKind.Human) {
-                    pushToast("Bankruptcy! All your units are lost", ToastKind.ALERT)
+                    pushToast(UiText.of(R.string.toast_bankruptcy), ToastKind.ALERT)
                 }
             }
 
             is GameEvent.ActionRejected -> {
-                if (actorIsHuman) pushToast(event.reason, ToastKind.INFO)
+                if (actorIsHuman) pushToast(event.reason.toUiText(event.amount), ToastKind.INFO)
             }
 
             else -> Unit
@@ -537,7 +548,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             tile.starving && tile.owner?.let { state.players[it.value].kind is PlayerKind.Human } == true
         }.keys
 
-    private fun pushToast(text: String, kind: ToastKind) {
+    private fun pushToast(text: UiText, kind: ToastKind) {
         val toast = HudToast(nextToastId++, text, kind)
         _toasts.value = (_toasts.value + toast).takeLast(3)
         viewModelScope.launch {
@@ -546,7 +557,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun pushPopup(hex: Hex, text: String) {
+    private fun pushPopup(hex: Hex, text: UiText) {
         val popup = CoinPopup(nextToastId++, hex, text)
         _popups.value = _popups.value + popup
         viewModelScope.launch {
@@ -564,15 +575,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (unit != null) {
             val own = unit.owner == me
             return InfoCard(
-                title = unitName(unit.tier),
+                title = UiText.of(unitNameRes(unit.tier)),
                 subtitle = if (own) {
-                    "Already moved this turn"
+                    UiText.of(R.string.info_unit_spent)
                 } else {
-                    "Enemy unit — strength ${unit.tier}, defends its hex and neighbors"
+                    UiText.of(R.string.info_unit_enemy, unit.tier)
                 },
                 stats = listOf(
-                    InfoStat("Strength", "${unit.tier}"),
-                    InfoStat("Upkeep", "${rules.unitUpkeep[unit.tier - 1]}/turn"),
+                    InfoStat(UiText.of(R.string.info_stat_strength), UiText.of(R.string.info_value_plain, unit.tier)),
+                    InfoStat(
+                        UiText.of(R.string.info_stat_upkeep),
+                        UiText.of(R.string.info_value_per_turn, rules.unitUpkeep[unit.tier - 1]),
+                    ),
                 ),
                 factionIndex = unit.owner.value,
             )
@@ -581,47 +595,72 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val ownerIndex = tile.owner?.value
             return when (building) {
                 Building.CAPITAL -> InfoCard(
-                    "Capital",
-                    "Seat of this empire — drops ${rules.capitalLootPercent}% of its treasury if captured",
-                    listOf(InfoStat("Defense", "${rules.capitalDefense} (self + neighbors)")),
+                    UiText.of(R.string.building_capital),
+                    UiText.of(R.string.info_capital, rules.capitalLootPercent),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_defense),
+                            UiText.of(R.string.info_value_defense_area, rules.capitalDefense),
+                        ),
+                    ),
                     ownerIndex,
                 )
                 Building.TOWER -> InfoCard(
-                    "Tower",
-                    "Guards its hex and all 6 neighbors",
-                    listOf(InfoStat("Defense", "${rules.towerDefense}")),
+                    UiText.of(R.string.building_tower),
+                    UiText.of(R.string.info_tower),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_defense),
+                            UiText.of(R.string.info_value_plain, rules.towerDefense),
+                        ),
+                    ),
                     ownerIndex,
                 )
                 Building.STRONG_TOWER -> InfoCard(
-                    "Castle",
-                    "Heavy fortification — guards its hex and all 6 neighbors",
-                    listOf(InfoStat("Defense", "${rules.strongTowerDefense}")),
+                    UiText.of(R.string.building_castle),
+                    UiText.of(R.string.info_castle),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_defense),
+                            UiText.of(R.string.info_value_plain, rules.strongTowerDefense),
+                        ),
+                    ),
                     ownerIndex,
                 )
                 Building.FARM -> InfoCard(
-                    "Farm",
-                    "Steady income while connected to the capital",
-                    listOf(InfoStat("Income", "+${rules.farmIncome}/turn")),
+                    UiText.of(R.string.building_farm),
+                    UiText.of(R.string.info_farm),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(R.string.info_value_income, rules.farmIncome),
+                        ),
+                    ),
                     ownerIndex,
                 )
             }
         }
         when (tile.flora) {
             is Flora.Tree -> return InfoCard(
-                "Tree",
-                "Blocks this hex's income — move a unit onto it to clear",
-                listOf(InfoStat("Clear bonus", "+${rules.treeClearBonus} 🪙")),
+                UiText.of(R.string.piece_tree),
+                UiText.of(R.string.info_tree),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_clear_bonus),
+                        UiText.of(R.string.info_value_coins, rules.treeClearBonus),
+                    ),
+                ),
             )
             is Flora.Gravestone -> return InfoCard(
-                "Gravestone",
-                "A unit died here — a tree will sprout soon",
+                UiText.of(R.string.piece_gravestone),
+                UiText.of(R.string.info_gravestone),
             )
             null -> {}
         }
         if (tile.owner == me && tile.starving) {
             return InfoCard(
-                "Cut-off territory",
-                "Disconnected from your capital — no income, units here will starve",
+                UiText.of(R.string.tile_cut_off),
+                UiText.of(R.string.info_cut_off),
                 factionIndex = me.value,
             )
         }
@@ -735,9 +774,4 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (selectedUnit?.let { !state.units.containsKey(it) } == true) clearSelection()
     }
 
-    companion object {
-        fun unitName(tier: Int): String = when (tier) {
-            1 -> "Peasant"; 2 -> "Spearman"; 3 -> "Baron"; else -> "Knight"
-        }
-    }
 }

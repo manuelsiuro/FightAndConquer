@@ -18,9 +18,22 @@ object UiColors {
     val background = Color(0xFFF4F2EF)
     val ink = Color(0xFF3E3A36)
     val panel = Color(0xF2FFFDFB)
-    val positive = Color(0xFF5B7F5E)
-    val alert = Color(0xFFB05B4C)
+
+    /**
+     * Secondary text tokens. The faction pastels are far too light to carry white
+     * text, so anything sitting on them uses [ink]; these three cover the muted
+     * hierarchy on panels (all contrast-checked against [panel]).
+     */
+    val inkSecondary = ink.copy(alpha = 0.75f)
+    val inkMuted = ink.copy(alpha = 0.6f)
+    val inkFaint = ink.copy(alpha = 0.45f)
+
+    val positive = Color(0xFF41663F)
+    val alert = Color(0xFF9C4636)
     val toastWarning = Color(0xF2EAD9B8)
-    val chipCapturable = Color(0xE05B7F5E)
-    val chipBlocked = Color(0xE0B05B4C)
+
+    // Fully opaque: these chips float over the live 3D board, so translucency
+    // would let the board bleed through and drop text contrast below 4.5:1.
+    val chipCapturable = Color(0xFF3F6142)
+    val chipBlocked = Color(0xFF8E3E30)
 }

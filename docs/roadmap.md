@@ -24,9 +24,9 @@ the determinism tests in `:core` are the tripwire.
   naming needs work).
 - Difficulty per AI seat (plumb a list through `GameSetup` instead of one value).
 - Tablet/landscape layout (HUD is the only portrait-specific part).
-- Localization (user strings live in composables, in `GameViewModel` — toasts,
-  info cards, `unitName()` — and in `Legality` reason strings that surface as
-  toasts; all would need a mapping layer).
+- Translations: the string *extraction* is done (every user-facing string is in
+  `res/values/strings.xml`, with `UiText` carrying resource ids out of the
+  ViewModel), so shipping a language is just adding `values-<lang>/strings.xml`.
 
 ## How-to recipes
 
@@ -61,7 +61,11 @@ precisely for this — tested), so tuning defaults never alters an in-progress g
 - **Pass-and-play banner** shows at new-game start and between seats, but
   Continue-resume skips it (`showOpeningBanner = false` in `continueGame`) — a
   minor privacy gap for resumed hot-seat games. vs-AI has no banner.
-- **`GameEvent.ActionRejected` strings are English-only** and double as UX copy.
+- **Camera pose is not saved across Activity recreation**: rotating mid-game
+  re-runs `fitCameraOnce` and re-frames the board (menu setup state *is* saved via
+  `rememberSaveable`). Hoisting the rig pose into the ViewModel would fix it.
+- **The 3D board is not screen-reader navigable** — it exposes a single summary
+  content description (turn/player); individual hexes have no semantics.
 - **Undo** is per-seat, in-turn only (cleared at `EndTurn`) — by design for
   pass-and-play fairness.
 - **Release build** still has `optimization { enable = false }` (no R8) and no

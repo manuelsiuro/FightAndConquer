@@ -31,6 +31,10 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
   AI-vs-AI simulation tests for balance.
 - Filament materials (`.mat`) require recompiling with the version-matched `matc`
   (`tools/compile-materials.sh`); `.filamat` files are checked in.
+- **No hardcoded user-facing strings.** Composables use `stringResource`; the
+  ViewModel emits `UiText` (resource id + args); engine refusals are
+  `RejectionReason` codes mapped in `UiText.kt`. Colors come from `UiColors`
+  (Material scheme derives from it — light-only, no dynamic color).
 
 ## Gotchas
 

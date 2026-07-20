@@ -9,25 +9,30 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.core.model.Difficulty
 
@@ -38,28 +43,31 @@ fun MenuScreen(
     onNewGame: (GameSetup) -> Unit,
     onContinue: () -> Unit,
 ) {
-    var playerCount by remember { mutableStateOf(2) }
-    var mode by remember { mutableStateOf(GameMode.VS_AI) }
-    var difficulty by remember { mutableStateOf(Difficulty.NORMAL) }
-    var size by remember { mutableStateOf(MapSize.MEDIUM) }
+    // rememberSaveable: the Activity is recreated on rotation / font-scale changes,
+    // and losing the whole setup back to defaults is a silent, annoying reset.
+    var playerCount by rememberSaveable { mutableIntStateOf(2) }
+    var mode by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(GameMode.VS_AI) }
+    var difficulty by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(Difficulty.NORMAL) }
+    var size by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(MapSize.MEDIUM) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(UiColors.background)
+            .safeDrawingPadding()
             .padding(horizontal = 32.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            "Fight & Conquer",
+            stringResource(R.string.menu_title),
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold,
             color = UiColors.ink,
         )
         Text(
-            "hex conquest",
+            stringResource(R.string.menu_subtitle),
             fontSize = 16.sp,
             color = UiColors.ink.copy(alpha = 0.6f),
         )
@@ -68,7 +76,7 @@ fun MenuScreen(
         if (generating) {
             CircularProgressIndicator(color = UiColors.faction(0))
             Spacer(Modifier.height(16.dp))
-            Text("Generating map…", color = UiColors.ink)
+            Text(stringResource(R.string.menu_generating), color = UiColors.ink)
             return@Column
         }
 
@@ -77,48 +85,49 @@ fun MenuScreen(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = UiColors.faction(0)),
-            ) { Text("Continue") }
+            ) { Text(stringResource(R.string.menu_continue)) }
             Spacer(Modifier.height(24.dp))
         }
 
-        OptionRow("Opponents") {
-            for (count in 2..4) {
+        OptionRow(stringResource(R.string.menu_section_opponents)) {
+            for (count in 2..MAX_PLAYERS) {
+                val enemies = count - 1
                 FilterChip(
                     selected = playerCount == count,
                     onClick = { playerCount = count },
-                    label = { Text("${count - 1} enem${if (count == 2) "y" else "ies"}") },
+                    label = { Text(pluralStringResource(R.plurals.menu_enemy_count, enemies, enemies)) },
                 )
             }
         }
-        OptionRow("Mode") {
+        OptionRow(stringResource(R.string.menu_section_mode)) {
             FilterChip(
                 selected = mode == GameMode.VS_AI,
                 onClick = { mode = GameMode.VS_AI },
-                label = { Text("vs AI") },
+                label = { Text(stringResource(R.string.menu_mode_vs_ai)) },
             )
             FilterChip(
                 selected = mode == GameMode.PASS_AND_PLAY,
                 onClick = { mode = GameMode.PASS_AND_PLAY },
-                label = { Text("Pass & play") },
+                label = { Text(stringResource(R.string.menu_mode_pass_and_play)) },
             )
         }
         if (mode == GameMode.VS_AI) {
-            OptionRow("Difficulty") {
-                for (d in Difficulty.entries) {
+            OptionRow(stringResource(R.string.menu_section_difficulty)) {
+                for (option in Difficulty.entries) {
                     FilterChip(
-                        selected = difficulty == d,
-                        onClick = { difficulty = d },
-                        label = { Text(d.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                        selected = difficulty == option,
+                        onClick = { difficulty = option },
+                        label = { Text(stringResource(option.labelRes())) },
                     )
                 }
             }
         }
-        OptionRow("Map size") {
-            for (s in MapSize.entries) {
+        OptionRow(stringResource(R.string.menu_section_map_size)) {
+            for (option in MapSize.entries) {
                 FilterChip(
-                    selected = size == s,
-                    onClick = { size = s },
-                    label = { Text(s.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    selected = size == option,
+                    onClick = { size = option },
+                    label = { Text(stringResource(option.labelRes())) },
                 )
             }
         }
@@ -127,13 +136,35 @@ fun MenuScreen(
         OutlinedButton(
             onClick = { onNewGame(GameSetup(playerCount, mode, difficulty, size)) },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("New game", color = UiColors.ink) }
+        ) { Text(stringResource(R.string.menu_new_game), color = UiColors.ink) }
     }
+}
+
+private const val MAX_PLAYERS = 4
+
+/** Saves an enum by name so setup choices survive Activity recreation. */
+private inline fun <reified T : Enum<T>> enumSaver(): Saver<T, String> =
+    Saver(save = { it.name }, restore = { enumValueOf<T>(it) })
+
+private fun Difficulty.labelRes() = when (this) {
+    Difficulty.EASY -> R.string.difficulty_easy
+    Difficulty.NORMAL -> R.string.difficulty_normal
+    Difficulty.HARD -> R.string.difficulty_hard
+}
+
+private fun MapSize.labelRes() = when (this) {
+    MapSize.SMALL -> R.string.map_size_small
+    MapSize.MEDIUM -> R.string.map_size_medium
+    MapSize.LARGE -> R.string.map_size_large
 }
 
 @Composable
 private fun OptionRow(label: String, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+    ) {
         Text(label, fontSize = 13.sp, color = UiColors.ink.copy(alpha = 0.6f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
     }

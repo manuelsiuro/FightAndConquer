@@ -42,8 +42,8 @@ capture, one action), `BuyUnit(tier, at)` (place / buy-merge / buy-capture),
 bonus)`, `GravestoneTrampled`, `TurnStarted(player, income, upkeep)`, `Bankruptcy`,
 `CapitalMoved(player, from, to, loot)`, `PlayerEliminated`, `GameOver(winner)`.
 
-Flow: `Reducer.reduce` → `Legality.check` (detailed `Rejected(reason)` strings — they
-surface verbatim as HUD toasts) → apply on an internal mutable `StateBuilder`
+Flow: `Reducer.reduce` → `Legality.check` (returns a `RejectionReason` code plus an
+optional `amount` — the UI maps it to a localized toast) → apply on an internal mutable `StateBuilder`
 (shared ops: `spawnUnit`, `killUnit`, `clearFloraAt`, `captureHex`,
 `recomputeStarving`, `checkElimination`) → freeze to `ReduceResult(state, events)`.
 `TurnPipeline` implements the turn-start ordering (see game-rules.md).

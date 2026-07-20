@@ -68,19 +68,6 @@ object Primitives {
         return b.build()
     }
 
-    /** Large ground quad centered at origin (bring-up shadow catcher). */
-    fun groundPlane(halfSize: Float): MeshData {
-        val b = MeshBuilder()
-        b.addQuad(
-            Float3(-halfSize, 0f, -halfSize),
-            Float3(halfSize, 0f, -halfSize),
-            Float3(halfSize, 0f, halfSize),
-            Float3(-halfSize, 0f, halfSize),
-            UP,
-        )
-        return b.build()
-    }
-
     /** Flat hexagonal plate (top face only) for selection/legal-move highlights. */
     fun hexDisc(radius: Float): MeshData {
         val b = MeshBuilder()

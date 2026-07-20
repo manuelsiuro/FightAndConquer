@@ -4,7 +4,19 @@ Single-ViewModel pattern: `GameViewModel` owns all UI state and is the only
 **mutator** of `GameEngine` (`GameScreen` reads `engine.state`/`engine.events`
 directly to wire the renderer, but never submits); `GameScreen` renders and wires
 the board; `MenuScreen` configures new games. Colors: `UiColors` (sRGB mirror of
-the render palette).
+the render palette); the Material scheme in `theme/Theme.kt` is derived from it
+(light-only, no dynamic color — wallpaper-derived schemes clashed with the fixed
+board palette).
+
+## Strings
+
+**Every user-facing string lives in `res/values/strings.xml`.** Composables use
+`stringResource`/`pluralStringResource` directly. The ViewModel can't hold a
+`Context`, so it emits **`UiText`** (`UiText.kt`) — a `@StringRes` id plus format
+args — which composables resolve with `text.resolve()`. Engine rejections arrive as
+`RejectionReason` codes and map to resources via `RejectionReason.toUiText(amount)`
+(an exhaustive `when`, so a new code fails to compile until it has a string).
+Unit/building names come from `unitNameRes(tier)`.
 
 ## GameViewModel — state surface
 
@@ -17,7 +29,7 @@ the render palette).
 | `economy` | `EconomyBreakdown?` | Coin-tap panel (null = closed; recomputed on every refresh while open) |
 | `toasts` | `List<HudToast>` (max 3, 2.5 s TTL) | Top-center notifications |
 | `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N 🪙" |
-| `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, cut-off tiles) — text sourced from `RuleConstants`, never hardcoded |
+| `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, cut-off tiles) — `UiText` + numbers from `RuleConstants`, never hardcoded |
 | `cameraJumps` | `SharedFlow<Hex>` | One-shot camera glides |
 | `resync` | `StateFlow<Int>` | Board must skip+reconcile (undo/load) |
 
