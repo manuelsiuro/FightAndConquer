@@ -21,7 +21,10 @@ data class SaveGame(
 object SaveCodec {
     val json: Json = Json {
         ignoreUnknownKeys = true // forward-compatible loading
-        encodeDefaults = false
+        // Defaults MUST be written: the RuleConstants snapshot in GameConfig is the
+        // whole point of self-describing saves — with encodeDefaults=false a game
+        // created on default rules would silently adopt NEW defaults after tuning.
+        encodeDefaults = true
     }
 
     fun encode(save: SaveGame): String = json.encodeToString(SaveGame.serializer(), save)

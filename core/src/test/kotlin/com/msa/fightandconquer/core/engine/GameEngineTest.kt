@@ -57,6 +57,15 @@ class GameEngineTest {
     }
 
     @Test
+    fun `saves embed the full rules snapshot so later tuning cannot corrupt them`() {
+        val engine = GameEngine(strip(9, 0..2, 6..8))
+        val encoded = SaveCodec.encode(engine.toSave())
+        // Default-valued rules must still be serialized (encodeDefaults = true).
+        assertTrue("rules snapshot missing from save", encoded.contains("unitUpkeep"))
+        assertTrue(encoded.contains("treeSpreadPercent"))
+    }
+
+    @Test
     fun `save-restore across a turn boundary`() {
         val engine = GameEngine(strip(9, 0..2, 6..8))
         engine.submit(GameAction.BuyUnit(1, hex(1)))
