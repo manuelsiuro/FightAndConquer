@@ -46,11 +46,15 @@ object Evaluator {
         // AI refuses the upkeep needed to break defended hexes and stalemates forever.
         val incomeScore = 6.0 * min(net, 10).toDouble() + 0.5 * maxOf(0, net - 10)
 
+        // EASY still hoards relative to the others (weaker land pull, stronger coin pull)
+        // but a plain peasant buy-capture MUST stay net-positive from turn one:
+        // +12 hex − 6 income − ~2.5 treasury > 0. The old 10/0.5·min(150) weights made
+        // every expansion negative until ~150 coins — an AI that visibly did nothing.
         var score = 0.0
         if (difficulty == Difficulty.EASY) {
-            score += 10.0 * myHexes
+            score += 12.0 * myHexes
             score += incomeScore
-            score += 0.5 * min(treasury, 150)
+            score += 0.25 * min(treasury, 100)
         } else {
             score += 14.0 * myHexes
             score += incomeScore

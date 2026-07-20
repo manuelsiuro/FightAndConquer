@@ -74,6 +74,26 @@ class AiSimulationTest {
     }
 
     @Test
+    fun `easy AI expands from the very first turns instead of hoarding`() {
+        // Regression: rookie weights once made every expansion net-negative, so EASY
+        // sat motionless until ~150 coins. Easy must be weak, not catatonic.
+        for (seed in 1L..3L) {
+            var state = newAiGame(seed, listOf(Difficulty.EASY, Difficulty.EASY))
+            val ais = List(2) { AiPlayer(Difficulty.EASY) }
+            repeat(6) { // three rounds
+                if (state.phase is GamePhase.Playing) state = playTurn(state, ais)
+            }
+            for (player in 0..1) {
+                val hexes = state.tiles.values.count { it.owner == PlayerId(player) }
+                assertTrue(
+                    "seed $seed: EASY player $player still owns only $hexes hexes after 3 rounds",
+                    hexes > 7,
+                )
+            }
+        }
+    }
+
+    @Test
     fun `hard beats easy in at least 70 percent of mirror games`() {
         var hardWins = 0
         var games = 0
