@@ -3,6 +3,7 @@ package com.msa.fightandconquer.render
 import com.google.android.filament.Camera
 import dev.romainguy.kotlin.math.Float3
 import dev.romainguy.kotlin.math.cross
+import dev.romainguy.kotlin.math.dot
 import dev.romainguy.kotlin.math.normalize
 import kotlin.math.cos
 import kotlin.math.sin
@@ -84,6 +85,30 @@ class CameraRig(
             e.x.toDouble(), e.y.toDouble(), e.z.toDouble(),
             t.x.toDouble(), t.y.toDouble(), t.z.toDouble(),
             0.0, 1.0, 0.0,
+        )
+    }
+
+    /**
+     * World point -> screen pixels, exact inverse of [rayThrough]'s basis (same FOV,
+     * same eye/target incl. shake — labels ride camera rumble with the board).
+     * Null when the point is at/behind the eye plane.
+     */
+    fun project(world: Float3, viewportW: Int, viewportH: Int): dev.romainguy.kotlin.math.Float2? {
+        val e = eye()
+        val t = target()
+        val forward = normalize(t - e)
+        val right = normalize(cross(forward, Float3(0f, 1f, 0f)))
+        val up = cross(right, forward)
+        val d = world - e
+        val zCam = dot(d, forward)
+        if (zCam <= 0.01f) return null
+        val tanHalf = tan(Math.toRadians(RenderEngine.FOV_DEGREES / 2).toFloat())
+        val aspect = viewportW.toFloat() / viewportH
+        val ndcX = dot(d, right) / (zCam * tanHalf * aspect)
+        val ndcY = dot(d, up) / (zCam * tanHalf)
+        return dev.romainguy.kotlin.math.Float2(
+            (ndcX + 1f) * 0.5f * viewportW,
+            (1f - ndcY) * 0.5f * viewportH,
         )
     }
 

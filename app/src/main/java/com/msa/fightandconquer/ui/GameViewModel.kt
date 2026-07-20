@@ -6,23 +6,33 @@ import androidx.lifecycle.viewModelScope
 import com.msa.fightandconquer.core.ai.AiPlayer
 import com.msa.fightandconquer.core.engine.GameAction
 import com.msa.fightandconquer.core.engine.GameEngine
+import com.msa.fightandconquer.core.engine.GameEvent
 import com.msa.fightandconquer.core.engine.LegalityResult
 import com.msa.fightandconquer.core.engine.PurchaseOption
+import com.msa.fightandconquer.core.engine.ReachResult
 import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.hex.Hex
+import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.map.MapGenerator
 import com.msa.fightandconquer.core.map.MapParams
 import com.msa.fightandconquer.core.map.MapSize
+import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Difficulty
+import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GamePhase
+import com.msa.fightandconquer.core.model.GameState
+import com.msa.fightandconquer.core.model.GameUnit
 import com.msa.fightandconquer.core.model.PlayerKind
 import com.msa.fightandconquer.core.model.UnitId
 import com.msa.fightandconquer.core.persist.SaveCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -46,6 +56,52 @@ data class HighlightSet(
     val merges: Set<Hex> = emptySet(),
 )
 
+/** Defense numbers shown on frontier hexes while a unit is selected. */
+enum class LabelKind { CAPTURABLE, BLOCKED }
+data class OverlayLabel(val hex: Hex, val text: String, val kind: LabelKind)
+
+/** Coin counter breakdown panel. */
+data class TierUpkeep(val tier: Int, val name: String, val count: Int, val each: Int, val total: Int)
+data class EconomyBreakdown(
+    val hexCount: Int,
+    val hexIncome: Int,
+    val farmCount: Int,
+    val farmIncome: Int,
+    val tiers: List<TierUpkeep>,
+    val income: Int,
+    val upkeep: Int,
+    val net: Int,
+    val treasury: Int,
+    val projected: Int,
+    val starvingCount: Int,
+    val bankruptcyImminent: Boolean,
+    val upkeepRisk: Boolean,
+)
+
+/** Transient top-center notifications. */
+enum class ToastKind { INFO, WARNING, ALERT }
+data class HudToast(val id: Long, val text: String, val kind: ToastKind)
+
+/** World-anchored floating text (e.g. +3 on a tree clear). */
+data class CoinPopup(val id: Long, val hex: Hex, val text: String)
+
+/** Bottom card describing a tapped piece that isn't selectable. */
+data class InfoStat(val label: String, val value: String)
+data class InfoCard(
+    val title: String,
+    val subtitle: String,
+    val stats: List<InfoStat> = emptyList(),
+    val factionIndex: Int? = null,
+)
+
+/** Rules snapshot the purchase tray needs for upkeep/defense lines. */
+data class ShopInfo(
+    val unitUpkeep: List<Int> = listOf(2, 6, 18, 54),
+    val towerDefense: Int = 2,
+    val strongTowerDefense: Int = 3,
+    val farmIncome: Int = 4,
+)
+
 data class HudState(
     val playerCount: Int,
     val currentPlayer: Int,
@@ -62,6 +118,8 @@ data class HudState(
     val banner: Int?,
     val winner: Int?,
     val eliminated: List<Boolean>,
+    val freshUnitCount: Int,
+    val shopInfo: ShopInfo,
 )
 
 sealed interface Screen {
@@ -85,6 +143,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _highlights = MutableStateFlow(HighlightSet())
     val highlights: StateFlow<HighlightSet> = _highlights.asStateFlow()
 
+    private val _overlayLabels = MutableStateFlow<List<OverlayLabel>>(emptyList())
+    val overlayLabels: StateFlow<List<OverlayLabel>> = _overlayLabels.asStateFlow()
+
+    private val _economy = MutableStateFlow<EconomyBreakdown?>(null)
+    val economy: StateFlow<EconomyBreakdown?> = _economy.asStateFlow()
+
+    private val _toasts = MutableStateFlow<List<HudToast>>(emptyList())
+    val toasts: StateFlow<List<HudToast>> = _toasts.asStateFlow()
+
+    private val _popups = MutableStateFlow<List<CoinPopup>>(emptyList())
+    val popups: StateFlow<List<CoinPopup>> = _popups.asStateFlow()
+
+    private val _infoCard = MutableStateFlow<InfoCard?>(null)
+    val infoCard: StateFlow<InfoCard?> = _infoCard.asStateFlow()
+
+    /** One-shot camera glide requests (units-left helper). */
+    private val _cameraJumps = MutableSharedFlow<Hex>(extraBufferCapacity = 4)
+    val cameraJumps: SharedFlow<Hex> = _cameraJumps.asSharedFlow()
+
     /** Bumped when the board must resync without animation (undo, load). */
     private val _resync = MutableStateFlow(0)
     val resync: StateFlow<Int> = _resync.asStateFlow()
@@ -93,7 +170,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var selectedHex: Hex? = null
     private var banner: Int? = null
     private var aiJob: Job? = null
+    private var eventsJob: Job? = null
     private var aiThinking = false
+    private var nextToastId = 0L
+    private var freshUnitCursor = 0
+
+    // Event-feedback accumulators (reset per human round).
+    private var aiCapturedFromHumans = 0
+    private var cutOffWarned = false
+    private var knownStarving: Set<Hex> = emptySet()
 
     // ----- menu -----
 
@@ -132,18 +217,32 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun backToMenu() {
         aiJob?.cancel()
+        eventsJob?.cancel()
         engine = null
         _hud.value = null
         _highlights.value = HighlightSet()
+        _overlayLabels.value = emptyList()
+        _economy.value = null
+        _infoCard.value = null
+        _toasts.value = emptyList()
+        _popups.value = emptyList()
         selectedUnit = null; selectedHex = null; banner = null
         _screen.value = Screen.Menu(autosaveFile.exists())
     }
 
     private fun startEngine(newEngine: GameEngine, showOpeningBanner: Boolean) {
         aiJob?.cancel()
+        eventsJob?.cancel()
         engine = newEngine
         selectedUnit = null; selectedHex = null
         banner = if (showOpeningBanner) 0 else null
+        freshUnitCursor = 0
+        aiCapturedFromHumans = 0
+        cutOffWarned = false
+        knownStarving = currentHumanStarving(newEngine.state.value)
+        _toasts.value = emptyList()
+        _popups.value = emptyList()
+        eventsJob = viewModelScope.launch { newEngine.events.collect(::onEngineEvent) }
         _screen.value = Screen.Game
         refreshHud()
         maybeRunAi()
@@ -154,6 +253,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun onHexTapped(hex: Hex) {
         val engine = engine ?: return
         val hudNow = _hud.value ?: return
+        _economy.value = null // board taps dismiss the glanceable panel
         if (banner != null || !hudNow.currentIsHuman || hudNow.winner != null) return
         val state = engine.state.value
 
@@ -164,16 +264,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 in reach.moveTargets, in reach.captureTargets -> {
                     submit(GameAction.MoveUnit(heldUnit, hex))
                     clearSelection()
+                    refreshHud()
                     return
                 }
                 in reach.mergeTargets -> {
                     submit(GameAction.MergeUnits(heldUnit, state.tiles.getValue(hex).unit!!))
                     clearSelection()
+                    refreshHud()
                     return
                 }
             }
         }
         select(hex)
+    }
+
+    /** Board tap that missed the board entirely (the void): cancel any selection. */
+    fun cancelSelection() {
+        clearSelection()
+        refreshHud()
     }
 
     private fun select(hex: Hex) {
@@ -183,6 +291,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         selectedUnit = null
         selectedHex = null
+        _infoCard.value = null
 
         if (tile?.owner == me) {
             val unit = tile.unit?.let { state.units[it] }
@@ -191,17 +300,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 selectedHex = hex
                 val reach = engine.reachableFor(unit.id)
                 _highlights.value = HighlightSet(hex, reach.moveTargets, reach.captureTargets, reach.mergeTargets)
+                _overlayLabels.value = computeOverlay(state, unit, reach)
                 refreshHud()
                 return
             }
-            if (!tile.starving && tile.building == null) {
+            if (!tile.starving && tile.building == null && tile.unit == null) {
                 selectedHex = hex
                 _highlights.value = HighlightSet(selected = hex)
+                _overlayLabels.value = emptyList()
                 refreshHud()
                 return
             }
         }
+        // Not selectable: explain what was tapped instead.
+        _infoCard.value = tile?.let { infoCardFor(state, hex, it) }
         _highlights.value = HighlightSet()
+        _overlayLabels.value = emptyList()
         refreshHud()
     }
 
@@ -209,6 +323,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         selectedUnit = null
         selectedHex = null
         _highlights.value = HighlightSet()
+        _overlayLabels.value = emptyList()
+        _infoCard.value = null
     }
 
     fun buy(option: PurchaseOption) {
@@ -224,14 +340,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun endTurn() {
         val engine = engine ?: return
         clearSelection()
+        _economy.value = null
+        freshUnitCursor = 0
         submit(GameAction.EndTurn)
         autosave()
         val state = engine.state.value
         if (state.phase is GamePhase.Playing) {
             val next = state.player(state.currentPlayer)
-            if (next.kind is PlayerKind.Human && _hud.value?.let { it.playerCount > 1 } == true &&
-                anyOtherHuman()
-            ) {
+            if (next.kind is PlayerKind.Human && anyOtherHuman()) {
                 banner = state.currentPlayer.value
             }
         }
@@ -253,6 +369,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val engine = engine ?: return
         if (engine.undo()) {
             clearSelection()
+            _economy.value?.let { _economy.value = computeEconomy() }
             _resync.value++
             refreshHud()
         }
@@ -269,6 +386,246 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val result = engine?.submit(action) ?: LegalityResult.Rejected("no game")
         refreshHud()
         return result
+    }
+
+    // ----- threat overlay -----
+
+    private fun computeOverlay(state: GameState, unit: GameUnit, reach: ReachResult): List<OverlayLabel> {
+        val region = Rules.region(state, unit.hex)
+        val frontier = HashSet<Hex>()
+        for (h in region) {
+            HexMath.forEachNeighbor(h) { n ->
+                val t = state.tiles[n]
+                if (t != null && t.owner != unit.owner) frontier.add(n)
+            }
+        }
+        return frontier.mapNotNull { hex ->
+            val defense = Rules.defenseOf(state, hex)
+            val capturable = hex in reach.captureTargets
+            when {
+                capturable && defense == 0 -> null // undefended: the highlight disc already says it
+                else -> OverlayLabel(hex, defense.toString(), if (capturable) LabelKind.CAPTURABLE else LabelKind.BLOCKED)
+            }
+        }
+    }
+
+    // ----- economy panel -----
+
+    fun toggleEconomyPanel() {
+        _economy.value = if (_economy.value == null) computeEconomy() else null
+    }
+
+    private fun computeEconomy(): EconomyBreakdown? {
+        val state = engine?.state?.value ?: return null
+        val me = state.currentPlayer
+        val rules = state.config.rules
+        var hexCount = 0
+        var farmCount = 0
+        var starving = 0
+        for (tile in state.tiles.values) {
+            if (tile.owner != me) continue
+            if (tile.starving) { starving++; continue }
+            if (tile.flora != null) continue
+            hexCount++
+            if (tile.building == Building.FARM) farmCount++
+        }
+        val tiers = (1..rules.maxTier).mapNotNull { tier ->
+            val count = state.units.values.count { it.owner == me && it.tier == tier }
+            if (count == 0) {
+                null
+            } else {
+                TierUpkeep(tier, unitName(tier), count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
+            }
+        }
+        val income = Rules.incomeOf(state, me)
+        val upkeep = Rules.upkeepOf(state, me)
+        val treasury = state.player(me).treasury
+        val net = income - upkeep
+        val projected = treasury + net
+        return EconomyBreakdown(
+            hexCount = hexCount,
+            hexIncome = hexCount * rules.hexIncome,
+            farmCount = farmCount,
+            farmIncome = farmCount * rules.farmIncome,
+            tiers = tiers,
+            income = income,
+            upkeep = upkeep,
+            net = net,
+            treasury = treasury,
+            projected = projected,
+            starvingCount = starving,
+            bankruptcyImminent = projected < 0,
+            upkeepRisk = projected >= 0 && projected < upkeep,
+        )
+    }
+
+    // ----- units-left helper -----
+
+    fun focusNextFreshUnit() {
+        val state = engine?.state?.value ?: return
+        val fresh = state.units.values
+            .filter { it.owner == state.currentPlayer && !it.spent }
+            .sortedBy { it.id.value }
+        if (fresh.isEmpty()) return
+        val unit = fresh[freshUnitCursor++ % fresh.size]
+        select(unit.hex) // internal select: never submits an action
+        _cameraJumps.tryEmit(unit.hex)
+    }
+
+    // ----- event feedback -----
+
+    private fun onEngineEvent(event: GameEvent) {
+        val engine = engine ?: return
+        val state = engine.state.value
+        val actorIsHuman = !state.player(state.currentPlayer).eliminated &&
+            state.player(state.currentPlayer).kind is PlayerKind.Human
+
+        when (event) {
+            is GameEvent.TreeCleared -> {
+                if (actorIsHuman) pushPopup(event.hex, "+${event.bonus} 🪙")
+            }
+
+            is GameEvent.CapitalMoved -> {
+                if (event.loot > 0) {
+                    if (actorIsHuman) pushToast("Looted ${event.loot} coins", ToastKind.INFO)
+                    if (state.players[event.player.value].kind is PlayerKind.Human) {
+                        pushToast("Your capital was looted (−${event.loot})", ToastKind.WARNING)
+                    }
+                }
+            }
+
+            is GameEvent.HexCaptured -> {
+                val oldOwnerHuman = event.oldOwner?.let { state.players[it.value].kind is PlayerKind.Human } == true
+                if (!actorIsHuman && oldOwnerHuman) aiCapturedFromHumans++
+                if (oldOwnerHuman) {
+                    val nowStarving = currentHumanStarving(state)
+                    if ((nowStarving - knownStarving).isNotEmpty() && !cutOffWarned) {
+                        pushToast("Territory cut off from your capital!", ToastKind.WARNING)
+                        cutOffWarned = true
+                    }
+                    knownStarving = nowStarving
+                }
+            }
+
+            is GameEvent.TurnStarted -> {
+                if (state.players[event.player.value].kind is PlayerKind.Human) {
+                    if (aiCapturedFromHumans > 0) {
+                        pushToast("AI took $aiCapturedFromHumans of your hexes", ToastKind.WARNING)
+                    }
+                    aiCapturedFromHumans = 0
+                    cutOffWarned = false
+                    knownStarving = currentHumanStarving(state)
+                }
+            }
+
+            is GameEvent.Bankruptcy -> {
+                if (state.players[event.player.value].kind is PlayerKind.Human) {
+                    pushToast("Bankruptcy! All your units are lost", ToastKind.ALERT)
+                }
+            }
+
+            is GameEvent.ActionRejected -> {
+                if (actorIsHuman) pushToast(event.reason, ToastKind.INFO)
+            }
+
+            else -> Unit
+        }
+    }
+
+    private fun currentHumanStarving(state: GameState): Set<Hex> =
+        state.tiles.filterValues { tile ->
+            tile.starving && tile.owner?.let { state.players[it.value].kind is PlayerKind.Human } == true
+        }.keys
+
+    private fun pushToast(text: String, kind: ToastKind) {
+        val toast = HudToast(nextToastId++, text, kind)
+        _toasts.value = (_toasts.value + toast).takeLast(3)
+        viewModelScope.launch {
+            delay(2500)
+            _toasts.value = _toasts.value.filterNot { it.id == toast.id }
+        }
+    }
+
+    private fun pushPopup(hex: Hex, text: String) {
+        val popup = CoinPopup(nextToastId++, hex, text)
+        _popups.value = _popups.value + popup
+        viewModelScope.launch {
+            delay(1200)
+            _popups.value = _popups.value.filterNot { it.id == popup.id }
+        }
+    }
+
+    // ----- info cards -----
+
+    private fun infoCardFor(state: GameState, hex: Hex, tile: com.msa.fightandconquer.core.model.Tile): InfoCard? {
+        val rules = state.config.rules
+        val me = state.currentPlayer
+        val unit = tile.unit?.let { state.units[it] }
+        if (unit != null) {
+            val own = unit.owner == me
+            return InfoCard(
+                title = unitName(unit.tier),
+                subtitle = if (own) {
+                    "Already moved this turn"
+                } else {
+                    "Enemy unit — strength ${unit.tier}, defends its hex and neighbors"
+                },
+                stats = listOf(
+                    InfoStat("Strength", "${unit.tier}"),
+                    InfoStat("Upkeep", "${rules.unitUpkeep[unit.tier - 1]}/turn"),
+                ),
+                factionIndex = unit.owner.value,
+            )
+        }
+        tile.building?.let { building ->
+            val ownerIndex = tile.owner?.value
+            return when (building) {
+                Building.CAPITAL -> InfoCard(
+                    "Capital",
+                    "Seat of this empire — drops ${rules.capitalLootPercent}% of its treasury if captured",
+                    listOf(InfoStat("Defense", "${rules.capitalDefense} (self + neighbors)")),
+                    ownerIndex,
+                )
+                Building.TOWER -> InfoCard(
+                    "Tower",
+                    "Guards its hex and all 6 neighbors",
+                    listOf(InfoStat("Defense", "${rules.towerDefense}")),
+                    ownerIndex,
+                )
+                Building.STRONG_TOWER -> InfoCard(
+                    "Castle",
+                    "Heavy fortification — guards its hex and all 6 neighbors",
+                    listOf(InfoStat("Defense", "${rules.strongTowerDefense}")),
+                    ownerIndex,
+                )
+                Building.FARM -> InfoCard(
+                    "Farm",
+                    "Steady income while connected to the capital",
+                    listOf(InfoStat("Income", "+${rules.farmIncome}/turn")),
+                    ownerIndex,
+                )
+            }
+        }
+        when (tile.flora) {
+            is Flora.Tree -> return InfoCard(
+                "Tree",
+                "Blocks this hex's income — move a unit onto it to clear",
+                listOf(InfoStat("Clear bonus", "+${rules.treeClearBonus} 🪙")),
+            )
+            is Flora.Gravestone -> return InfoCard(
+                "Gravestone",
+                "A unit died here — a tree will sprout soon",
+            )
+            null -> {}
+        }
+        if (tile.owner == me && tile.starving) {
+            return InfoCard(
+                "Cut-off territory",
+                "Disconnected from your capital — no income, units here will starve",
+                factionIndex = me.value,
+            )
+        }
+        return null
     }
 
     // ----- AI -----
@@ -341,6 +698,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val engine = engine ?: run { _hud.value = null; return }
         val state = engine.state.value
         val me = state.currentPlayer
+        val rules = state.config.rules
         val summary = engine.incomeSummary(me)
         val selectedTier = selectedUnit?.let { state.units[it]?.tier }
         val purchases = if (selectedUnit == null) {
@@ -363,13 +721,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             banner = banner,
             winner = (state.phase as? GamePhase.Finished)?.winner?.value,
             eliminated = state.players.map { it.eliminated },
+            freshUnitCount = state.units.values.count { it.owner == me && !it.spent },
+            shopInfo = ShopInfo(
+                unitUpkeep = rules.unitUpkeep,
+                towerDefense = rules.towerDefense,
+                strongTowerDefense = rules.strongTowerDefense,
+                farmIncome = rules.farmIncome,
+            ),
         )
+        // Live panel tracks every buy/move/undo.
+        if (_economy.value != null) _economy.value = computeEconomy()
         // Keep highlights in sync with spent/moved units.
         if (selectedUnit?.let { !state.units.containsKey(it) } == true) clearSelection()
     }
 
     companion object {
-        /** Upkeep per tier for the HUD (mirrors RuleConstants defaults). */
         fun unitName(tier: Int): String = when (tier) {
             1 -> "Peasant"; 2 -> "Spearman"; 3 -> "Baron"; else -> "Knight"
         }

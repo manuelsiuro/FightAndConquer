@@ -52,6 +52,12 @@ class Animator {
         finished.forEach { it.onEnd?.invoke() }
     }
 
+    /** Drop all pending jobs without completing them (e.g. retargeting a camera glide). */
+    fun cancelAll() {
+        jobs.clear()
+        incoming.clear()
+    }
+
     /** Fast-forward: complete every pending job immediately (skip-animation input). */
     fun finishAll() {
         var guard = 0

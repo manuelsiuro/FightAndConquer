@@ -18,4 +18,9 @@ object UiColors {
     val background = Color(0xFFF4F2EF)
     val ink = Color(0xFF3E3A36)
     val panel = Color(0xF2FFFDFB)
+    val positive = Color(0xFF5B7F5E)
+    val alert = Color(0xFFB05B4C)
+    val toastWarning = Color(0xF2EAD9B8)
+    val chipCapturable = Color(0xE05B7F5E)
+    val chipBlocked = Color(0xE0B05B4C)
 }

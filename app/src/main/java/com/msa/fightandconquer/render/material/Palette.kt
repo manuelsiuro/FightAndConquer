@@ -16,6 +16,7 @@ object Palette {
     val GRAVESTONE = linear(0xB8B2AA)
     val TRUNK = linear(0x8A6B4F)          // tree trunk
     val STONE = linear(0xCFC9C2)          // tower masonry / gravestones
+    val INK = linear(0x4A453F)            // tier pips, castle gate, flag poles
 
     /** Faction colors by player index (doc defines 4; extended in the same spirit). */
     val FACTIONS = listOf(

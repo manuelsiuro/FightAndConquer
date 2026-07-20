@@ -29,8 +29,15 @@ import com.msa.fightandconquer.render.mesh.PieceKind
 import com.msa.fightandconquer.render.mesh.PieceMeshes
 import com.msa.fightandconquer.render.mesh.Primitives
 import com.msa.fightandconquer.render.mesh.upload
+import dev.romainguy.kotlin.math.Float2
 import dev.romainguy.kotlin.math.Float3
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.abs
 import kotlin.math.exp
+import kotlin.math.hypot
+import kotlin.math.round
 import kotlin.math.sin
 
 /**
@@ -52,6 +59,12 @@ class BoardScene(
     private val hexMesh: GpuMesh = Primitives.hexPrism().upload(filament)
     private val pieceMeshes = PieceMeshes(filament)
     private val animator = Animator()
+
+    /**
+     * Camera glides run on their own animator: the shared [animator] gates the event
+     * queue and tap-to-skip, so a glide there would swallow taps and stall beats.
+     */
+    private val cameraAnimator = Animator()
 
     val rig = CameraRig()
     private val picker = HexPicker(
@@ -77,11 +90,27 @@ class BoardScene(
         val kind: PieceKind,
         val entities: IntArray,
         val instances: List<MaterialInstance>,
+        val roles: List<com.msa.fightandconquer.render.mesh.ColorRole>,
+        val ownerIndex: Int?,
         var hex: Hex,
         var scale: Float = 1f,
         var yOffset: Float = 0f,
         var xz: Pair<Float, Float>? = null, // non-null while hopping between hexes
     ) {
+        /** View-only mirror of GameUnit.spent: spent units render darker. */
+        var dimmed = false
+            private set
+
+        fun setDimmed(dim: Boolean) {
+            if (dim == dimmed) return
+            dimmed = dim
+            val f = if (dim) DIM_FACTOR else 1f
+            for (i in instances.indices) {
+                val c = colorFor(roles[i], ownerIndex)
+                instances[i].setParameter("baseColor", c.x * f, c.y * f, c.z * f)
+            }
+        }
+
         fun updateTransform() {
             val (x, z) = xz ?: (HexWorld.centerX(hex) to HexWorld.centerZ(hex))
             val y = tileTopY(hex) + yOffset
@@ -113,9 +142,35 @@ class BoardScene(
     // ----- highlights (selection + legal moves) -----
 
     private val highlightMesh: GpuMesh = Primitives.hexDisc(Primitives.HEX_RADIUS - 0.07f).upload(filament)
-    private class HighlightEntity(val entity: Int, val instance: MaterialInstance, var inScene: Boolean)
+    private class HighlightEntity(
+        val entity: Int,
+        val instance: MaterialInstance,
+        var inScene: Boolean,
+        var pulse: Boolean = false,
+        val rgba: FloatArray = FloatArray(4),
+    )
     private val highlightPool = ArrayList<HighlightEntity>()
     private var highlightsShown = 0
+    private var highlightClock = 0f
+
+    // ----- defense auras (ring decals under covered tiles) -----
+
+    private val auraMesh: GpuMesh = Primitives.hexAnnulus(0.34f, 0.44f).upload(filament)
+    private class AuraEntity(val entity: Int, val instance: MaterialInstance, var inScene: Boolean)
+    private val auraPool = ArrayList<AuraEntity>()
+    private var aurasShown = 0
+
+    // ----- screen anchors for HUD labels/popups -----
+
+    private var trackedAnchors: Set<Hex> = emptySet()
+    private val _anchors = MutableStateFlow<Map<Hex, Float2>>(emptyMap())
+    val anchors: StateFlow<Map<Hex, Float2>> = _anchors.asStateFlow()
+
+    fun setTrackedAnchors(hexes: Set<Hex>) {
+        trackedAnchors = hexes
+    }
+
+    var onTapMiss: (() -> Unit)? = null
 
     init {
         val tileMaterial = materials.material("hexTile")
@@ -169,11 +224,37 @@ class BoardScene(
             return
         }
         val viewport = engine.view.viewport
-        val hex = picker.pick(xPx, yPx, viewport.width, viewport.height, rig) ?: return
+        val hex = picker.pick(xPx, yPx, viewport.width, viewport.height, rig)
+        if (hex == null) {
+            onTapMiss?.invoke() // tapping the void cancels the selection
+            return
+        }
         onTap?.invoke(hex)
     }
 
-    fun pan(dxPx: Float, dyPx: Float) = rig.pan(dxPx, dyPx, engine.view.viewport.height)
+    fun pan(dxPx: Float, dyPx: Float) {
+        cameraAnimator.cancelAll() // user input always beats a glide
+        rig.pan(dxPx, dyPx, engine.view.viewport.height)
+    }
+
+    /** Smooth camera glide to a hex (units-left helper etc.). */
+    fun jumpTo(hex: Hex, targetDistance: Float? = null) {
+        val endX = HexWorld.centerX(hex).coerceIn(rig.minTargetX, rig.maxTargetX)
+        val endZ = HexWorld.centerZ(hex).coerceIn(rig.minTargetZ, rig.maxTargetZ)
+        val startX = rig.targetX
+        val startZ = rig.targetZ
+        val startD = rig.distance
+        val endD = (targetDistance ?: rig.distance.coerceAtMost(12f)).coerceIn(rig.minDistance, rig.maxDistance)
+        val dist = hypot(endX - startX, endZ - startZ)
+        if (dist < 0.05f && abs(endD - startD) < 0.05f) return
+        val duration = (0.15f + dist * 0.025f).coerceIn(0.25f, 0.45f)
+        cameraAnimator.cancelAll()
+        cameraAnimator.tween(duration, Easings::easeOutCubic) { t ->
+            rig.targetX = startX + (endX - startX) * t
+            rig.targetZ = startZ + (endZ - startZ) * t
+            rig.distance = startD + (endD - startD) * t
+        }
+    }
 
     fun zoom(factor: Float) = rig.zoomBy(factor)
 
@@ -190,9 +271,10 @@ class BoardScene(
      */
     fun showHighlights(selected: Hex?, moves: Set<Hex>, captures: Set<Hex>, merges: Set<Hex>) {
         clearHighlights()
+        highlightClock = 0f // pulse always starts bright: "these just lit up"
         selected?.let { addHighlight(it, 1f, 1f, 1f, 0.55f) }
         for (hex in moves) addHighlight(hex, 1f, 1f, 1f, 0.3f)
-        for (hex in captures) addHighlight(hex, 0.95f, 0.45f, 0.35f, 0.5f)
+        for (hex in captures) addHighlight(hex, 0.95f, 0.45f, 0.35f, 0.5f, pulse = true)
         for (hex in merges) addHighlight(hex, 0.9f, 0.75f, 0.35f, 0.55f)
     }
 
@@ -203,11 +285,12 @@ class BoardScene(
                 engine.scene.removeEntity(h.entity)
                 h.inScene = false
             }
+            h.pulse = false
         }
         highlightsShown = 0
     }
 
-    private fun addHighlight(hex: Hex, r: Float, g: Float, b: Float, a: Float) {
+    private fun addHighlight(hex: Hex, r: Float, g: Float, b: Float, a: Float, pulse: Boolean = false) {
         if (hex !in tiles) return
         val h = if (highlightsShown < highlightPool.size) {
             highlightPool[highlightsShown]
@@ -224,6 +307,8 @@ class BoardScene(
             HighlightEntity(entity, instance, inScene = false).also { highlightPool.add(it) }
         }
         highlightsShown++
+        h.pulse = pulse
+        h.rgba[0] = r; h.rgba[1] = g; h.rgba[2] = b; h.rgba[3] = a
         h.instance.setParameter("color", r, g, b, a)
         val tm = filament.transformManager
         var ti = tm.getInstance(h.entity)
@@ -257,6 +342,7 @@ class BoardScene(
                 processEvent(eventQueue.removeFirst())
             }
             animator.update(deltaSeconds)
+            cameraAnimator.update(deltaSeconds)
             if (animator.isIdle && eventQueue.isEmpty()) {
                 pendingState?.let { reconcile(it) }
                 pendingState = null
@@ -270,8 +356,39 @@ class BoardScene(
                     rig.shake = Float3(0f, 0f, 0f)
                 }
             }
+            // Capture-highlight pulse (a handful of uniform writes at most).
+            highlightClock += deltaSeconds
+            val pulseAlpha = 0.72f + 0.28f * sin(highlightClock * 7f)
+            for (i in 0 until highlightsShown) {
+                val h = highlightPool[i]
+                if (h.pulse) {
+                    h.instance.setParameter("color", h.rgba[0], h.rgba[1], h.rgba[2], h.rgba[3] * pulseAlpha)
+                }
+            }
         }
         rig.update(engine.camera)
+        publishAnchors()
+    }
+
+    /** Projects tracked hexes to screen px; publishes only on movement (quarter-px quantized). */
+    private fun publishAnchors() {
+        if (trackedAnchors.isEmpty()) {
+            if (_anchors.value.isNotEmpty()) _anchors.value = emptyMap()
+            return
+        }
+        val viewport = engine.view.viewport
+        if (viewport.width <= 0 || viewport.height <= 0) return
+        val out = HashMap<Hex, Float2>(trackedAnchors.size)
+        for (hex in trackedAnchors) {
+            if (hex !in tiles) continue
+            val projected = rig.project(
+                Float3(HexWorld.centerX(hex), tileTopY(hex) + ANCHOR_LIFT, HexWorld.centerZ(hex)),
+                viewport.width,
+                viewport.height,
+            ) ?: continue
+            out[hex] = Float2(round(projected.x * 4f) / 4f, round(projected.y * 4f) / 4f)
+        }
+        if (out != _anchors.value) _anchors.value = out
     }
 
     /**
@@ -299,13 +416,20 @@ class BoardScene(
             is GameEvent.UnitSpawned -> {
                 val piece = createPiece(pieceMeshes.unitKind(event.unit.tier), event.unit.hex, event.unit.owner.value)
                 unitPieces[event.unit.id] = piece
+                piece.setDimmed(latestState.units[event.unit.id]?.spent == true)
                 spawnBounce(piece)
                 rumbleTime = 0f
             }
 
             is GameEvent.UnitMoved -> {
                 val piece = unitPieces[event.unit] ?: return
-                hop(piece, event.from, event.to)
+                val owner = latestState.units[event.unit]?.owner ?: latestState.tiles[event.to]?.owner
+                val path = owner?.let { ownedPath(event.from, event.to, it) }
+                if (path != null) {
+                    hopAlong(piece, event.unit, path)
+                } else {
+                    hop(piece, event.from, event.to, unitId = event.unit)
+                }
             }
 
             is GameEvent.HexCaptured -> {
@@ -349,6 +473,7 @@ class BoardScene(
                         event.into.owner.value,
                     )
                     unitPieces[event.into.id] = upgraded
+                    upgraded.setDimmed(latestState.units[event.into.id]?.spent == true)
                     spawnBounce(upgraded)
                 }
                 if (consumed != null) {
@@ -407,8 +532,15 @@ class BoardScene(
                 }
             }
 
+            is GameEvent.TurnStarted -> {
+                // Refresh spent-dim for the whole board immediately (undims the new army).
+                for ((id, piece) in unitPieces) {
+                    piece.setDimmed(latestState.units[id]?.spent == true)
+                }
+            }
+
             // HUD-level events: no board animation.
-            is GameEvent.ActionRejected, is GameEvent.TurnStarted, is GameEvent.Bankruptcy,
+            is GameEvent.ActionRejected, is GameEvent.Bankruptcy,
             is GameEvent.PlayerEliminated, is GameEvent.GameOver,
             -> Unit
         }
@@ -435,17 +567,81 @@ class BoardScene(
         }
     }
 
-    private fun hop(piece: Piece, from: Hex, to: Hex, height: Float = 0.3f) {
+    private fun hop(piece: Piece, from: Hex, to: Hex, height: Float = 0.3f, unitId: UnitId? = null) {
         piece.hex = to
         animator.tween(0.25f, Easings::easeOutCubic, onEnd = {
             piece.xz = null
             piece.yOffset = 0f
             piece.updateTransform()
+            unitId?.let { piece.setDimmed(latestState.units[it]?.spent == true) }
         }) { t ->
             piece.xz = lerpHex(from, to, t)
             piece.yOffset = Easings.hop(t) * height
             piece.updateTransform()
         }
+    }
+
+    /**
+     * BFS shortest path from..to over tiles owned by [owner] in the POST-move state
+     * (a captured destination is already owned by the mover then). Null when a plain
+     * direct hop should be used (adjacent, unreachable, or degenerate).
+     */
+    private fun ownedPath(from: Hex, to: Hex, owner: com.msa.fightandconquer.core.model.PlayerId): List<Hex>? {
+        if (from == to) return null
+        val canEnter: (Hex) -> Boolean = { h -> h == from || latestState.tiles[h]?.owner == owner }
+        if (!canEnter(to)) return null
+        val parent = HashMap<Hex, Hex>()
+        val queue = ArrayDeque<Hex>().apply { add(from) }
+        val visited = HashSet<Hex>().apply { add(from) }
+        var reached = false
+        while (queue.isNotEmpty() && visited.size < 512 && !reached) {
+            val current = queue.removeFirst()
+            com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(current) { n ->
+                if (!reached && n !in visited && canEnter(n)) {
+                    visited.add(n)
+                    parent[n] = current
+                    if (n == to) reached = true else queue.add(n)
+                }
+            }
+        }
+        if (!reached) return null
+        val path = ArrayList<Hex>()
+        var h = to
+        while (true) {
+            path.add(h)
+            h = parent[h] ?: break
+        }
+        path.reverse()
+        return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain hop; too long = direct
+    }
+
+    /** Chained per-hex hops: mid segments linear (continuous run), final segment eases out. */
+    private fun hopAlong(piece: Piece, unitId: UnitId, path: List<Hex>) {
+        val segments = path.size - 1
+        val perHex = minOf(0.16f, 0.9f / segments)
+        fun runSegment(index: Int) {
+            val a = path[index]
+            val b = path[index + 1]
+            val last = index == segments - 1
+            piece.hex = b
+            val yDelta = tileTopY(a) - tileTopY(b)
+            val height = if (last) 0.3f else 0.2f
+            animator.tween(perHex, if (last) Easings::easeOutCubic else Easings::linear, onEnd = {
+                if (last) {
+                    piece.xz = null
+                    piece.yOffset = 0f
+                    piece.updateTransform()
+                    piece.setDimmed(latestState.units[unitId]?.spent == true)
+                } else {
+                    runSegment(index + 1)
+                }
+            }) { t ->
+                piece.xz = lerpHex(a, b, t)
+                piece.yOffset = Easings.hop(t) * height + (1f - t) * yDelta
+                piece.updateTransform()
+            }
+        }
+        runSegment(0)
     }
 
     private fun sinkAway(piece: Piece, duration: Float = 0.25f, onDone: (() -> Unit)? = null) {
@@ -473,6 +669,7 @@ class BoardScene(
         ColorRole.TREE_FOLIAGE -> Palette.TREE
         ColorRole.TRUNK -> Palette.TRUNK
         ColorRole.STONE -> Palette.STONE
+        ColorRole.PIP -> Palette.INK
     }
 
     private fun createPiece(kind: PieceKind, hex: Hex, ownerIndex: Int?): Piece {
@@ -498,7 +695,8 @@ class BoardScene(
             entities[index] = entity
             instances.add(instance)
         }
-        return Piece(kind, entities, instances, hex).also { it.updateTransform() }
+        return Piece(kind, entities, instances, parts.map { it.role }, ownerIndex, hex)
+            .also { it.updateTransform() }
     }
 
     private fun destroyPiece(piece: Piece) {
@@ -531,6 +729,72 @@ class BoardScene(
         floraPieces[hex]?.updateTransform()
         for (piece in unitPieces.values) {
             if (piece.hex == hex && piece.xz == null) piece.updateTransform()
+        }
+    }
+
+    // ----- defense auras -----
+
+    /**
+     * Ring decals on every tile covered by a tower/castle/capital (self + owned
+     * neighbors), so protection is visible before you bump into it. Alpha scales
+     * with the best defense level covering the tile.
+     */
+    private fun refreshAuras(state: GameState) {
+        // hex -> best covering defense level
+        val covered = HashMap<Hex, Int>()
+        for ((hex, tile) in state.tiles) {
+            val owner = tile.owner ?: continue
+            val defense = when (tile.building) {
+                Building.TOWER -> state.config.rules.towerDefense
+                Building.STRONG_TOWER -> state.config.rules.strongTowerDefense
+                Building.CAPITAL -> state.config.rules.capitalDefense
+                else -> continue
+            }
+            covered.merge(hex, defense, ::maxOf)
+            com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
+                if (state.tiles[n]?.owner == owner) covered.merge(n, defense, ::maxOf)
+            }
+        }
+
+        // Hide previous, then show current from the pool.
+        for (i in 0 until aurasShown) {
+            val aura = auraPool[i]
+            if (aura.inScene) {
+                engine.scene.removeEntity(aura.entity)
+                aura.inScene = false
+            }
+        }
+        aurasShown = 0
+        for ((hex, level) in covered) {
+            val aura = if (aurasShown < auraPool.size) {
+                auraPool[aurasShown]
+            } else {
+                val instance = materials.material("highlight").createInstance()
+                val entity = EntityManager.get().create()
+                RenderableManager.Builder(1)
+                    .boundingBox(auraMesh.aabb)
+                    .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, auraMesh.vertexBuffer, auraMesh.indexBuffer)
+                    .material(0, instance)
+                    .castShadows(false)
+                    .receiveShadows(false)
+                    .build(filament, entity)
+                AuraEntity(entity, instance, inScene = false).also { auraPool.add(it) }
+            }
+            aurasShown++
+            val alpha = 0.30f + 0.08f * (level - 1)
+            aura.instance.setParameter("color", 0.56f, 0.64f, 0.71f, alpha)
+            val tm = filament.transformManager
+            var ti = tm.getInstance(aura.entity)
+            if (ti == 0) ti = tm.create(aura.entity)
+            // Below the highlight discs (+0.012) but above the tile top: no z-fighting.
+            tm.setTransform(
+                ti,
+                Transforms.translation(HexWorld.centerX(hex), tileTopY(hex) + 0.006f, HexWorld.centerZ(hex)),
+            )
+            if (!aura.inScene) {
+                engine.scene.addEntity(aura.entity)
+                aura.inScene = true
+            }
         }
     }
 
@@ -574,6 +838,8 @@ class BoardScene(
                 piece.updateTransform()
                 corrections++
             }
+            // Dim is a view annotation events intentionally defer — sync silently.
+            unitPieces.getValue(unit.id).setDimmed(unit.spent)
         }
 
         // Buildings + flora, per tile.
@@ -591,6 +857,8 @@ class BoardScene(
         for (piece in unitPieces.values) piece.updateTransform()
         for (piece in buildingPieces.values) piece.updateTransform()
         for (piece in floraPieces.values) piece.updateTransform()
+
+        refreshAuras(state)
 
         if (log && corrections > 0) {
             Log.w(TAG, "reconcile corrected $corrections discrepancies (events should have covered these)")
@@ -634,6 +902,14 @@ class BoardScene(
         }
         highlightPool.clear()
         highlightMesh.destroy(filament)
+        for (aura in auraPool) {
+            if (aura.inScene) engine.scene.removeEntity(aura.entity)
+            filament.destroyEntity(aura.entity)
+            EntityManager.get().destroy(aura.entity)
+            filament.destroyMaterialInstance(aura.instance)
+        }
+        auraPool.clear()
+        auraMesh.destroy(filament)
         for (te in tiles.values) {
             filament.destroyEntity(te.entity)
             EntityManager.get().destroy(te.entity)
@@ -649,5 +925,9 @@ class BoardScene(
     companion object {
         private const val TAG = "BoardScene"
         private const val WAVE_MAX_RADIUS = Primitives.HEX_RADIUS * 1.3f + 0.2f
+        private const val DIM_FACTOR = 0.72f
+        private const val MAX_PATH_LEN = 24
+        /** Label anchor height: above the tallest piece (capital banner ~0.70). */
+        private const val ANCHOR_LIFT = 0.8f
     }
 }
