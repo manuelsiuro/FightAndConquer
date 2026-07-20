@@ -57,7 +57,7 @@ class BoardScene(
     private val materials = MaterialStore(context, filament)
     private val environment = SceneEnvironment(filament, engine.scene)
     private val hexMesh: GpuMesh = Primitives.hexPrism().upload(filament)
-    private val pieceMeshes = PieceMeshes(filament)
+    private val pieceMeshes = PieceMeshes(filament, context)
     private val animator = Animator()
 
     /**
