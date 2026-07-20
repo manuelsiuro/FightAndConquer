@@ -33,7 +33,6 @@
     <string name="hud_turn">Turn %d</string>
     <string name="hud_ai_thinking">thinking…</string>
     <string name="hud_fresh_units">%d ⚑</string>
-    <string name="hud_menu">⋯</string>
     <string name="hud_resign">Resign</string>
     <string name="hud_exit">Exit</string>
     <string name="cd_faction_color">Faction color of player %d</string>

@@ -29,11 +29,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -538,44 +547,52 @@ private fun TopBar(state: HudState, viewModel: GameViewModel) {
             }
         }
         Spacer(Modifier.weight(1f))
-        val menuDescription = stringResource(R.string.cd_open_menu)
-        Surface(
-            modifier = Modifier.padding(top = HudGutter, end = HudGutter),
-            shape = RoundedCornerShape(16.dp),
-            color = UiColors.panel,
-            shadowElevation = 4.dp,
-        ) {
-            Column {
-                Text(
-                    stringResource(R.string.hud_menu),
-                    modifier = Modifier
-                        .clickable(role = Role.Button) { menuOpen = !menuOpen }
-                        .semantics { contentDescription = menuDescription }
-                        .defaultMinSize(minWidth = MinTouchTarget, minHeight = MinTouchTarget)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    fontSize = 20.sp,
-                    color = UiColors.ink,
-                )
-                if (menuOpen) {
-                    Text(
-                        stringResource(R.string.hud_resign),
-                        modifier = Modifier
-                            .clickable(role = Role.Button) { menuOpen = false; viewModel.surrender() }
-                            .defaultMinSize(minHeight = MinTouchTarget)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        color = UiColors.alert,
-                        fontSize = 14.sp,
-                    )
-                    Text(
-                        stringResource(R.string.hud_exit),
-                        modifier = Modifier
-                            .clickable(role = Role.Button) { menuOpen = false; viewModel.backToMenu() }
-                            .defaultMinSize(minHeight = MinTouchTarget)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        color = UiColors.ink,
-                        fontSize = 14.sp,
+        Box(Modifier.padding(top = HudGutter, end = HudGutter)) {
+            Surface(shape = CircleShape, color = UiColors.panel, shadowElevation = 4.dp) {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.cd_open_menu),
+                        tint = UiColors.ink,
                     )
                 }
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                shape = RoundedCornerShape(12.dp),
+                containerColor = UiColors.panel,
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.hud_resign)) },
+                    leadingIcon = {
+                        // Null description: the adjacent label already names the action,
+                        // so a description here would make TalkBack read it twice.
+                        Icon(Icons.Default.Warning, contentDescription = null)
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = UiColors.alert,
+                        leadingIconColor = UiColors.alert,
+                    ),
+                    onClick = {
+                        menuOpen = false
+                        viewModel.surrender()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.hud_exit)) },
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = UiColors.ink,
+                        leadingIconColor = UiColors.inkSecondary,
+                    ),
+                    onClick = {
+                        menuOpen = false
+                        viewModel.backToMenu()
+                    },
+                )
             }
         }
     }
