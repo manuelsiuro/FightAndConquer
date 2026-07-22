@@ -23,6 +23,9 @@ object Reducer {
             is GameAction.BuyUnit -> applyBuyUnit(state, b, action)
             is GameAction.BuyBuilding -> applyBuyBuilding(state, b, action)
             is GameAction.MergeUnits -> applyMerge(state, b, action)
+            is GameAction.ProposePact -> applyProposePact(b, action)
+            is GameAction.RespondPact -> applyRespondPact(b, action)
+            is GameAction.SendTribute -> applySendTribute(b, action)
             GameAction.EndTurn -> TurnPipeline.endTurn(b)
             GameAction.Surrender -> applySurrender(b)
         }
@@ -106,6 +109,57 @@ object Reducer {
         b.units[target.id] = merged
         b.events.add(GameEvent.UnitMoved(a.id, a.hex, target.hex))
         b.events.add(GameEvent.UnitsMerged(into = merged, consumed = a.id))
+    }
+
+    private fun applyProposePact(b: StateBuilder, action: GameAction.ProposePact) {
+        val me = b.currentPlayer
+        val proposal = com.msa.fightandconquer.core.model.PactProposal(
+            from = me,
+            to = action.to,
+            durationRounds = action.durationRounds,
+            proposedAtRound = b.turnNumber,
+        )
+        val (lo, hi) = if (me.value < action.to.value) me to action.to else action.to to me
+        b.setDiplomacy(
+            proposals = b.diplomacy.proposals + proposal,
+            lastProposalRounds = b.diplomacy.lastProposalRounds
+                .filterNot { it.a == lo && it.b == hi } +
+                com.msa.fightandconquer.core.model.PairRound(lo, hi, b.turnNumber),
+        )
+        b.events.add(GameEvent.PactProposed(me, action.to, action.durationRounds))
+    }
+
+    private fun applyRespondPact(b: StateBuilder, action: GameAction.RespondPact) {
+        val me = b.currentPlayer
+        val proposal = b.diplomacy.proposalBetween(action.from, me)!!
+        if (action.accept) {
+            val (lo, hi) = if (action.from.value < me.value) action.from to me else me to action.from
+            val pact = com.msa.fightandconquer.core.model.Pact(
+                a = lo,
+                b = hi,
+                expiresAtRound = b.turnNumber + proposal.durationRounds,
+            )
+            b.setDiplomacy(
+                pacts = b.diplomacy.pacts + pact,
+                proposals = b.diplomacy.proposals - proposal,
+            )
+            b.events.add(GameEvent.PactAccepted(lo, hi, pact.expiresAtRound))
+        } else {
+            b.setDiplomacy(proposals = b.diplomacy.proposals - proposal)
+            b.events.add(GameEvent.PactDeclined(action.from, me))
+        }
+    }
+
+    private fun applySendTribute(b: StateBuilder, action: GameAction.SendTribute) {
+        val me = b.currentPlayer
+        b.updatePlayer(me) { it.copy(treasury = it.treasury - action.amount) }
+        b.updatePlayer(action.to) { it.copy(treasury = it.treasury + action.amount) }
+        b.setDiplomacy(
+            lastTributeRounds = b.diplomacy.lastTributeRounds
+                .filterNot { it.a == me && it.b == action.to } +
+                com.msa.fightandconquer.core.model.PairRound(me, action.to, b.turnNumber),
+        )
+        b.events.add(GameEvent.TributeSent(me, action.to, action.amount))
     }
 
     private fun applySurrender(b: StateBuilder) {

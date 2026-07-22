@@ -633,9 +633,12 @@ class BoardScene(
                 }
             }
 
-            // HUD-level events: no board animation.
+            // HUD-level events: no board animation (diplomacy stays off the board).
             is GameEvent.ActionRejected, is GameEvent.Bankruptcy,
             is GameEvent.PlayerEliminated, is GameEvent.GameOver,
+            is GameEvent.PactProposed, is GameEvent.PactAccepted, is GameEvent.PactDeclined,
+            is GameEvent.PactExpired, is GameEvent.PactProposalExpired,
+            is GameEvent.PactBroken, is GameEvent.TributeSent,
             -> Unit
         }
     }

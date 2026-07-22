@@ -24,9 +24,61 @@ object Legality {
             is GameAction.BuyUnit -> checkBuyUnit(state, action)
             is GameAction.BuyBuilding -> checkBuyBuilding(state, action)
             is GameAction.MergeUnits -> checkMerge(state, action)
+            is GameAction.ProposePact -> checkProposePact(state, action)
+            is GameAction.RespondPact -> checkRespondPact(state, action)
+            is GameAction.SendTribute -> checkSendTribute(state, action)
             GameAction.EndTurn -> LegalityResult.Ok
             GameAction.Surrender -> LegalityResult.Ok
         }
+    }
+
+    private fun checkDiplomacyTarget(state: GameState, target: com.msa.fightandconquer.core.model.PlayerId): LegalityResult? {
+        if (!state.config.rules.diplomacyEnabled) return reject(RejectionReason.DIPLOMACY_DISABLED)
+        if (target == state.currentPlayer || target.value !in state.players.indices ||
+            state.player(target).eliminated
+        ) {
+            return reject(RejectionReason.INVALID_PLAYER)
+        }
+        return null
+    }
+
+    private fun checkProposePact(state: GameState, action: GameAction.ProposePact): LegalityResult {
+        checkDiplomacyTarget(state, action.to)?.let { return it }
+        val rules = state.config.rules
+        if (action.durationRounds !in rules.pactMinDurationRounds..rules.pactMaxDurationRounds) {
+            return reject(RejectionReason.INVALID_PACT_DURATION)
+        }
+        val d = state.diplomacy
+        val me = state.currentPlayer
+        if (d.pactBetween(me, action.to) != null) return reject(RejectionReason.PACT_ALREADY_ACTIVE)
+        if (d.proposalBetween(me, action.to) != null || d.proposalBetween(action.to, me) != null) {
+            return reject(RejectionReason.PROPOSAL_PENDING)
+        }
+        d.lastProposalRound(me, action.to)?.let { last ->
+            val readyAt = last + rules.pactProposalCooldownRounds
+            if (state.turnNumber < readyAt) {
+                return reject(RejectionReason.PROPOSAL_COOLDOWN, readyAt - state.turnNumber)
+            }
+        }
+        return LegalityResult.Ok
+    }
+
+    private fun checkRespondPact(state: GameState, action: GameAction.RespondPact): LegalityResult {
+        if (!state.config.rules.diplomacyEnabled) return reject(RejectionReason.DIPLOMACY_DISABLED)
+        val proposal = state.diplomacy.proposalBetween(action.from, state.currentPlayer)
+            ?: return reject(RejectionReason.NO_SUCH_PROPOSAL)
+        if (action.from.value !in state.players.indices || state.player(proposal.from).eliminated) {
+            return reject(RejectionReason.NO_SUCH_PROPOSAL)
+        }
+        return LegalityResult.Ok
+    }
+
+    private fun checkSendTribute(state: GameState, action: GameAction.SendTribute): LegalityResult {
+        checkDiplomacyTarget(state, action.to)?.let { return it }
+        if (action.amount < 1) return reject(RejectionReason.INVALID_TRIBUTE_AMOUNT)
+        val treasury = state.player(state.currentPlayer).treasury
+        if (treasury < action.amount) return reject(RejectionReason.CANNOT_AFFORD, action.amount)
+        return LegalityResult.Ok
     }
 
     private fun checkMove(state: GameState, action: GameAction.MoveUnit): LegalityResult {

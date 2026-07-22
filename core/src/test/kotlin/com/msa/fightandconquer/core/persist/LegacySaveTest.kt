@@ -36,6 +36,11 @@ class LegacySaveTest {
         "specialUnitsEnabled",
         "archerCost", "archerUpkeep", "archerStrength", "archerAuraDefense",
         "catapultCost", "catapultUpkeep", "catapultStrength", "catapultMoveRange",
+        // GameState (Phase C)
+        "diplomacy",
+        // RuleConstants (Phase C)
+        "diplomacyEnabled", "pactMinDurationRounds", "pactMaxDurationRounds",
+        "pactProposalTtlRounds", "pactProposalCooldownRounds", "pactBreakPenaltyPercent",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

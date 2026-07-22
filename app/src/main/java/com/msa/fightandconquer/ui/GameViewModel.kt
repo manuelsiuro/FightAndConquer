@@ -94,6 +94,27 @@ data class EconomyBreakdown(
     val upkeepRisk: Boolean,
 )
 
+/** Diplomacy panel: one row per opponent. */
+enum class PactUiState { WAR, PACT, PROPOSAL_SENT, PROPOSAL_RECEIVED }
+data class PactStatus(
+    val playerIndex: Int,
+    val isHuman: Boolean,
+    val eliminated: Boolean,
+    val state: PactUiState,
+    /** Rounds left on the active pact (PACT only). */
+    val turnsRemaining: Int?,
+)
+data class DiplomacyPanelState(
+    val rows: List<PactStatus>,
+    val tributeChoices: List<Int>,
+    val pactDurationRounds: Int,
+    val breakPenaltyPercent: Int,
+    val treasury: Int,
+)
+
+/** A pending pact offer awaiting the current human's answer. */
+data class IncomingProposal(val fromIndex: Int, val durationRounds: Int)
+
 /** Transient top-center notifications. */
 enum class ToastKind { INFO, WARNING, ALERT }
 data class HudToast(val id: Long, val text: UiText, val kind: ToastKind)
@@ -172,6 +193,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _economy = MutableStateFlow<EconomyBreakdown?>(null)
     val economy: StateFlow<EconomyBreakdown?> = _economy.asStateFlow()
 
+    private val _diplomacy = MutableStateFlow<DiplomacyPanelState?>(null)
+    val diplomacy: StateFlow<DiplomacyPanelState?> = _diplomacy.asStateFlow()
+
+    private val _incomingProposals = MutableStateFlow<List<IncomingProposal>>(emptyList())
+    val incomingProposals: StateFlow<List<IncomingProposal>> = _incomingProposals.asStateFlow()
+
     private val _toasts = MutableStateFlow<List<HudToast>>(emptyList())
     val toasts: StateFlow<List<HudToast>> = _toasts.asStateFlow()
 
@@ -196,6 +223,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var selectedUnit: UnitId? = null
     private var selectedHex: Hex? = null
     private var banner: Int? = null
+    /** Armed pact-break confirmation: capture of this partner hex proceeds on re-tap. */
+    private var pendingPactBreak: Hex? = null
     /** Seat of the human who most recently played — the fog perspective during AI turns. */
     private var lastHumanSeat: Int? = null
     private var aiJob: Job? = null
@@ -256,10 +285,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _highlights.value = HighlightSet()
         _overlayLabels.value = emptyList()
         _economy.value = null
+        _diplomacy.value = null
+        _incomingProposals.value = emptyList()
         _infoCard.value = null
         _toasts.value = emptyList()
         _popups.value = emptyList()
-        selectedUnit = null; selectedHex = null; banner = null
+        selectedUnit = null; selectedHex = null; banner = null; pendingPactBreak = null
         lastHumanSeat = null
         _visibility.value = null
         _screen.value = Screen.Menu(autosaveFile.exists())
@@ -269,7 +300,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         aiJob?.cancel()
         eventsJob?.cancel()
         engine = newEngine
-        selectedUnit = null; selectedHex = null
+        selectedUnit = null; selectedHex = null; pendingPactBreak = null
+        _diplomacy.value = null
         lastHumanSeat = null
         banner = if (showOpeningBanner) 0 else null
         freshUnitCursor = 0
@@ -289,7 +321,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun onHexTapped(hex: Hex) {
         val engine = engine ?: return
         val hudNow = _hud.value ?: return
-        _economy.value = null // board taps dismiss the glanceable panel
+        _economy.value = null // board taps dismiss the glanceable panels
+        _diplomacy.value = null
         if (banner != null || !hudNow.currentIsHuman || hudNow.winner != null) return
         val state = engine.state.value
 
@@ -298,6 +331,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val reach = engine.reachableFor(heldUnit)
             when (hex) {
                 in reach.moveTargets, in reach.captureTargets -> {
+                    // Capturing a pact partner's hex breaks the pact — arm a
+                    // second-tap confirmation instead of striking immediately.
+                    val targetOwner = state.tiles[hex]?.owner
+                    if (hex in reach.captureTargets && targetOwner != null &&
+                        engine.pactBetween(state.currentPlayer, targetOwner) != null &&
+                        pendingPactBreak != hex
+                    ) {
+                        pendingPactBreak = hex
+                        val penalty = state.player(state.currentPlayer).treasury *
+                            state.config.rules.pactBreakPenaltyPercent / 100
+                        pushToast(UiText.of(R.string.toast_pact_break_confirm, penalty), ToastKind.WARNING)
+                        return
+                    }
+                    pendingPactBreak = null
                     submit(GameAction.MoveUnit(heldUnit, hex))
                     clearSelection()
                     refreshHud()
@@ -367,6 +414,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun clearSelection() {
         selectedUnit = null
         selectedHex = null
+        pendingPactBreak = null
         _highlights.value = HighlightSet()
         _overlayLabels.value = emptyList()
         _infoCard.value = null
@@ -458,7 +506,62 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // ----- economy panel -----
 
     fun toggleEconomyPanel() {
+        _diplomacy.value = null
         _economy.value = if (_economy.value == null) computeEconomy() else null
+    }
+
+    // ----- diplomacy -----
+
+    fun toggleDiplomacyPanel() {
+        _economy.value = null
+        _diplomacy.value = if (_diplomacy.value == null) computeDiplomacy() else null
+    }
+
+    fun proposePact(playerIndex: Int) {
+        val duration = _diplomacy.value?.pactDurationRounds ?: return
+        submit(GameAction.ProposePact(PlayerId(playerIndex), duration))
+    }
+
+    fun acceptPact(fromIndex: Int) {
+        submit(GameAction.RespondPact(PlayerId(fromIndex), accept = true))
+    }
+
+    fun declinePact(fromIndex: Int) {
+        submit(GameAction.RespondPact(PlayerId(fromIndex), accept = false))
+    }
+
+    fun sendTribute(playerIndex: Int, amount: Int) {
+        submit(GameAction.SendTribute(PlayerId(playerIndex), amount))
+    }
+
+    private fun computeDiplomacy(): DiplomacyPanelState? {
+        val state = engine?.state?.value ?: return null
+        val rules = state.config.rules
+        if (!rules.diplomacyEnabled || state.phase !is GamePhase.Playing) return null
+        val me = state.currentPlayer
+        val d = state.diplomacy
+        val rows = state.players.filter { it.id != me }.map { p ->
+            val pact = d.pactBetween(me, p.id)
+            PactStatus(
+                playerIndex = p.id.value,
+                isHuman = p.kind is PlayerKind.Human,
+                eliminated = p.eliminated,
+                state = when {
+                    pact != null -> PactUiState.PACT
+                    d.proposalBetween(me, p.id) != null -> PactUiState.PROPOSAL_SENT
+                    d.proposalBetween(p.id, me) != null -> PactUiState.PROPOSAL_RECEIVED
+                    else -> PactUiState.WAR
+                },
+                turnsRemaining = pact?.let { maxOf(0, it.expiresAtRound - state.turnNumber) },
+            )
+        }
+        return DiplomacyPanelState(
+            rows = rows,
+            tributeChoices = listOf(10, 25, 50),
+            pactDurationRounds = (rules.pactMinDurationRounds + rules.pactMaxDurationRounds) / 2,
+            breakPenaltyPercent = rules.pactBreakPenaltyPercent,
+            treasury = state.player(me).treasury,
+        )
     }
 
     private fun computeEconomy(): EconomyBreakdown? {
@@ -626,6 +729,59 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
             is GameEvent.ActionRejected -> {
                 if (actorIsHuman) pushToast(event.reason.toUiText(event.amount), ToastKind.INFO)
+            }
+
+            is GameEvent.PactProposed -> {
+                if (actorIsHuman) pushToast(UiText.of(R.string.toast_pact_sent, event.to.value + 1), ToastKind.INFO)
+                // The recipient sees the persistent proposal strip on their turn.
+            }
+
+            is GameEvent.PactAccepted -> {
+                if (state.players[event.a.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_accepted, event.b.value + 1), ToastKind.INFO)
+                }
+                if (state.players[event.b.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_accepted, event.a.value + 1), ToastKind.INFO)
+                }
+            }
+
+            is GameEvent.PactDeclined -> {
+                if (state.players[event.from.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_declined, event.to.value + 1), ToastKind.INFO)
+                }
+            }
+
+            is GameEvent.PactExpired -> {
+                if (state.players[event.a.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_expired, event.b.value + 1), ToastKind.INFO)
+                }
+                if (state.players[event.b.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_expired, event.a.value + 1), ToastKind.INFO)
+                }
+            }
+
+            is GameEvent.PactBroken -> {
+                if (state.players[event.victim.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_broken_by, event.breaker.value + 1), ToastKind.ALERT)
+                }
+                if (state.players[event.breaker.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_broken_penalty, event.penalty), ToastKind.WARNING)
+                }
+            }
+
+            is GameEvent.TributeSent -> {
+                if (state.players[event.to.value].kind is PlayerKind.Human) {
+                    pushToast(
+                        UiText.of(R.string.toast_tribute_received, event.from.value + 1, event.amount),
+                        ToastKind.INFO,
+                    )
+                    state.players[event.to.value].capital?.let { capital ->
+                        pushPopup(capital, UiText.of(R.string.popup_coins, event.amount))
+                    }
+                }
+                if (state.players[event.from.value].kind is PlayerKind.Human && actorIsHuman) {
+                    pushToast(UiText.of(R.string.toast_tribute_sent, event.amount), ToastKind.INFO)
+                }
             }
 
             else -> Unit
@@ -959,8 +1115,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 catapultUpkeep = rules.catapultUpkeep,
             ),
         )
-        // Live panel tracks every buy/move/undo.
+        // Live panels track every buy/move/undo.
         if (_economy.value != null) _economy.value = computeEconomy()
+        if (_diplomacy.value != null) _diplomacy.value = computeDiplomacy()
+        // Incoming proposals surface only to the acting human, never behind a banner.
+        _incomingProposals.value = if (
+            rules.diplomacyEnabled && banner == null && state.phase is GamePhase.Playing &&
+            state.player(me).kind is PlayerKind.Human
+        ) {
+            engine.incomingProposals().map { IncomingProposal(it.from.value, it.durationRounds) }
+        } else {
+            emptyList()
+        }
         // Keep highlights in sync with spent/moved units.
         if (selectedUnit?.let { !state.units.containsKey(it) } == true) clearSelection()
         // Fog of war: refreshHud runs after every state entry point (submit, undo,

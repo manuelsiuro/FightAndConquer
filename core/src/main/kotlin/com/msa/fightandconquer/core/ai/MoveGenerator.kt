@@ -24,6 +24,23 @@ object MoveGenerator {
         val treasury = state.player(me).treasury
         val out = ArrayList<GameAction>()
 
+        // Pact partners are never capture targets (regardless of what the engine
+        // would allow — attacking auto-breaks with a penalty). Hard lifts the filter
+        // for partners the betrayal policy has marked.
+        val partners: Set<com.msa.fightandconquer.core.model.PlayerId> =
+            if (rules.diplomacyEnabled && state.diplomacy.pacts.isNotEmpty()) {
+                val all = state.diplomacy.pacts.mapNotNull {
+                    when (me) {
+                        it.a -> it.b
+                        it.b -> it.a
+                        else -> null
+                    }
+                }.toSet()
+                if (difficulty == Difficulty.HARD) all - DiplomacyPolicy.betrayalTargets(state, me) else all
+            } else {
+                emptySet()
+            }
+
         // Frontier: non-owned hexes adjacent to funded territory, with their defense.
         // Fog of war note: everything read here (frontier hexes and every defenseOf
         // input — the hex plus its neighbors) lies within distance 2 of owned
@@ -35,7 +52,9 @@ object MoveGenerator {
             HexMath.forEachNeighbor(hex) { n ->
                 if (n !in frontier) {
                     val t = state.tiles[n]
-                    if (t != null && t.owner != me) frontier[n] = Rules.defenseOf(state, n)
+                    if (t != null && t.owner != me && t.owner !in partners) {
+                        frontier[n] = Rules.defenseOf(state, n)
+                    }
                 }
             }
         }
@@ -48,7 +67,9 @@ object MoveGenerator {
         for (unit in myUnits) {
             val reach = Rules.reachable(state, unit.id)
             reach.captureTargets.sortedBy { it.packed }.forEach {
-                out.add(GameAction.MoveUnit(unit.id, it))
+                if (state.tiles.getValue(it).owner !in partners) {
+                    out.add(GameAction.MoveUnit(unit.id, it))
+                }
             }
             // Clear trees rotting our income (managed camp trees are income, keep them).
             reach.moveTargets.sortedBy { it.packed }.forEach {

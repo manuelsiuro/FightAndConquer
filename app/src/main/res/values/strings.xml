@@ -152,6 +152,24 @@
     <string name="economy_warn_bankruptcy">Bankruptcy next turn — all units will die!</string>
     <string name="economy_warn_upkeep">Treasury won\'t cover another round of upkeep</string>
 
+    <!-- Diplomacy -->
+    <string name="hud_diplomacy">Diplomacy</string>
+    <string name="emoji_pact">🤝</string>
+    <string name="hud_pact_badge">🤝 %d</string>
+    <string name="cd_open_diplomacy">Open the diplomacy panel</string>
+    <string name="diplomacy_title">Diplomacy</string>
+    <string name="diplomacy_status_war">At war</string>
+    <string name="diplomacy_status_pact">Pact — %d turns left</string>
+    <string name="diplomacy_status_proposed">Awaiting reply…</string>
+    <string name="diplomacy_status_offer">They offered a pact</string>
+    <string name="diplomacy_propose">Propose pact</string>
+    <string name="diplomacy_accept">Accept</string>
+    <string name="diplomacy_decline">Decline</string>
+    <string name="diplomacy_tribute">Tribute</string>
+    <string name="diplomacy_tribute_amount">%d 🪙</string>
+    <string name="diplomacy_proposal_text">Player %1$d proposes a %2$d-turn pact</string>
+    <string name="cd_send_tribute">Send %1$d coins to player %2$d</string>
+
     <!-- Overlays -->
     <string name="banner_player">Player %d</string>
     <string name="banner_tap_to_start">Tap to start your turn</string>
@@ -163,6 +181,15 @@
 
     <!-- Toasts and popups -->
     <string name="popup_coins">+%d 🪙</string>
+    <string name="toast_pact_sent">Pact proposal sent to Player %d</string>
+    <string name="toast_pact_accepted">Pact agreed with Player %d</string>
+    <string name="toast_pact_declined">Player %d declined your pact</string>
+    <string name="toast_pact_expired">Your pact with Player %d has ended</string>
+    <string name="toast_pact_broken_by">Player %d broke your pact!</string>
+    <string name="toast_pact_broken_penalty">Pact broken — you paid %d 🪙</string>
+    <string name="toast_pact_break_confirm">This breaks your pact (−%d 🪙) — tap again to attack</string>
+    <string name="toast_tribute_received">Player %1$d sent you %2$d 🪙</string>
+    <string name="toast_tribute_sent">Tribute sent (−%d 🪙)</string>
     <string name="toast_looted">Looted %d coins</string>
     <string name="toast_capital_looted">Your capital was looted (−%d)</string>
     <string name="toast_territory_cut_off">Territory cut off from your capital!</string>
@@ -195,6 +222,14 @@
     <string name="reject_requires_fog">Watchtowers only help under fog of war</string>
     <string name="reject_cannot_merge_special">Archers and catapults can\'t merge</string>
     <string name="reject_specials_disabled">Special units are disabled in this game</string>
+    <string name="reject_diplomacy_disabled">Diplomacy is disabled in this game</string>
+    <string name="reject_invalid_player">That player can\'t be dealt with</string>
+    <string name="reject_invalid_pact_duration">Pacts must last between 2 and 10 turns</string>
+    <string name="reject_pact_active">You already have a pact with that player</string>
+    <string name="reject_proposal_pending">A proposal between you is already pending</string>
+    <string name="reject_proposal_cooldown">Too soon — try again in %d turns</string>
+    <string name="reject_no_such_proposal">No pending proposal from that player</string>
+    <string name="reject_invalid_tribute">Tribute must be at least one coin</string>
     <string name="reject_not_your_units">Those are not your units</string>
     <string name="reject_cannot_merge_self">A unit cannot merge with itself</string>
     <string name="reject_tier_mismatch">Only units of the same tier can merge</string>

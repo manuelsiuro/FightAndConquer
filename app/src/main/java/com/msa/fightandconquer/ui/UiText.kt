@@ -85,5 +85,13 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.SPECIAL_UNITS_DISABLED -> UiText.of(R.string.reject_specials_disabled)
     RejectionReason.BUILDING_NEEDS_DEPOSIT -> UiText.of(R.string.reject_building_needs_deposit)
     RejectionReason.REQUIRES_FOG_OF_WAR -> UiText.of(R.string.reject_requires_fog)
+    RejectionReason.DIPLOMACY_DISABLED -> UiText.of(R.string.reject_diplomacy_disabled)
+    RejectionReason.INVALID_PLAYER -> UiText.of(R.string.reject_invalid_player)
+    RejectionReason.INVALID_PACT_DURATION -> UiText.of(R.string.reject_invalid_pact_duration)
+    RejectionReason.PACT_ALREADY_ACTIVE -> UiText.of(R.string.reject_pact_active)
+    RejectionReason.PROPOSAL_PENDING -> UiText.of(R.string.reject_proposal_pending)
+    RejectionReason.PROPOSAL_COOLDOWN -> UiText.of(R.string.reject_proposal_cooldown, amount ?: 0)
+    RejectionReason.NO_SUCH_PROPOSAL -> UiText.of(R.string.reject_no_such_proposal)
+    RejectionReason.INVALID_TRIBUTE_AMOUNT -> UiText.of(R.string.reject_invalid_tribute)
     RejectionReason.NO_GAME -> UiText.of(R.string.reject_no_game)
 }

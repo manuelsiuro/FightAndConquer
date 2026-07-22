@@ -50,6 +50,30 @@ sealed interface GameAction {
     @SerialName("merge")
     data class MergeUnits(val a: UnitId, val b: UnitId) : GameAction
 
+    /** Offer [to] a non-aggression pact lasting [durationRounds] full rounds. */
+    @Serializable
+    @SerialName("proposePact")
+    data class ProposePact(
+        val to: com.msa.fightandconquer.core.model.PlayerId,
+        val durationRounds: Int,
+    ) : GameAction
+
+    /** Accept or decline the pending proposal [from] sent to the current player. */
+    @Serializable
+    @SerialName("respondPact")
+    data class RespondPact(
+        val from: com.msa.fightandconquer.core.model.PlayerId,
+        val accept: Boolean,
+    ) : GameAction
+
+    /** Gift [amount] gold to [to] (appeasement; no strings attached mechanically). */
+    @Serializable
+    @SerialName("sendTribute")
+    data class SendTribute(
+        val to: com.msa.fightandconquer.core.model.PlayerId,
+        val amount: Int,
+    ) : GameAction
+
     @Serializable
     @SerialName("endTurn")
     data object EndTurn : GameAction

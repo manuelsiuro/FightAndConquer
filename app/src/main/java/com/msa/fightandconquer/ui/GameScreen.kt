@@ -15,6 +15,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -107,6 +108,8 @@ fun GameScreen(viewModel: GameViewModel) {
     val popups by viewModel.popups.collectAsState()
     val toasts by viewModel.toasts.collectAsState()
     val economy by viewModel.economy.collectAsState()
+    val diplomacy by viewModel.diplomacy.collectAsState()
+    val incomingProposals by viewModel.incomingProposals.collectAsState()
     val infoCard by viewModel.infoCard.collectAsState()
     val engine = viewModel.engine ?: return
 
@@ -183,12 +186,16 @@ fun GameScreen(viewModel: GameViewModel) {
         // ----- HUD -----
         hud?.let { state ->
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                TopBar(state, viewModel)
+                TopBar(state, incomingProposals.size, viewModel)
+                if (state.currentIsHuman && state.banner == null && incomingProposals.isNotEmpty()) {
+                    ProposalStrip(incomingProposals, viewModel)
+                }
                 Spacer(Modifier.weight(1f))
                 BottomBar(state, infoCard, viewModel)
             }
 
             economy?.let { EconomyPanel(it) }
+            diplomacy?.let { DiplomacyPanel(it, viewModel) }
             ToastStack(toasts)
 
             state.banner?.let { seat ->
@@ -465,10 +472,164 @@ private fun WarningStrip(text: String, background: Color, foreground: Color) {
     }
 }
 
+// ---------- diplomacy ----------
+
+@Composable
+private fun DiplomacyPanel(state: DiplomacyPanelState, viewModel: GameViewModel) {
+    Surface(
+        modifier = Modifier
+            .safeDrawingPadding()
+            .padding(start = HudGutter, top = TopBarHeight + HudGutter)
+            .width(270.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = UiColors.panel,
+        shadowElevation = 6.dp,
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(stringResource(R.string.diplomacy_title), fontSize = 12.sp, color = UiColors.inkMuted)
+            for (row in state.rows) {
+                if (row.eliminated) continue
+                DiplomacyRow(row, state, viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel: GameViewModel) {
+    var tributeOpen by remember(row.playerIndex) { mutableStateOf(false) }
+    Column(Modifier.padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val factionDescription = stringResource(R.string.cd_faction_color, row.playerIndex + 1)
+            Box(
+                Modifier
+                    .size(14.dp)
+                    .background(UiColors.faction(row.playerIndex), CircleShape)
+                    .semantics { contentDescription = factionDescription },
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (row.isHuman) {
+                    stringResource(R.string.hud_player, row.playerIndex + 1)
+                } else {
+                    stringResource(R.string.hud_ai_player, row.playerIndex + 1)
+                },
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = UiColors.ink,
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                when (row.state) {
+                    PactUiState.WAR -> stringResource(R.string.diplomacy_status_war)
+                    PactUiState.PACT -> stringResource(R.string.diplomacy_status_pact, row.turnsRemaining ?: 0)
+                    PactUiState.PROPOSAL_SENT -> stringResource(R.string.diplomacy_status_proposed)
+                    PactUiState.PROPOSAL_RECEIVED -> stringResource(R.string.diplomacy_status_offer)
+                },
+                fontSize = 13.sp,
+                color = if (row.state == PactUiState.PACT) UiColors.positive else UiColors.inkMuted,
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (row.state == PactUiState.WAR) {
+                OutlinedButton(
+                    onClick = { viewModel.proposePact(row.playerIndex) },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                ) {
+                    Text(stringResource(R.string.diplomacy_propose), fontSize = 13.sp, color = UiColors.ink)
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            OutlinedButton(
+                onClick = { tributeOpen = !tributeOpen },
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Text(stringResource(R.string.diplomacy_tribute), fontSize = 13.sp, color = UiColors.ink)
+            }
+        }
+        if (tributeOpen) {
+            Row {
+                for (amount in panel.tributeChoices) {
+                    val affordable = amount <= panel.treasury
+                    val tributeDescription =
+                        stringResource(R.string.cd_send_tribute, amount, row.playerIndex + 1)
+                    OutlinedButton(
+                        onClick = {
+                            tributeOpen = false
+                            viewModel.sendTribute(row.playerIndex, amount)
+                        },
+                        enabled = affordable,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .semantics { contentDescription = tributeDescription },
+                    ) {
+                        Text(
+                            stringResource(R.string.diplomacy_tribute_amount, amount),
+                            fontSize = 12.sp,
+                            color = if (affordable) UiColors.ink else UiColors.inkFaint,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProposalStrip(proposals: List<IncomingProposal>, viewModel: GameViewModel) {
+    Column {
+        for (proposal in proposals) {
+            Surface(
+                modifier = Modifier
+                    .padding(horizontal = HudGutter, vertical = 2.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = UiColors.panel,
+                shadowElevation = 4.dp,
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .size(12.dp)
+                            .background(UiColors.faction(proposal.fromIndex), CircleShape),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(
+                            R.string.diplomacy_proposal_text,
+                            proposal.fromIndex + 1,
+                            proposal.durationRounds,
+                        ),
+                        fontSize = 13.sp,
+                        color = UiColors.ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(
+                        onClick = { viewModel.declinePact(proposal.fromIndex) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    ) {
+                        Text(stringResource(R.string.diplomacy_decline), fontSize = 13.sp, color = UiColors.ink)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Button(
+                        onClick = { viewModel.acceptPact(proposal.fromIndex) },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                    ) {
+                        Text(stringResource(R.string.diplomacy_accept), fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ---------- top bar ----------
 
 @Composable
-private fun TopBar(state: HudState, viewModel: GameViewModel) {
+private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel) {
     var menuOpen by remember { mutableStateOf(false) }
     val factionDescription = stringResource(R.string.cd_faction_color, state.currentPlayer + 1)
     val economyDescription = stringResource(R.string.cd_open_economy)
@@ -552,6 +713,26 @@ private fun TopBar(state: HudState, viewModel: GameViewModel) {
                         )
                     }
                 }
+                if (state.currentIsHuman && state.banner == null && proposalCount > 0) {
+                    Spacer(Modifier.width(10.dp))
+                    val pactDescription = stringResource(R.string.cd_open_diplomacy)
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = UiColors.toastWarning.copy(alpha = 0.35f),
+                        modifier = Modifier
+                            .clickable(role = Role.Button) { viewModel.toggleDiplomacyPanel() }
+                            .semantics { contentDescription = pactDescription }
+                            .defaultMinSize(minHeight = MinTouchTarget),
+                    ) {
+                        Text(
+                            stringResource(R.string.hud_pact_badge, proposalCount),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = UiColors.ink,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
+                        )
+                    }
+                }
                 if (state.aiThinking) {
                     Spacer(Modifier.width(10.dp))
                     Text(
@@ -579,6 +760,15 @@ private fun TopBar(state: HudState, viewModel: GameViewModel) {
                 shape = RoundedCornerShape(12.dp),
                 containerColor = UiColors.panel,
             ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.hud_diplomacy)) },
+                    leadingIcon = { Text(stringResource(R.string.emoji_pact)) },
+                    colors = MenuDefaults.itemColors(textColor = UiColors.ink),
+                    onClick = {
+                        menuOpen = false
+                        viewModel.toggleDiplomacyPanel()
+                    },
+                )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.hud_resign)) },
                     leadingIcon = {

@@ -33,6 +33,7 @@ internal object TurnPipeline {
         val playerId = b.currentPlayer
         if (b.player(playerId).eliminated) return
 
+        expireDiplomacy(b)
         growGravestones(b)
         spreadTrees(b)
 
@@ -63,6 +64,25 @@ internal object TurnPipeline {
         }
 
         b.checkElimination()
+    }
+
+    /**
+     * Step 0: lapse ended pacts and stale proposals (events in canonical sorted
+     * order — the lists themselves are already kept sorted). A proposal survives
+     * until its target had at least [RuleConstants.pactProposalTtlRounds] full
+     * rounds to answer.
+     */
+    private fun expireDiplomacy(b: StateBuilder) {
+        val d = b.diplomacy
+        if (d.pacts.isEmpty() && d.proposals.isEmpty()) return
+        val endedPacts = d.pacts.filter { it.expiresAtRound <= b.turnNumber }
+        val stale = d.proposals.filter {
+            b.turnNumber > it.proposedAtRound + b.rules.pactProposalTtlRounds
+        }
+        if (endedPacts.isEmpty() && stale.isEmpty()) return
+        b.setDiplomacy(pacts = d.pacts - endedPacts.toSet(), proposals = d.proposals - stale.toSet())
+        endedPacts.forEach { b.events.add(GameEvent.PactExpired(it.a, it.b)) }
+        stale.forEach { b.events.add(GameEvent.PactProposalExpired(it.from, it.to)) }
     }
 
     /** Q's gravestones created at least one full round ago become trees. */

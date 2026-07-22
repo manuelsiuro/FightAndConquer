@@ -115,6 +115,25 @@ object Evaluator {
             score -= if (difficulty == Difficulty.EASY) 100.0 else 1e6
         }
 
+        // Pact value (Normal/Hard): peace with someone stronger is worth keeping.
+        // A simulated partner-capture drops this term AND pays the break penalty
+        // through the treasury term, so the greedy loop can't back-door the policy.
+        if (difficulty != Difficulty.EASY && state.config.rules.diplomacyEnabled &&
+            state.diplomacy.pacts.isNotEmpty()
+        ) {
+            val strongWeight = if (difficulty == Difficulty.HARD) 14.0 else 10.0
+            val myPower = DiplomacyPolicy.powerOf(state, me, me)
+            for (pact in state.diplomacy.pacts) {
+                val partner = when (me) {
+                    pact.a -> pact.b
+                    pact.b -> pact.a
+                    else -> null
+                } ?: continue
+                val partnerPower = DiplomacyPolicy.powerOf(state, me, partner)
+                score += if (partnerPower * 5 >= myPower * 6) strongWeight else 4.0
+            }
+        }
+
         if (difficulty == Difficulty.HARD) {
             // Slicing pays: enemy tiles cut off from their capital are dying assets.
             score += 8.0 * enemyStarving

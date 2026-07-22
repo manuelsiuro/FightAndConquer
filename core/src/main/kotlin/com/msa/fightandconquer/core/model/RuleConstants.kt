@@ -97,4 +97,15 @@ data class RuleConstants(
     val catapultStrength: Int = 2,
     /** Max hex distance a catapult covers per action (interceptable, slow). */
     val catapultMoveRange: Int = 2,
+
+    // --- Diplomacy (expansion) ---
+    val diplomacyEnabled: Boolean = true,
+    val pactMinDurationRounds: Int = 2,
+    val pactMaxDurationRounds: Int = 10,
+    /** Unanswered proposals lapse after the target had this many full rounds. */
+    val pactProposalTtlRounds: Int = 1,
+    /** Rounds before the same pair may exchange another proposal (anti-spam). */
+    val pactProposalCooldownRounds: Int = 6,
+    /** Percent of the breaker's treasury paid to the victim on a pact break. */
+    val pactBreakPenaltyPercent: Int = 25,
 )
