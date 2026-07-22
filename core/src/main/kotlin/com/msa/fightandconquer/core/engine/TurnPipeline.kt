@@ -33,6 +33,7 @@ internal object TurnPipeline {
         val playerId = b.currentPlayer
         if (b.player(playerId).eliminated) return
 
+        expireDiplomacy(b)
         growGravestones(b)
         spreadTrees(b)
 
@@ -65,6 +66,25 @@ internal object TurnPipeline {
         b.checkElimination()
     }
 
+    /**
+     * Step 0: lapse ended pacts and stale proposals (events in canonical sorted
+     * order — the lists themselves are already kept sorted). A proposal survives
+     * until its target had at least [RuleConstants.pactProposalTtlRounds] full
+     * rounds to answer.
+     */
+    private fun expireDiplomacy(b: StateBuilder) {
+        val d = b.diplomacy
+        if (d.pacts.isEmpty() && d.proposals.isEmpty()) return
+        val endedPacts = d.pacts.filter { it.expiresAtRound <= b.turnNumber }
+        val stale = d.proposals.filter {
+            b.turnNumber > it.proposedAtRound + b.rules.pactProposalTtlRounds
+        }
+        if (endedPacts.isEmpty() && stale.isEmpty()) return
+        b.setDiplomacy(pacts = d.pacts - endedPacts.toSet(), proposals = d.proposals - stale.toSet())
+        endedPacts.forEach { b.events.add(GameEvent.PactExpired(it.a, it.b)) }
+        stale.forEach { b.events.add(GameEvent.PactProposalExpired(it.from, it.to)) }
+    }
+
     /** Q's gravestones created at least one full round ago become trees. */
     private fun growGravestones(b: StateBuilder) {
         val playerId = b.currentPlayer
@@ -80,7 +100,8 @@ internal object TurnPipeline {
     /**
      * Each tree on or adjacent to the current player's territory rolls once to spread
      * to a uniformly-random adjacent empty land hex. Deterministic iteration order
-     * (sorted by packed coordinate) keeps replays stable.
+     * (sorted by packed coordinate) keeps replays stable. Trees adjacent to a Lumber
+     * Camp (any owner) are managed forest and never spread.
      */
     private fun spreadTrees(b: StateBuilder) {
         val playerId = b.currentPlayer
@@ -88,7 +109,10 @@ internal object TurnPipeline {
             .filter { (hex, tile) ->
                 tile.flora is Flora.Tree &&
                     (tile.owner == playerId ||
-                        HexMath.neighbors(hex).any { b.tiles[it]?.owner == playerId })
+                        HexMath.neighbors(hex).any { b.tiles[it]?.owner == playerId }) &&
+                    HexMath.neighbors(hex).none {
+                        b.tiles[it]?.building == com.msa.fightandconquer.core.model.Building.LUMBER_CAMP
+                    }
             }
             .map { it.key }
             .sortedBy { it.packed }
@@ -106,17 +130,9 @@ internal object TurnPipeline {
         }
     }
 
-    private fun incomeIn(b: StateBuilder): Int {
-        var income = 0
-        for (tile in b.tiles.values) {
-            if (tile.owner == b.currentPlayer && !tile.starving && tile.flora == null) {
-                income += b.rules.hexIncome
-                if (tile.building == com.msa.fightandconquer.core.model.Building.FARM) income += b.rules.farmIncome
-            }
-        }
-        return income
-    }
+    private fun incomeIn(b: StateBuilder): Int =
+        Rules.incomeFrom(b.tiles, b.rules, b.currentPlayer)
 
     private fun upkeepIn(b: StateBuilder): Int =
-        b.units.values.sumOf { if (it.owner == b.currentPlayer) b.rules.unitUpkeep[it.tier - 1] else 0 }
+        b.units.values.sumOf { if (it.owner == b.currentPlayer) Rules.unitUpkeepOf(it, b.rules) else 0 }
 }

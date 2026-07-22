@@ -17,7 +17,11 @@ import kotlinx.coroutines.flow.asStateFlow
 sealed interface PurchaseOption {
     val cost: Int
 
-    data class Unit(val tier: Int, override val cost: Int) : PurchaseOption
+    data class Unit(
+        val tier: Int,
+        override val cost: Int,
+        val type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    ) : PurchaseOption
     data class Structure(val type: BuildingType, override val cost: Int) : PurchaseOption
 }
 
@@ -103,6 +107,14 @@ class GameEngine private constructor(
                 options.add(PurchaseOption.Unit(tier, s.config.rules.unitCost[tier - 1]))
             }
         }
+        for (special in listOf(
+            com.msa.fightandconquer.core.model.UnitType.ARCHER,
+            com.msa.fightandconquer.core.model.UnitType.CATAPULT,
+        )) {
+            if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
+                options.add(PurchaseOption.Unit(1, Rules.unitCostOf(s.config.rules, 1, special), special))
+            }
+        }
         for (type in BuildingType.entries) {
             if (Legality.check(s, GameAction.BuyBuilding(type, hex)) is LegalityResult.Ok) {
                 options.add(PurchaseOption.Structure(type, Rules.buildingCost(s, s.currentPlayer, type)))
@@ -110,6 +122,31 @@ class GameEngine private constructor(
         }
         return options
     }
+
+    // ----- diplomacy queries (UI surface) -----
+
+    fun pactBetween(a: PlayerId, b: PlayerId): com.msa.fightandconquer.core.model.Pact? =
+        _state.value.diplomacy.pactBetween(a, b)
+
+    /** Pending proposals addressed to the current player. */
+    fun incomingProposals(): List<com.msa.fightandconquer.core.model.PactProposal> {
+        val s = _state.value
+        return s.diplomacy.proposals.filter { it.to == s.currentPlayer }
+    }
+
+    fun outgoingProposals(player: PlayerId): List<com.msa.fightandconquer.core.model.PactProposal> =
+        _state.value.diplomacy.proposals.filter { it.from == player }
+
+    fun pactPartners(player: PlayerId): Set<PlayerId> =
+        _state.value.diplomacy.pacts.mapNotNull {
+            when (player) {
+                it.a -> it.b
+                it.b -> it.a
+                else -> null
+            }
+        }.toSet()
+
+    fun pactBreaksOf(player: PlayerId): Int = _state.value.diplomacy.breaksOf(player)
 
     // ----- persistence -----
 

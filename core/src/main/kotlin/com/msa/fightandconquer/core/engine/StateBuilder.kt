@@ -25,6 +25,7 @@ internal class StateBuilder(private val base: GameState) {
     var rngState: Long = base.rngState
     var phase: GamePhase = base.phase
     var nextUnitId: Int = base.nextUnitId
+    var diplomacy: com.msa.fightandconquer.core.model.DiplomacyState = base.diplomacy
     val events = ArrayList<GameEvent>()
 
     fun player(id: PlayerId) = players[id.value]
@@ -49,8 +50,14 @@ internal class StateBuilder(private val base: GameState) {
 
     // ----- shared operations -----
 
-    fun spawnUnit(owner: PlayerId, tier: Int, hex: Hex, spent: Boolean): GameUnit {
-        val unit = GameUnit(UnitId(nextUnitId++), owner, tier, hex, spent)
+    fun spawnUnit(
+        owner: PlayerId,
+        tier: Int,
+        hex: Hex,
+        spent: Boolean,
+        type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    ): GameUnit {
+        val unit = GameUnit(UnitId(nextUnitId++), owner, tier, hex, spent, type)
         units[unit.id] = unit
         updateTile(hex) { it.copy(unit = unit.id) }
         return unit
@@ -93,11 +100,17 @@ internal class StateBuilder(private val base: GameState) {
     fun captureHex(attacker: PlayerId, hex: Hex) {
         val tile = tiles.getValue(hex)
         val victim = tile.owner
+        // Aggression against a pact partner breaks the pact first (penalty transfer)
+        // — this single site covers both move-capture and buy-capture.
+        if (victim != null && victim != attacker) {
+            diplomacy.pactBetween(attacker, victim)?.let { breakPact(attacker, victim) }
+        }
         tile.unit?.let { killUnit(it, DeathCause.KILLED) }
         when (tile.building) {
             Building.CAPITAL -> captureCapital(attacker, victim!!, hex)
-            Building.FARM, Building.TOWER, Building.STRONG_TOWER ->
-                events.add(GameEvent.BuildingDestroyed(hex, tile.building))
+            Building.FARM, Building.TOWER, Building.STRONG_TOWER,
+            Building.MINE, Building.MARKET, Building.LUMBER_CAMP, Building.WATCHTOWER,
+            -> events.add(GameEvent.BuildingDestroyed(hex, tile.building))
             null -> {}
         }
         updateTile(hex) { it.copy(owner = attacker, building = null, starving = false) }
@@ -137,6 +150,49 @@ internal class StateBuilder(private val base: GameState) {
         updateTile(newCapital) { it.copy(building = Building.CAPITAL, flora = null) }
         updatePlayer(victim) { it.copy(capital = newCapital) }
         events.add(GameEvent.CapitalMoved(victim, hex, newCapital, loot))
+    }
+
+    // ----- diplomacy -----
+
+    /** Canonical write: keeps every diplomacy list sorted for byte-stable JSON. */
+    fun setDiplomacy(
+        pacts: List<com.msa.fightandconquer.core.model.Pact> = diplomacy.pacts,
+        proposals: List<com.msa.fightandconquer.core.model.PactProposal> = diplomacy.proposals,
+        lastProposalRounds: List<com.msa.fightandconquer.core.model.PairRound> = diplomacy.lastProposalRounds,
+        lastTributeRounds: List<com.msa.fightandconquer.core.model.PairRound> = diplomacy.lastTributeRounds,
+        pactBreaks: List<Int> = diplomacy.pactBreaks,
+    ) {
+        diplomacy = com.msa.fightandconquer.core.model.DiplomacyState(
+            pacts = pacts.sortedWith(compareBy({ it.a.value }, { it.b.value })),
+            proposals = proposals.sortedWith(compareBy({ it.from.value }, { it.to.value })),
+            lastProposalRounds = lastProposalRounds.sortedWith(compareBy({ it.a.value }, { it.b.value })),
+            lastTributeRounds = lastTributeRounds.sortedWith(compareBy({ it.a.value }, { it.b.value })),
+            pactBreaks = pactBreaks,
+        )
+    }
+
+    /** Removes the pact, transfers the penalty to the victim, counts the betrayal. */
+    fun breakPact(breaker: PlayerId, victim: PlayerId) {
+        val pact = diplomacy.pactBetween(breaker, victim) ?: return
+        val penalty = player(breaker).treasury * rules.pactBreakPenaltyPercent / 100
+        updatePlayer(breaker) { it.copy(treasury = it.treasury - penalty) }
+        updatePlayer(victim) { it.copy(treasury = it.treasury + penalty) }
+        val breaks = MutableList(maxOf(diplomacy.pactBreaks.size, players.size)) {
+            diplomacy.pactBreaks.getOrElse(it) { 0 }
+        }
+        breaks[breaker.value]++
+        setDiplomacy(pacts = diplomacy.pacts - pact, pactBreaks = breaks)
+        events.add(GameEvent.PactBroken(breaker, victim, penalty))
+    }
+
+    /** Drops pacts/proposals involving eliminated players (no events — housekeeping). */
+    fun pruneDiplomacy() {
+        fun alive(p: PlayerId) = !players[p.value].eliminated
+        val pacts = diplomacy.pacts.filter { alive(it.a) && alive(it.b) }
+        val proposals = diplomacy.proposals.filter { alive(it.from) && alive(it.to) }
+        if (pacts.size != diplomacy.pacts.size || proposals.size != diplomacy.proposals.size) {
+            setDiplomacy(pacts = pacts, proposals = proposals)
+        }
     }
 
     /**
@@ -185,6 +241,7 @@ internal class StateBuilder(private val base: GameState) {
                 events.add(GameEvent.PlayerEliminated(p.id))
             }
         }
+        pruneDiplomacy()
         val alive = players.filter { !it.eliminated }
         if (alive.size == 1 && phase is GamePhase.Playing) {
             phase = GamePhase.Finished(alive.single().id)
@@ -203,6 +260,7 @@ internal class StateBuilder(private val base: GameState) {
             rngState = rngState,
             phase = phase,
             nextUnitId = nextUnitId,
+            diplomacy = diplomacy,
         ),
         events,
     )

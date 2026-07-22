@@ -39,13 +39,21 @@ fun UiText.resolve(context: android.content.Context): String = when (this) {
     is UiText.Plural -> context.resources.getQuantityString(id, count, *args.toTypedArray())
 }
 
-/** Unit tier (1..4) -> display name resource. */
+/** Unit tier (1..4) -> display name resource (soldier ladder). */
 @StringRes
 fun unitNameRes(tier: Int): Int = when (tier) {
     1 -> R.string.unit_peasant
     2 -> R.string.unit_spearman
     3 -> R.string.unit_baron
     else -> R.string.unit_knight
+}
+
+/** Type-aware unit display name (specials ignore tier). */
+@StringRes
+fun unitNameRes(type: com.msa.fightandconquer.core.model.UnitType, tier: Int): Int = when (type) {
+    com.msa.fightandconquer.core.model.UnitType.SOLDIER -> unitNameRes(tier)
+    com.msa.fightandconquer.core.model.UnitType.ARCHER -> R.string.unit_archer
+    com.msa.fightandconquer.core.model.UnitType.CATAPULT -> R.string.unit_catapult
 }
 
 /** Engine rejection code -> player-facing explanation. */
@@ -73,5 +81,17 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.TIER_MISMATCH -> UiText.of(R.string.reject_tier_mismatch)
     RejectionReason.ALREADY_MAX_TIER -> UiText.of(R.string.reject_already_max_tier)
     RejectionReason.NOT_IN_SAME_REGION -> UiText.of(R.string.reject_not_same_region)
+    RejectionReason.CANNOT_MERGE_SPECIAL -> UiText.of(R.string.reject_cannot_merge_special)
+    RejectionReason.SPECIAL_UNITS_DISABLED -> UiText.of(R.string.reject_specials_disabled)
+    RejectionReason.BUILDING_NEEDS_DEPOSIT -> UiText.of(R.string.reject_building_needs_deposit)
+    RejectionReason.REQUIRES_FOG_OF_WAR -> UiText.of(R.string.reject_requires_fog)
+    RejectionReason.DIPLOMACY_DISABLED -> UiText.of(R.string.reject_diplomacy_disabled)
+    RejectionReason.INVALID_PLAYER -> UiText.of(R.string.reject_invalid_player)
+    RejectionReason.INVALID_PACT_DURATION -> UiText.of(R.string.reject_invalid_pact_duration)
+    RejectionReason.PACT_ALREADY_ACTIVE -> UiText.of(R.string.reject_pact_active)
+    RejectionReason.PROPOSAL_PENDING -> UiText.of(R.string.reject_proposal_pending)
+    RejectionReason.PROPOSAL_COOLDOWN -> UiText.of(R.string.reject_proposal_cooldown, amount ?: 0)
+    RejectionReason.NO_SUCH_PROPOSAL -> UiText.of(R.string.reject_no_such_proposal)
+    RejectionReason.INVALID_TRIBUTE_AMOUNT -> UiText.of(R.string.reject_invalid_tribute)
     RejectionReason.NO_GAME -> UiText.of(R.string.reject_no_game)
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -78,6 +79,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.engine.PurchaseOption
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.BuildingType
+import com.msa.fightandconquer.core.model.UnitType
 import com.msa.fightandconquer.render.FilamentHost
 import com.msa.fightandconquer.render.scene.BoardScene
 import dev.romainguy.kotlin.math.Float2
@@ -106,6 +108,8 @@ fun GameScreen(viewModel: GameViewModel) {
     val popups by viewModel.popups.collectAsState()
     val toasts by viewModel.toasts.collectAsState()
     val economy by viewModel.economy.collectAsState()
+    val diplomacy by viewModel.diplomacy.collectAsState()
+    val incomingProposals by viewModel.incomingProposals.collectAsState()
     val infoCard by viewModel.infoCard.collectAsState()
     val engine = viewModel.engine ?: return
 
@@ -182,12 +186,16 @@ fun GameScreen(viewModel: GameViewModel) {
         // ----- HUD -----
         hud?.let { state ->
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                TopBar(state, viewModel)
+                TopBar(state, incomingProposals.size, viewModel)
+                if (state.currentIsHuman && state.banner == null && incomingProposals.isNotEmpty()) {
+                    ProposalStrip(incomingProposals, viewModel)
+                }
                 Spacer(Modifier.weight(1f))
                 BottomBar(state, infoCard, viewModel)
             }
 
             economy?.let { EconomyPanel(it) }
+            diplomacy?.let { DiplomacyPanel(it, viewModel) }
             ToastStack(toasts)
 
             state.banner?.let { seat ->
@@ -361,10 +369,16 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
                 stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
                 stringResource(R.string.economy_amount_positive, economy.hexIncome),
             )
-            if (economy.farmCount > 0) {
+            if (economy.depositBonus > 0) {
                 EconomyRow(
-                    stringResource(R.string.economy_farms_row, economy.farmCount, economy.farmIncomePerFarm),
-                    stringResource(R.string.economy_amount_positive, economy.farmIncome),
+                    stringResource(R.string.economy_fertile_row),
+                    stringResource(R.string.economy_amount_positive, economy.depositBonus),
+                )
+            }
+            for (row in economy.buildingRows) {
+                EconomyRow(
+                    stringResource(R.string.economy_building_row, row.count, stringResource(row.nameRes)),
+                    stringResource(R.string.economy_amount_positive, row.total),
                 )
             }
             if (economy.starvingCount > 0) {
@@ -377,15 +391,15 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
             if (economy.tiers.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Text(stringResource(R.string.economy_upkeep), fontSize = 12.sp, color = UiColors.inkMuted)
-                for (tier in economy.tiers) {
+                for (row in economy.tiers) {
                     EconomyRow(
                         stringResource(
                             R.string.economy_upkeep_row,
-                            tier.count,
-                            stringResource(unitNameRes(tier.tier)),
-                            tier.each,
+                            row.count,
+                            stringResource(row.nameRes),
+                            row.each,
                         ),
-                        stringResource(R.string.economy_amount_negative, tier.total),
+                        stringResource(R.string.economy_amount_negative, row.total),
                     )
                 }
             }
@@ -458,10 +472,164 @@ private fun WarningStrip(text: String, background: Color, foreground: Color) {
     }
 }
 
+// ---------- diplomacy ----------
+
+@Composable
+private fun DiplomacyPanel(state: DiplomacyPanelState, viewModel: GameViewModel) {
+    Surface(
+        modifier = Modifier
+            .safeDrawingPadding()
+            .padding(start = HudGutter, top = TopBarHeight + HudGutter)
+            .width(270.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = UiColors.panel,
+        shadowElevation = 6.dp,
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(stringResource(R.string.diplomacy_title), fontSize = 12.sp, color = UiColors.inkMuted)
+            for (row in state.rows) {
+                if (row.eliminated) continue
+                DiplomacyRow(row, state, viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel: GameViewModel) {
+    var tributeOpen by remember(row.playerIndex) { mutableStateOf(false) }
+    Column(Modifier.padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val factionDescription = stringResource(R.string.cd_faction_color, row.playerIndex + 1)
+            Box(
+                Modifier
+                    .size(14.dp)
+                    .background(UiColors.faction(row.playerIndex), CircleShape)
+                    .semantics { contentDescription = factionDescription },
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (row.isHuman) {
+                    stringResource(R.string.hud_player, row.playerIndex + 1)
+                } else {
+                    stringResource(R.string.hud_ai_player, row.playerIndex + 1)
+                },
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = UiColors.ink,
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                when (row.state) {
+                    PactUiState.WAR -> stringResource(R.string.diplomacy_status_war)
+                    PactUiState.PACT -> stringResource(R.string.diplomacy_status_pact, row.turnsRemaining ?: 0)
+                    PactUiState.PROPOSAL_SENT -> stringResource(R.string.diplomacy_status_proposed)
+                    PactUiState.PROPOSAL_RECEIVED -> stringResource(R.string.diplomacy_status_offer)
+                },
+                fontSize = 13.sp,
+                color = if (row.state == PactUiState.PACT) UiColors.positive else UiColors.inkMuted,
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (row.state == PactUiState.WAR) {
+                OutlinedButton(
+                    onClick = { viewModel.proposePact(row.playerIndex) },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                ) {
+                    Text(stringResource(R.string.diplomacy_propose), fontSize = 13.sp, color = UiColors.ink)
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            OutlinedButton(
+                onClick = { tributeOpen = !tributeOpen },
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Text(stringResource(R.string.diplomacy_tribute), fontSize = 13.sp, color = UiColors.ink)
+            }
+        }
+        if (tributeOpen) {
+            Row {
+                for (amount in panel.tributeChoices) {
+                    val affordable = amount <= panel.treasury
+                    val tributeDescription =
+                        stringResource(R.string.cd_send_tribute, amount, row.playerIndex + 1)
+                    OutlinedButton(
+                        onClick = {
+                            tributeOpen = false
+                            viewModel.sendTribute(row.playerIndex, amount)
+                        },
+                        enabled = affordable,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .semantics { contentDescription = tributeDescription },
+                    ) {
+                        Text(
+                            stringResource(R.string.diplomacy_tribute_amount, amount),
+                            fontSize = 12.sp,
+                            color = if (affordable) UiColors.ink else UiColors.inkFaint,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProposalStrip(proposals: List<IncomingProposal>, viewModel: GameViewModel) {
+    Column {
+        for (proposal in proposals) {
+            Surface(
+                modifier = Modifier
+                    .padding(horizontal = HudGutter, vertical = 2.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = UiColors.panel,
+                shadowElevation = 4.dp,
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .size(12.dp)
+                            .background(UiColors.faction(proposal.fromIndex), CircleShape),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(
+                            R.string.diplomacy_proposal_text,
+                            proposal.fromIndex + 1,
+                            proposal.durationRounds,
+                        ),
+                        fontSize = 13.sp,
+                        color = UiColors.ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(
+                        onClick = { viewModel.declinePact(proposal.fromIndex) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    ) {
+                        Text(stringResource(R.string.diplomacy_decline), fontSize = 13.sp, color = UiColors.ink)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Button(
+                        onClick = { viewModel.acceptPact(proposal.fromIndex) },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                    ) {
+                        Text(stringResource(R.string.diplomacy_accept), fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ---------- top bar ----------
 
 @Composable
-private fun TopBar(state: HudState, viewModel: GameViewModel) {
+private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel) {
     var menuOpen by remember { mutableStateOf(false) }
     val factionDescription = stringResource(R.string.cd_faction_color, state.currentPlayer + 1)
     val economyDescription = stringResource(R.string.cd_open_economy)
@@ -545,6 +713,26 @@ private fun TopBar(state: HudState, viewModel: GameViewModel) {
                         )
                     }
                 }
+                if (state.currentIsHuman && state.banner == null && proposalCount > 0) {
+                    Spacer(Modifier.width(10.dp))
+                    val pactDescription = stringResource(R.string.cd_open_diplomacy)
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = UiColors.toastWarning.copy(alpha = 0.35f),
+                        modifier = Modifier
+                            .clickable(role = Role.Button) { viewModel.toggleDiplomacyPanel() }
+                            .semantics { contentDescription = pactDescription }
+                            .defaultMinSize(minHeight = MinTouchTarget),
+                    ) {
+                        Text(
+                            stringResource(R.string.hud_pact_badge, proposalCount),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = UiColors.ink,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
+                        )
+                    }
+                }
                 if (state.aiThinking) {
                     Spacer(Modifier.width(10.dp))
                     Text(
@@ -572,6 +760,15 @@ private fun TopBar(state: HudState, viewModel: GameViewModel) {
                 shape = RoundedCornerShape(12.dp),
                 containerColor = UiColors.panel,
             ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.hud_diplomacy)) },
+                    leadingIcon = { Text(stringResource(R.string.emoji_pact)) },
+                    colors = MenuDefaults.itemColors(textColor = UiColors.ink),
+                    onClick = {
+                        menuOpen = false
+                        viewModel.toggleDiplomacyPanel()
+                    },
+                )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.hud_resign)) },
                     leadingIcon = {
@@ -616,10 +813,10 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
             InfoCardView(info)
             Spacer(Modifier.height(8.dp))
         }
-        state.selectedUnitTier?.let { tier ->
+        state.selectedUnitNameRes?.let { nameRes ->
             Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
                 Text(
-                    stringResource(R.string.hud_selected_unit_hint, stringResource(unitNameRes(tier))),
+                    stringResource(R.string.hud_selected_unit_hint, stringResource(nameRes)),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     color = UiColors.ink,
                     fontSize = 14.sp,
@@ -755,35 +952,55 @@ private fun InfoCardView(info: InfoCard) {
 @Composable
 private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boolean, onBuy: () -> Unit) {
     val nameRes = when (option) {
-        is PurchaseOption.Unit -> unitNameRes(option.tier)
+        is PurchaseOption.Unit -> unitNameRes(option.type, option.tier)
         is PurchaseOption.Structure -> when (option.type) {
             BuildingType.FARM -> R.string.building_farm
             BuildingType.TOWER -> R.string.building_tower
             BuildingType.STRONG_TOWER -> R.string.building_castle
+            BuildingType.MINE -> R.string.building_mine
+            BuildingType.MARKET -> R.string.building_market
+            BuildingType.LUMBER_CAMP -> R.string.building_lumber_camp
+            BuildingType.WATCHTOWER -> R.string.building_watchtower
         }
     }
     val emojiRes = when (option) {
-        is PurchaseOption.Unit -> when (option.tier) {
-            1 -> R.string.emoji_peasant
-            2 -> R.string.emoji_spearman
-            3 -> R.string.emoji_baron
-            else -> R.string.emoji_knight
+        is PurchaseOption.Unit -> when (option.type) {
+            UnitType.ARCHER -> R.string.emoji_archer
+            UnitType.CATAPULT -> R.string.emoji_catapult
+            UnitType.SOLDIER -> when (option.tier) {
+                1 -> R.string.emoji_peasant
+                2 -> R.string.emoji_spearman
+                3 -> R.string.emoji_baron
+                else -> R.string.emoji_knight
+            }
         }
         is PurchaseOption.Structure -> when (option.type) {
             BuildingType.FARM -> R.string.emoji_farm
             BuildingType.TOWER -> R.string.emoji_tower
             BuildingType.STRONG_TOWER -> R.string.emoji_castle
+            BuildingType.MINE -> R.string.emoji_mine
+            BuildingType.MARKET -> R.string.emoji_market
+            BuildingType.LUMBER_CAMP -> R.string.emoji_lumber_camp
+            BuildingType.WATCHTOWER -> R.string.emoji_watchtower
         }
     }
     val detail = when (option) {
         is PurchaseOption.Unit -> stringResource(
             R.string.shop_upkeep_per_turn,
-            shop.unitUpkeep[option.tier - 1],
+            when (option.type) {
+                UnitType.ARCHER -> shop.archerUpkeep
+                UnitType.CATAPULT -> shop.catapultUpkeep
+                UnitType.SOLDIER -> shop.unitUpkeep[option.tier - 1]
+            },
         )
         is PurchaseOption.Structure -> when (option.type) {
             BuildingType.FARM -> stringResource(R.string.shop_income_per_turn, shop.farmIncome)
             BuildingType.TOWER -> stringResource(R.string.shop_defense, shop.towerDefense)
             BuildingType.STRONG_TOWER -> stringResource(R.string.shop_defense, shop.strongTowerDefense)
+            BuildingType.MINE -> stringResource(R.string.shop_income_per_turn, shop.mineIncome)
+            BuildingType.MARKET -> stringResource(R.string.shop_income_up_to, shop.marketIncomeMax)
+            BuildingType.LUMBER_CAMP -> stringResource(R.string.shop_income_up_to, shop.lumberCampIncomeMax)
+            BuildingType.WATCHTOWER -> stringResource(R.string.shop_vision, shop.watchtowerVision)
         }
     }
     val name = stringResource(nameRes)

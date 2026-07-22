@@ -71,15 +71,19 @@ enum class LabelKind { CAPTURABLE, BLOCKED }
 data class OverlayLabel(val hex: Hex, val defense: Int, val kind: LabelKind)
 
 /** Coin counter breakdown panel. */
-data class TierUpkeep(val tier: Int, val count: Int, val each: Int, val total: Int)
+data class UpkeepRow(val nameRes: Int, val count: Int, val each: Int, val total: Int)
+
+/** One income line per building type (farms, mines, markets, lumber camps). */
+data class IncomeRow(val nameRes: Int, val count: Int, val total: Int)
+
 data class EconomyBreakdown(
     val hexCount: Int,
     val hexIncome: Int,
     val hexIncomePerHex: Int,
-    val farmCount: Int,
-    val farmIncome: Int,
-    val farmIncomePerFarm: Int,
-    val tiers: List<TierUpkeep>,
+    /** Extra income from FERTILE ground (bare hexes; farm bonuses ride the farm row). */
+    val depositBonus: Int,
+    val buildingRows: List<IncomeRow>,
+    val tiers: List<UpkeepRow>,
     val income: Int,
     val upkeep: Int,
     val net: Int,
@@ -89,6 +93,27 @@ data class EconomyBreakdown(
     val bankruptcyImminent: Boolean,
     val upkeepRisk: Boolean,
 )
+
+/** Diplomacy panel: one row per opponent. */
+enum class PactUiState { WAR, PACT, PROPOSAL_SENT, PROPOSAL_RECEIVED }
+data class PactStatus(
+    val playerIndex: Int,
+    val isHuman: Boolean,
+    val eliminated: Boolean,
+    val state: PactUiState,
+    /** Rounds left on the active pact (PACT only). */
+    val turnsRemaining: Int?,
+)
+data class DiplomacyPanelState(
+    val rows: List<PactStatus>,
+    val tributeChoices: List<Int>,
+    val pactDurationRounds: Int,
+    val breakPenaltyPercent: Int,
+    val treasury: Int,
+)
+
+/** A pending pact offer awaiting the current human's answer. */
+data class IncomingProposal(val fromIndex: Int, val durationRounds: Int)
 
 /** Transient top-center notifications. */
 enum class ToastKind { INFO, WARNING, ALERT }
@@ -112,6 +137,12 @@ data class ShopInfo(
     val towerDefense: Int = 2,
     val strongTowerDefense: Int = 3,
     val farmIncome: Int = 4,
+    val mineIncome: Int = 6,
+    val marketIncomeMax: Int = 5,
+    val lumberCampIncomeMax: Int = 8,
+    val watchtowerVision: Int = 6,
+    val archerUpkeep: Int = 4,
+    val catapultUpkeep: Int = 10,
 )
 
 data class HudState(
@@ -123,7 +154,8 @@ data class HudState(
     val income: Int,
     val upkeep: Int,
     val turnNumber: Int,
-    val selectedUnitTier: Int?,
+    /** Display-name resource of the selected unit (type-aware), null when none. */
+    val selectedUnitNameRes: Int?,
     val purchases: List<PurchaseOption>,
     val canUndo: Boolean,
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
@@ -161,6 +193,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _economy = MutableStateFlow<EconomyBreakdown?>(null)
     val economy: StateFlow<EconomyBreakdown?> = _economy.asStateFlow()
 
+    private val _diplomacy = MutableStateFlow<DiplomacyPanelState?>(null)
+    val diplomacy: StateFlow<DiplomacyPanelState?> = _diplomacy.asStateFlow()
+
+    private val _incomingProposals = MutableStateFlow<List<IncomingProposal>>(emptyList())
+    val incomingProposals: StateFlow<List<IncomingProposal>> = _incomingProposals.asStateFlow()
+
     private val _toasts = MutableStateFlow<List<HudToast>>(emptyList())
     val toasts: StateFlow<List<HudToast>> = _toasts.asStateFlow()
 
@@ -185,6 +223,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var selectedUnit: UnitId? = null
     private var selectedHex: Hex? = null
     private var banner: Int? = null
+    /** Armed pact-break confirmation: capture of this partner hex proceeds on re-tap. */
+    private var pendingPactBreak: Hex? = null
     /** Seat of the human who most recently played — the fog perspective during AI turns. */
     private var lastHumanSeat: Int? = null
     private var aiJob: Job? = null
@@ -245,10 +285,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _highlights.value = HighlightSet()
         _overlayLabels.value = emptyList()
         _economy.value = null
+        _diplomacy.value = null
+        _incomingProposals.value = emptyList()
         _infoCard.value = null
         _toasts.value = emptyList()
         _popups.value = emptyList()
-        selectedUnit = null; selectedHex = null; banner = null
+        selectedUnit = null; selectedHex = null; banner = null; pendingPactBreak = null
         lastHumanSeat = null
         _visibility.value = null
         _screen.value = Screen.Menu(autosaveFile.exists())
@@ -258,7 +300,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         aiJob?.cancel()
         eventsJob?.cancel()
         engine = newEngine
-        selectedUnit = null; selectedHex = null
+        selectedUnit = null; selectedHex = null; pendingPactBreak = null
+        _diplomacy.value = null
         lastHumanSeat = null
         banner = if (showOpeningBanner) 0 else null
         freshUnitCursor = 0
@@ -278,7 +321,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun onHexTapped(hex: Hex) {
         val engine = engine ?: return
         val hudNow = _hud.value ?: return
-        _economy.value = null // board taps dismiss the glanceable panel
+        _economy.value = null // board taps dismiss the glanceable panels
+        _diplomacy.value = null
         if (banner != null || !hudNow.currentIsHuman || hudNow.winner != null) return
         val state = engine.state.value
 
@@ -287,6 +331,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val reach = engine.reachableFor(heldUnit)
             when (hex) {
                 in reach.moveTargets, in reach.captureTargets -> {
+                    // Capturing a pact partner's hex breaks the pact — arm a
+                    // second-tap confirmation instead of striking immediately.
+                    val targetOwner = state.tiles[hex]?.owner
+                    if (hex in reach.captureTargets && targetOwner != null &&
+                        engine.pactBetween(state.currentPlayer, targetOwner) != null &&
+                        pendingPactBreak != hex
+                    ) {
+                        pendingPactBreak = hex
+                        val penalty = state.player(state.currentPlayer).treasury *
+                            state.config.rules.pactBreakPenaltyPercent / 100
+                        pushToast(UiText.of(R.string.toast_pact_break_confirm, penalty), ToastKind.WARNING)
+                        return
+                    }
+                    pendingPactBreak = null
                     submit(GameAction.MoveUnit(heldUnit, hex))
                     clearSelection()
                     refreshHud()
@@ -356,6 +414,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun clearSelection() {
         selectedUnit = null
         selectedHex = null
+        pendingPactBreak = null
         _highlights.value = HighlightSet()
         _overlayLabels.value = emptyList()
         _infoCard.value = null
@@ -364,7 +423,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun buy(option: PurchaseOption) {
         val hex = selectedHex ?: return
         when (option) {
-            is PurchaseOption.Unit -> submit(GameAction.BuyUnit(option.tier, hex))
+            is PurchaseOption.Unit -> submit(GameAction.BuyUnit(option.tier, hex, option.type))
             is PurchaseOption.Structure -> submit(GameAction.BuyBuilding(option.type, hex))
         }
         clearSelection()
@@ -447,7 +506,62 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // ----- economy panel -----
 
     fun toggleEconomyPanel() {
+        _diplomacy.value = null
         _economy.value = if (_economy.value == null) computeEconomy() else null
+    }
+
+    // ----- diplomacy -----
+
+    fun toggleDiplomacyPanel() {
+        _economy.value = null
+        _diplomacy.value = if (_diplomacy.value == null) computeDiplomacy() else null
+    }
+
+    fun proposePact(playerIndex: Int) {
+        val duration = _diplomacy.value?.pactDurationRounds ?: return
+        submit(GameAction.ProposePact(PlayerId(playerIndex), duration))
+    }
+
+    fun acceptPact(fromIndex: Int) {
+        submit(GameAction.RespondPact(PlayerId(fromIndex), accept = true))
+    }
+
+    fun declinePact(fromIndex: Int) {
+        submit(GameAction.RespondPact(PlayerId(fromIndex), accept = false))
+    }
+
+    fun sendTribute(playerIndex: Int, amount: Int) {
+        submit(GameAction.SendTribute(PlayerId(playerIndex), amount))
+    }
+
+    private fun computeDiplomacy(): DiplomacyPanelState? {
+        val state = engine?.state?.value ?: return null
+        val rules = state.config.rules
+        if (!rules.diplomacyEnabled || state.phase !is GamePhase.Playing) return null
+        val me = state.currentPlayer
+        val d = state.diplomacy
+        val rows = state.players.filter { it.id != me }.map { p ->
+            val pact = d.pactBetween(me, p.id)
+            PactStatus(
+                playerIndex = p.id.value,
+                isHuman = p.kind is PlayerKind.Human,
+                eliminated = p.eliminated,
+                state = when {
+                    pact != null -> PactUiState.PACT
+                    d.proposalBetween(me, p.id) != null -> PactUiState.PROPOSAL_SENT
+                    d.proposalBetween(p.id, me) != null -> PactUiState.PROPOSAL_RECEIVED
+                    else -> PactUiState.WAR
+                },
+                turnsRemaining = pact?.let { maxOf(0, it.expiresAtRound - state.turnNumber) },
+            )
+        }
+        return DiplomacyPanelState(
+            rows = rows,
+            tributeChoices = listOf(10, 25, 50),
+            pactDurationRounds = (rules.pactMinDurationRounds + rules.pactMaxDurationRounds) / 2,
+            breakPenaltyPercent = rules.pactBreakPenaltyPercent,
+            treasury = state.player(me).treasury,
+        )
     }
 
     private fun computeEconomy(): EconomyBreakdown? {
@@ -455,23 +569,71 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         val rules = state.config.rules
         var hexCount = 0
-        var farmCount = 0
         var starving = 0
-        for (tile in state.tiles.values) {
+        var depositBonus = 0
+        var farmCount = 0; var farmTotal = 0
+        var mineCount = 0; var mineTotal = 0
+        var marketCount = 0; var marketTotal = 0
+        var campCount = 0; var campTotal = 0
+        // Mirrors Rules.incomeFrom exactly so the panel rows always sum to `income`.
+        for ((hex, tile) in state.tiles) {
             if (tile.owner != me) continue
             if (tile.starving) { starving++; continue }
             if (tile.flora != null) continue
             hexCount++
-            if (tile.building == Building.FARM) farmCount++
+            val fertile = tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE
+            if (fertile) depositBonus += rules.fertileHexBonus
+            when (tile.building) {
+                Building.FARM -> {
+                    farmCount++
+                    farmTotal += rules.farmIncome + (if (fertile) rules.fertileFarmBonus else 0)
+                }
+                Building.MINE -> { mineCount++; mineTotal += rules.mineIncome }
+                Building.MARKET -> {
+                    marketCount++
+                    var neighbors = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = state.tiles[n]
+                        if (t != null && t.owner == me && !t.starving && t.flora == null) neighbors++
+                    }
+                    marketTotal += rules.marketNeighborIncome * minOf(neighbors, rules.marketNeighborCap)
+                }
+                Building.LUMBER_CAMP -> {
+                    campCount++
+                    var trees = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = state.tiles[n]
+                        if (t != null && t.owner == me && t.flora is Flora.Tree) trees++
+                    }
+                    campTotal += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
+                }
+                else -> {}
+            }
         }
-        val tiers = (1..rules.maxTier).mapNotNull { tier ->
-            val count = state.units.values.count { it.owner == me && it.tier == tier }
+        val buildingRows = listOfNotNull(
+            IncomeRow(R.string.building_farm, farmCount, farmTotal).takeIf { farmCount > 0 },
+            IncomeRow(R.string.building_mine, mineCount, mineTotal).takeIf { mineCount > 0 },
+            IncomeRow(R.string.building_market, marketCount, marketTotal).takeIf { marketCount > 0 },
+            IncomeRow(R.string.building_lumber_camp, campCount, campTotal).takeIf { campCount > 0 },
+        )
+        val soldierRows = (1..rules.maxTier).mapNotNull { tier ->
+            val count = state.units.values.count {
+                it.owner == me && it.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER && it.tier == tier
+            }
             if (count == 0) {
                 null
             } else {
-                TierUpkeep(tier, count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
+                UpkeepRow(unitNameRes(tier), count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
             }
         }
+        val specialRows = listOf(
+            Triple(com.msa.fightandconquer.core.model.UnitType.ARCHER, R.string.unit_archer, rules.archerUpkeep),
+            Triple(com.msa.fightandconquer.core.model.UnitType.CATAPULT, R.string.unit_catapult, rules.catapultUpkeep),
+        ).mapNotNull { (type, nameRes, each) ->
+            val count = state.units.values.count { it.owner == me && it.type == type }
+            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each)
+        }
+        val tiers = soldierRows + specialRows
         val income = Rules.incomeOf(state, me)
         val upkeep = Rules.upkeepOf(state, me)
         val treasury = state.player(me).treasury
@@ -481,9 +643,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             hexCount = hexCount,
             hexIncome = hexCount * rules.hexIncome,
             hexIncomePerHex = rules.hexIncome,
-            farmCount = farmCount,
-            farmIncome = farmCount * rules.farmIncome,
-            farmIncomePerFarm = rules.farmIncome,
+            depositBonus = depositBonus,
+            buildingRows = buildingRows,
             tiers = tiers,
             income = income,
             upkeep = upkeep,
@@ -570,6 +731,59 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (actorIsHuman) pushToast(event.reason.toUiText(event.amount), ToastKind.INFO)
             }
 
+            is GameEvent.PactProposed -> {
+                if (actorIsHuman) pushToast(UiText.of(R.string.toast_pact_sent, event.to.value + 1), ToastKind.INFO)
+                // The recipient sees the persistent proposal strip on their turn.
+            }
+
+            is GameEvent.PactAccepted -> {
+                if (state.players[event.a.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_accepted, event.b.value + 1), ToastKind.INFO)
+                }
+                if (state.players[event.b.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_accepted, event.a.value + 1), ToastKind.INFO)
+                }
+            }
+
+            is GameEvent.PactDeclined -> {
+                if (state.players[event.from.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_declined, event.to.value + 1), ToastKind.INFO)
+                }
+            }
+
+            is GameEvent.PactExpired -> {
+                if (state.players[event.a.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_expired, event.b.value + 1), ToastKind.INFO)
+                }
+                if (state.players[event.b.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_expired, event.a.value + 1), ToastKind.INFO)
+                }
+            }
+
+            is GameEvent.PactBroken -> {
+                if (state.players[event.victim.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_broken_by, event.breaker.value + 1), ToastKind.ALERT)
+                }
+                if (state.players[event.breaker.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_pact_broken_penalty, event.penalty), ToastKind.WARNING)
+                }
+            }
+
+            is GameEvent.TributeSent -> {
+                if (state.players[event.to.value].kind is PlayerKind.Human) {
+                    pushToast(
+                        UiText.of(R.string.toast_tribute_received, event.from.value + 1, event.amount),
+                        ToastKind.INFO,
+                    )
+                    state.players[event.to.value].capital?.let { capital ->
+                        pushPopup(capital, UiText.of(R.string.popup_coins, event.amount))
+                    }
+                }
+                if (state.players[event.from.value].kind is PlayerKind.Human && actorIsHuman) {
+                    pushToast(UiText.of(R.string.toast_tribute_sent, event.amount), ToastKind.INFO)
+                }
+            }
+
             else -> Unit
         }
     }
@@ -605,20 +819,40 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val unit = tile.unit?.let { state.units[it] }
         if (unit != null) {
             val own = unit.owner == me
-            return InfoCard(
-                title = UiText.of(unitNameRes(unit.tier)),
-                subtitle = if (own) {
-                    UiText.of(R.string.info_unit_spent)
-                } else {
-                    UiText.of(R.string.info_unit_enemy, unit.tier)
-                },
-                stats = listOf(
-                    InfoStat(UiText.of(R.string.info_stat_strength), UiText.of(R.string.info_value_plain, unit.tier)),
+            val strength = Rules.strengthOf(unit, rules)
+            val stats = buildList {
+                add(InfoStat(UiText.of(R.string.info_stat_strength), UiText.of(R.string.info_value_plain, strength)))
+                add(
                     InfoStat(
                         UiText.of(R.string.info_stat_upkeep),
-                        UiText.of(R.string.info_value_per_turn, rules.unitUpkeep[unit.tier - 1]),
+                        UiText.of(R.string.info_value_per_turn, Rules.unitUpkeepOf(unit, rules)),
                     ),
-                ),
+                )
+                when (unit.type) {
+                    com.msa.fightandconquer.core.model.UnitType.ARCHER -> add(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_defense),
+                            UiText.of(R.string.info_value_defense_area, rules.archerAuraDefense),
+                        ),
+                    )
+                    com.msa.fightandconquer.core.model.UnitType.CATAPULT -> add(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_range),
+                            UiText.of(R.string.info_value_plain, rules.catapultMoveRange),
+                        ),
+                    )
+                    com.msa.fightandconquer.core.model.UnitType.SOLDIER -> {}
+                }
+            }
+            return InfoCard(
+                title = UiText.of(unitNameRes(unit.type, unit.tier)),
+                subtitle = when {
+                    unit.type == com.msa.fightandconquer.core.model.UnitType.ARCHER -> UiText.of(R.string.info_archer)
+                    unit.type == com.msa.fightandconquer.core.model.UnitType.CATAPULT -> UiText.of(R.string.info_catapult)
+                    own -> UiText.of(R.string.info_unit_spent)
+                    else -> UiText.of(R.string.info_unit_enemy, strength)
+                },
+                stats = stats,
                 factionIndex = unit.owner.value,
             )
         }
@@ -664,7 +898,60 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     listOf(
                         InfoStat(
                             UiText.of(R.string.info_stat_income),
-                            UiText.of(R.string.info_value_income, rules.farmIncome),
+                            UiText.of(
+                                R.string.info_value_income,
+                                rules.farmIncome + if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) rules.fertileFarmBonus else 0,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.MINE -> InfoCard(
+                    UiText.of(R.string.building_mine),
+                    UiText.of(R.string.info_mine),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(R.string.info_value_income, rules.mineIncome),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.MARKET -> InfoCard(
+                    UiText.of(R.string.building_market),
+                    UiText.of(R.string.info_market),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(
+                                R.string.info_value_income_max,
+                                rules.marketNeighborIncome * rules.marketNeighborCap,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.LUMBER_CAMP -> InfoCard(
+                    UiText.of(R.string.building_lumber_camp),
+                    UiText.of(R.string.info_lumber_camp),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(
+                                R.string.info_value_income_max,
+                                rules.lumberCampTreeIncome * rules.lumberCampTreeCap,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.WATCHTOWER -> InfoCard(
+                    UiText.of(R.string.building_watchtower),
+                    UiText.of(R.string.info_watchtower),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_vision),
+                            UiText.of(R.string.info_value_plain, rules.watchtowerVisionRadius),
                         ),
                     ),
                     ownerIndex,
@@ -685,6 +972,29 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             is Flora.Gravestone -> return InfoCard(
                 UiText.of(R.string.piece_gravestone),
                 UiText.of(R.string.info_gravestone),
+            )
+            null -> {}
+        }
+        when (tile.deposit) {
+            com.msa.fightandconquer.core.model.Deposit.GOLD_VEIN -> return InfoCard(
+                UiText.of(R.string.piece_gold_vein),
+                UiText.of(R.string.info_gold_vein),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_income),
+                        UiText.of(R.string.info_value_income, rules.mineIncome),
+                    ),
+                ),
+            )
+            com.msa.fightandconquer.core.model.Deposit.FERTILE -> return InfoCard(
+                UiText.of(R.string.piece_fertile),
+                UiText.of(R.string.info_fertile),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_income),
+                        UiText.of(R.string.info_value_income, rules.fertileHexBonus),
+                    ),
+                ),
             )
             null -> {}
         }
@@ -770,7 +1080,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         val rules = state.config.rules
         val summary = engine.incomeSummary(me)
-        val selectedTier = selectedUnit?.let { state.units[it]?.tier }
+        val selectedName = selectedUnit?.let { state.units[it] }?.let { unitNameRes(it.type, it.tier) }
         val purchases = if (selectedUnit == null) {
             selectedHex?.let { engine.buyableAt(it) } ?: emptyList()
         } else {
@@ -785,7 +1095,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             income = summary.income,
             upkeep = summary.upkeep,
             turnNumber = state.turnNumber,
-            selectedUnitTier = selectedTier,
+            selectedUnitNameRes = selectedName,
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,
@@ -797,10 +1107,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 towerDefense = rules.towerDefense,
                 strongTowerDefense = rules.strongTowerDefense,
                 farmIncome = rules.farmIncome,
+                mineIncome = rules.mineIncome,
+                marketIncomeMax = rules.marketNeighborIncome * rules.marketNeighborCap,
+                lumberCampIncomeMax = rules.lumberCampTreeIncome * rules.lumberCampTreeCap,
+                watchtowerVision = rules.watchtowerVisionRadius,
+                archerUpkeep = rules.archerUpkeep,
+                catapultUpkeep = rules.catapultUpkeep,
             ),
         )
-        // Live panel tracks every buy/move/undo.
+        // Live panels track every buy/move/undo.
         if (_economy.value != null) _economy.value = computeEconomy()
+        if (_diplomacy.value != null) _diplomacy.value = computeDiplomacy()
+        // Incoming proposals surface only to the acting human, never behind a banner.
+        _incomingProposals.value = if (
+            rules.diplomacyEnabled && banner == null && state.phase is GamePhase.Playing &&
+            state.player(me).kind is PlayerKind.Human
+        ) {
+            engine.incomingProposals().map { IncomingProposal(it.from.value, it.durationRounds) }
+        } else {
+            emptyList()
+        }
         // Keep highlights in sync with spent/moved units.
         if (selectedUnit?.let { !state.units.containsKey(it) } == true) clearSelection()
         // Fog of war: refreshHud runs after every state entry point (submit, undo,

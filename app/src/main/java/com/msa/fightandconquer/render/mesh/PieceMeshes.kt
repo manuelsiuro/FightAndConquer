@@ -9,7 +9,14 @@ enum class ColorRole { FACTION, GOLD, TREE_FOLIAGE, TRUNK, STONE, PIP }
 /** One visual part of a piece: a mesh plus its tint role. */
 class Part(val mesh: GpuMesh, val role: ColorRole)
 
-enum class PieceKind { UNIT_T1, UNIT_T2, UNIT_T3, UNIT_T4, CAPITAL, FARM, TOWER, STRONG_TOWER, TREE, GRAVESTONE }
+enum class PieceKind {
+    UNIT_T1, UNIT_T2, UNIT_T3, UNIT_T4,
+    ARCHER, CATAPULT,
+    CAPITAL, FARM, TOWER, STRONG_TOWER,
+    MINE, MARKET, LUMBER_CAMP, WATCHTOWER,
+    TREE, GRAVESTONE,
+    GOLD_VEIN, FERTILE,
+}
 
 /**
  * The piece model set, built once per engine and shared by every renderable.
@@ -29,11 +36,15 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
 
     fun partsFor(kind: PieceKind): List<Part> = parts.getValue(kind)
 
-    fun unitKind(tier: Int): PieceKind = when (tier) {
-        1 -> PieceKind.UNIT_T1
-        2 -> PieceKind.UNIT_T2
-        3 -> PieceKind.UNIT_T3
-        else -> PieceKind.UNIT_T4
+    fun unitKind(unit: com.msa.fightandconquer.core.model.GameUnit): PieceKind = when (unit.type) {
+        com.msa.fightandconquer.core.model.UnitType.ARCHER -> PieceKind.ARCHER
+        com.msa.fightandconquer.core.model.UnitType.CATAPULT -> PieceKind.CATAPULT
+        com.msa.fightandconquer.core.model.UnitType.SOLDIER -> when (unit.tier) {
+            1 -> PieceKind.UNIT_T1
+            2 -> PieceKind.UNIT_T2
+            3 -> PieceKind.UNIT_T3
+            else -> PieceKind.UNIT_T4
+        }
     }
 
     fun destroy(engine: Engine) {
@@ -158,6 +169,103 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
             ),
         )
 
+        // Special units (expansion): silhouette-faithful tokens.
+        // Archer: hooded ranger with a side-held bow arc. H 0.44 (between T2/T3).
+        PieceKind.ARCHER -> listOf(
+            Part(up(Primitives.cylinder(0.135f, 0.06f, 8)), ColorRole.FACTION),
+            Part(pips(1, 0.15f, firstY = 0.02f), ColorRole.PIP),
+            Part(up(Primitives.frustum(0.095f, 0.06f, 0.20f, 8, baseY = 0.06f)), ColorRole.FACTION),
+            Part(up(Primitives.cone(0.055f, 0.10f, 8, baseY = 0.26f)), ColorRole.FACTION),
+            Part(
+                build {
+                    with(Primitives) {
+                        // Bow: three chained thin segments forming a vertical arc at the side.
+                        boxInto(0.115f, 0f, 0.012f, 0.10f, 0.012f, baseY = 0.10f)
+                        boxInto(0.135f, 0f, 0.012f, 0.08f, 0.012f, baseY = 0.19f)
+                        boxInto(0.135f, 0f, 0.012f, 0.08f, 0.012f, baseY = 0.03f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0.155f, 0f, 0.004f, 0.24f, 0.004f, baseY = 0.03f)), ColorRole.PIP),
+            Part(up(Primitives.sphere(0.02f, 3, 6, centerY = 0.34f)), ColorRole.GOLD),
+        )
+        // Catapult: the only wide-low unit — chassis, wheels, angled arm + boulder.
+        PieceKind.CATAPULT -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0f, 0.14f, 0.05f, 0.09f, baseY = 0.05f)
+                        for (sx in intArrayOf(-1, 1)) for (sz in intArrayOf(-1, 1)) {
+                            cylinderInto(0.055f, 0.03f, 8, baseY = 0.03f, cx = sx * 0.12f, cz = sz * 0.10f)
+                        }
+                        boxInto(0f, 0.02f, 0.02f, 0.28f, 0.02f, baseY = 0.10f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0f, -0.02f, 0.10f, 0.03f, 0.02f, baseY = 0.10f)), ColorRole.STONE),
+            Part(up(Primitives.sphere(0.045f, 3, 8, centerY = 0.42f)), ColorRole.STONE),
+            Part(up(Primitives.boxAt(0f, 0.11f, 0.13f, 0.05f, 0.012f, baseY = 0.05f)), ColorRole.FACTION),
+            Part(pips(1, 0.16f, firstY = 0.012f), ColorRole.PIP),
+        )
+
+        // Economy buildings (expansion): silhouette-faithful tokens.
+        // Mine: rock mound + timber portal + ore + claim flag.
+        PieceKind.MINE -> listOf(
+            Part(up(Primitives.frustum(0.17f, 0.10f, 0.16f, 8)), ColorRole.STONE),
+            Part(up(Primitives.boxAt(0f, -0.14f, 0.05f, 0.09f, 0.02f)), ColorRole.TRUNK),
+            Part(up(Primitives.sphere(0.045f, 3, 8, centerY = 0.19f)), ColorRole.GOLD),
+            Part(up(Primitives.boxAt(0.14f, 0.10f, 0.02f, 0.24f, 0.02f)), ColorRole.FACTION),
+        )
+        // Market: counter + faction awning + coin stack.
+        PieceKind.MARKET -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0f, 0.12f, 0.10f, 0.08f)
+                        boxInto(-0.10f, 0f, 0.015f, 0.20f, 0.015f)
+                        boxInto(0.10f, 0f, 0.015f, 0.20f, 0.015f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.wedgeAt(0f, 0f, 0.14f, 0.09f, 0.11f, baseY = 0.20f)), ColorRole.FACTION),
+            Part(up(Primitives.cylinder(0.03f, 0.035f, 6, baseY = 0.10f, cx = 0.05f, cz = 0.03f)), ColorRole.GOLD),
+        )
+        // Lumber camp: log pile + stump + faction lean-to.
+        PieceKind.LUMBER_CAMP -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0.06f, 0.11f, 0.06f, 0.035f)
+                        boxInto(0f, -0.02f, 0.11f, 0.06f, 0.035f)
+                        boxInto(0f, 0.02f, 0.10f, 0.05f, 0.03f, baseY = 0.06f)
+                        cylinderInto(0.045f, 0.06f, 7, cx = 0.15f, cz = -0.12f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0.15f, -0.12f, 0.012f, 0.07f, 0.03f, baseY = 0.05f)), ColorRole.STONE),
+            Part(up(Primitives.wedgeAt(-0.14f, -0.09f, 0.07f, 0.05f, 0.06f, baseY = 0.12f)), ColorRole.FACTION),
+        )
+        // Watchtower: tall skeletal post + platform + brazier + faction pennant.
+        PieceKind.WATCHTOWER -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.05f, 0.42f, 6)
+                        boxInto(0f, 0f, 0.08f, 0.02f, 0.08f, baseY = 0.42f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0f, 0f, 0.08f, 0.03f, 0.08f, baseY = 0.44f)), ColorRole.FACTION),
+            Part(up(Primitives.sphere(0.03f, 3, 8, centerY = 0.52f)), ColorRole.GOLD),
+            Part(up(Primitives.boxAt(0f, 0f, 0.006f, 0.12f, 0.006f, baseY = 0.46f)), ColorRole.PIP),
+            Part(up(Primitives.pennant(attachX = 0.006f, topY = 0.58f, drop = 0.05f, length = 0.10f)), ColorRole.FACTION),
+        )
+
         // Tree + gravestone.
         PieceKind.TREE -> listOf(
             Part(up(Primitives.cylinder(0.05f, 0.16f, 7)), ColorRole.TRUNK),
@@ -166,6 +274,44 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
         )
         PieceKind.GRAVESTONE -> listOf(
             Part(up(Primitives.box(0.11f, 0.24f, 0.05f)), ColorRole.STONE),
+        )
+
+        // Terrain deposits: low edge-scatter rings (hex center stays clear for units).
+        PieceKind.GOLD_VEIN -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.06f, 0.05f, 6, cx = 0.24f, cz = 0.10f)
+                        cylinderInto(0.05f, 0.045f, 6, cx = 0.10f, cz = -0.26f)
+                        cylinderInto(0.055f, 0.055f, 6, cx = -0.22f, cz = 0.14f)
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.022f, 0.03f, 5, baseY = 0.05f, cx = 0.24f, cz = 0.10f)
+                        cylinderInto(0.02f, 0.028f, 5, baseY = 0.045f, cx = 0.10f, cz = -0.26f)
+                        cylinderInto(0.02f, 0.03f, 5, baseY = 0.055f, cx = -0.22f, cz = 0.14f)
+                    }
+                },
+                ColorRole.GOLD,
+            ),
+        )
+        PieceKind.FERTILE -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.03f, 0.06f, 5, cx = 0.24f, cz = 0.08f)
+                        cylinderInto(0.028f, 0.055f, 5, cx = 0.12f, cz = -0.24f)
+                        cylinderInto(0.03f, 0.06f, 5, cx = -0.20f, cz = 0.16f)
+                        cylinderInto(0.026f, 0.05f, 5, cx = -0.04f, cz = 0.27f)
+                    }
+                },
+                ColorRole.TREE_FOLIAGE,
+            ),
+            Part(up(Primitives.cylinder(0.045f, 0.035f, 6, cx = 0.05f, cz = -0.05f)), ColorRole.TRUNK),
         )
     }
 }

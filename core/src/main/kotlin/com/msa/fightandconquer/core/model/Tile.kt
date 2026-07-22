@@ -10,6 +10,8 @@ import kotlinx.serialization.Serializable
  *
  * [starving]: owned but disconnected from the owner's capital — produces no income,
  * and any unit on it dies at the owner's next turn start.
+ *
+ * [deposit]: permanent terrain resource (see [Deposit]); survives capture.
  */
 @Serializable
 data class Tile(
@@ -18,4 +20,5 @@ data class Tile(
     val building: Building? = null,
     val flora: Flora? = null,
     val starving: Boolean = false,
+    val deposit: Deposit? = null,
 )

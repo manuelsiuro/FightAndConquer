@@ -4,6 +4,7 @@ import com.msa.fightandconquer.core.engine.Rng
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.RuleConstants
 import kotlin.math.roundToInt
@@ -61,9 +62,17 @@ object MapGenerator {
             tiles[capital] = TileDef(capital, owner = player, building = Building.CAPITAL)
         }
 
-        // Initial trees on neutral land, away from start regions.
         val protected = regions.flatMap { region -> region.flatMap { HexMath.neighbors(it) + it } }.toSet()
-        val candidates = land.filter { it !in protected }.sortedBy { it.packed }.toMutableList()
+
+        // Terrain deposits, fair by construction (see MapValidator tripwires).
+        val deposits = placeDeposits(rng, land, capitals, protected, params, rules)
+        for ((hex, deposit) in deposits) {
+            tiles[hex] = tiles.getValue(hex).copy(deposit = deposit)
+        }
+
+        // Initial trees on neutral land, away from start regions and deposits.
+        val candidates = land.filter { it !in protected && it !in deposits }
+            .sortedBy { it.packed }.toMutableList()
         val treeCount = land.size * rules.initialTreePercent / 100
         repeat(minOf(treeCount, candidates.size)) {
             val index = rng.roll(candidates.size)
@@ -78,6 +87,105 @@ object MapGenerator {
             capitals = capitals,
         )
     }
+
+    /**
+     * Places all terrain deposits. Fairness is by construction, not by retry:
+     * - Every capital gets its gold vein(s) at a common per-attempt target distance
+     *   (±1, clamped to the band), so nearest-vein distances differ by at most 2.
+     * - Every capital gets its FERTILE hexes inside the same fixed band.
+     * - Contested neutral deposits stay outside every capital's fair zone, so they
+     *   never skew the per-player counts the validator checks.
+     */
+    private fun placeDeposits(
+        rng: Chain,
+        land: Set<Hex>,
+        capitals: List<Hex>,
+        protected: Set<Hex>,
+        params: MapParams,
+        rules: RuleConstants,
+    ): Map<Hex, Deposit> {
+        val deposits = HashMap<Hex, Deposit>()
+        if (rules.goldVeinsPerPlayer <= 0 && rules.fertilePerPlayer <= 0 &&
+            rules.goldVeinsNeutralPer150Hexes <= 0 && rules.fertileNeutralPercent <= 0
+        ) {
+            return deposits
+        }
+
+        // A capital's deposits live strictly inside its Voronoi cell — otherwise a
+        // deposit placed "for" X can sit nearer to Y and break the fairness bounds.
+        fun inCellOf(hex: Hex, capital: Hex): Boolean {
+            val own = HexMath.distance(hex, capital)
+            return capitals.all { it == capital || HexMath.distance(hex, it) > own }
+        }
+
+        fun candidatesNear(capital: Hex, min: Int, max: Int): List<Hex> =
+            land.filter { hex ->
+                hex !in protected && hex !in deposits &&
+                    HexMath.distance(hex, capital) in min..max &&
+                    inCellOf(hex, capital)
+            }.sortedBy { it.packed }
+
+        // Places [count] deposits in every capital's band, or NONE anywhere: on cramped
+        // maps (many players, small landmass) there may be no room for fair deposits,
+        // and zero-for-everyone is still fair — better than failing the whole map.
+        fun placeFairly(count: Int, min: Int, max: Int, deposit: Deposit) {
+            if (capitals.any { candidatesNear(it, min, max).size < count }) return
+            for (capital in capitals) {
+                repeat(count) {
+                    val candidates = candidatesNear(capital, min, max)
+                    deposits[candidates[rng.roll(candidates.size)]] = deposit
+                }
+            }
+        }
+
+        // Fair per-player veins around a common target distance.
+        if (rules.goldVeinsPerPlayer > 0) {
+            val band = rules.goldVeinBandMin..rules.goldVeinBandMax
+            val target = band.first + rng.roll(band.last - band.first + 1)
+            placeFairly(
+                rules.goldVeinsPerPlayer,
+                maxOf(band.first, target - 1),
+                minOf(band.last, target + 1),
+                Deposit.GOLD_VEIN,
+            )
+        }
+        // Fair per-player FERTILE hexes (band 2..5; the protected ring keeps them off starts).
+        if (rules.fertilePerPlayer > 0) {
+            placeFairly(rules.fertilePerPlayer, 2, FERTILE_FAIR_RADIUS, Deposit.FERTILE)
+        }
+
+        // Contested neutral deposits, strictly outside every capital's fair zone.
+        val neutralVeinFloor = maxOf(
+            requiredCapitalDistance(land.size, params.playerCount) / 2,
+            rules.goldVeinBandMax + 1,
+        )
+        val neutralVeins = land.size / 150 * rules.goldVeinsNeutralPer150Hexes
+        if (neutralVeins > 0) {
+            val middle = land.filter { hex ->
+                hex !in protected && hex !in deposits &&
+                    capitals.minOf { HexMath.distance(hex, it) } >= neutralVeinFloor
+            }.sortedBy { it.packed }.toMutableList()
+            repeat(minOf(neutralVeins, middle.size)) {
+                val hex = middle.removeAt(rng.roll(middle.size))
+                deposits[hex] = Deposit.GOLD_VEIN
+            }
+        }
+        val neutralFertile = land.size * rules.fertileNeutralPercent / 100
+        if (neutralFertile > 0) {
+            val open = land.filter { hex ->
+                hex !in protected && hex !in deposits &&
+                    capitals.minOf { HexMath.distance(hex, it) } > FERTILE_FAIR_RADIUS
+            }.sortedBy { it.packed }.toMutableList()
+            repeat(minOf(neutralFertile, open.size)) {
+                val hex = open.removeAt(rng.roll(open.size))
+                deposits[hex] = Deposit.FERTILE
+            }
+        }
+        return deposits
+    }
+
+    /** Radius of the per-capital FERTILE fairness zone (also checked by MapValidator). */
+    internal const val FERTILE_FAIR_RADIUS = 5
 
     /**
      * Random-walk blob growth: repeatedly claim a frontier hex, weighted by

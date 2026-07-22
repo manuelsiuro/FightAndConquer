@@ -17,6 +17,8 @@ data class GameState(
     val rngState: Long,
     val phase: GamePhase = GamePhase.Playing,
     val nextUnitId: Int = 1,
+    /** Pacts, proposals and diplomacy bookkeeping (defaulted — save-compatible). */
+    val diplomacy: DiplomacyState = DiplomacyState(),
 ) {
     init {
         players.forEachIndexed { index, player ->

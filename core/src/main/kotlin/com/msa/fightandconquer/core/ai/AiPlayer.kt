@@ -2,6 +2,8 @@ package com.msa.fightandconquer.core.ai
 
 import com.msa.fightandconquer.core.engine.GameAction
 import com.msa.fightandconquer.core.engine.GameEvent
+import com.msa.fightandconquer.core.engine.Legality
+import com.msa.fightandconquer.core.engine.LegalityResult
 import com.msa.fightandconquer.core.engine.Reducer
 import com.msa.fightandconquer.core.engine.Rng
 import com.msa.fightandconquer.core.model.Difficulty
@@ -19,6 +21,19 @@ class AiPlayer(private val difficulty: Difficulty) {
 
     fun chooseAction(state: GameState): GameAction {
         val me = state.currentPlayer
+
+        // Diplomacy is a threshold policy, not an argmax candidate (see
+        // DiplomacyPolicy). The legality guard keeps a policy/rules mismatch from
+        // ever looping the caller on a rejected action.
+        if (state.config.rules.diplomacyEnabled) {
+            DiplomacyPolicy.mandatoryResponse(state, difficulty)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
+            DiplomacyPolicy.initiative(state, difficulty)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
+        }
+
         val baseline = Evaluator.score(state, me, difficulty)
         var best: GameAction = GameAction.EndTurn
         var bestScore = baseline

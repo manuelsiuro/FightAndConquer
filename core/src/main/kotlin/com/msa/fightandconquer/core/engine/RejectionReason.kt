@@ -38,6 +38,30 @@ enum class RejectionReason {
     TIER_MISMATCH,
     ALREADY_MAX_TIER,
     NOT_IN_SAME_REGION,
+    /** Special units (archer, catapult) never merge — with each other or soldiers. */
+    CANNOT_MERGE_SPECIAL,
+    /** Special units are disabled by this game's rules snapshot. */
+    SPECIAL_UNITS_DISABLED,
+    /** The building requires a specific terrain deposit (Mine on a gold vein). */
+    BUILDING_NEEDS_DEPOSIT,
+    /** The building only functions with fog of war enabled (Watchtower). */
+    REQUIRES_FOG_OF_WAR,
+    /** Diplomacy is disabled by this game's rules snapshot. */
+    DIPLOMACY_DISABLED,
+    /** Target seat is invalid: self, out of range, or eliminated. */
+    INVALID_PLAYER,
+    /** Pact duration outside [RuleConstants.pactMinDurationRounds..pactMaxDurationRounds]. */
+    INVALID_PACT_DURATION,
+    /** These two players already have an active pact. */
+    PACT_ALREADY_ACTIVE,
+    /** A proposal between these two players is already pending. */
+    PROPOSAL_PENDING,
+    /** amount = rounds until this pair may exchange another proposal. */
+    PROPOSAL_COOLDOWN,
+    /** No pending proposal from that player to respond to. */
+    NO_SUCH_PROPOSAL,
+    /** Tribute must be at least one coin. */
+    INVALID_TRIBUTE_AMOUNT,
     /** No game is loaded (UI-level guard). */
     NO_GAME,
 }
