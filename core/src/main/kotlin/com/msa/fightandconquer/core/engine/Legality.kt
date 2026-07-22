@@ -3,6 +3,7 @@ package com.msa.fightandconquer.core.engine
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.BuildingType
+import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
 
@@ -78,6 +79,12 @@ object Legality {
         if (tile.building != null) return reject(RejectionReason.HEX_HAS_BUILDING)
         if (tile.unit != null) return reject(RejectionReason.HEX_HAS_UNIT)
         if (tile.flora != null) return reject(RejectionReason.HEX_NEEDS_CLEARING)
+        if (action.type == BuildingType.MINE && tile.deposit != Deposit.GOLD_VEIN) {
+            return reject(RejectionReason.BUILDING_NEEDS_DEPOSIT)
+        }
+        if (action.type == BuildingType.WATCHTOWER && !state.config.rules.fogOfWar) {
+            return reject(RejectionReason.REQUIRES_FOG_OF_WAR)
+        }
         if (action.type == BuildingType.FARM) {
             val adjacentToChain = HexMath.neighbors(action.at).any {
                 val t = state.tiles[it]

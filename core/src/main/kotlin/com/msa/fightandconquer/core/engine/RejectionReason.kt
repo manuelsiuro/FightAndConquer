@@ -38,6 +38,10 @@ enum class RejectionReason {
     TIER_MISMATCH,
     ALREADY_MAX_TIER,
     NOT_IN_SAME_REGION,
+    /** The building requires a specific terrain deposit (Mine on a gold vein). */
+    BUILDING_NEEDS_DEPOSIT,
+    /** The building only functions with fog of war enabled (Watchtower). */
+    REQUIRES_FOG_OF_WAR,
     /** No game is loaded (UI-level guard). */
     NO_GAME,
 }

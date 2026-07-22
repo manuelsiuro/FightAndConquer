@@ -96,8 +96,9 @@ internal class StateBuilder(private val base: GameState) {
         tile.unit?.let { killUnit(it, DeathCause.KILLED) }
         when (tile.building) {
             Building.CAPITAL -> captureCapital(attacker, victim!!, hex)
-            Building.FARM, Building.TOWER, Building.STRONG_TOWER ->
-                events.add(GameEvent.BuildingDestroyed(hex, tile.building))
+            Building.FARM, Building.TOWER, Building.STRONG_TOWER,
+            Building.MINE, Building.MARKET, Building.LUMBER_CAMP, Building.WATCHTOWER,
+            -> events.add(GameEvent.BuildingDestroyed(hex, tile.building))
             null -> {}
         }
         updateTile(hex) { it.copy(owner = attacker, building = null, starving = false) }

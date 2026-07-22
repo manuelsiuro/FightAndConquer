@@ -15,6 +15,9 @@ import com.msa.fightandconquer.core.model.GameState
  */
 object MoveGenerator {
 
+    /** AI market cap: markets are an economy garnish, not a wall-to-wall strategy. */
+    private const val MAX_AI_MARKETS = 3
+
     fun candidates(state: GameState, difficulty: Difficulty): List<GameAction> {
         val me = state.currentPlayer
         val rules = state.config.rules
@@ -47,9 +50,9 @@ object MoveGenerator {
             reach.captureTargets.sortedBy { it.packed }.forEach {
                 out.add(GameAction.MoveUnit(unit.id, it))
             }
-            // Clear trees rotting our income.
+            // Clear trees rotting our income (managed camp trees are income, keep them).
             reach.moveTargets.sortedBy { it.packed }.forEach {
-                if (state.tiles.getValue(it).flora is Flora.Tree) {
+                if (state.tiles.getValue(it).flora is Flora.Tree && !managedByOwnCamp(state, it, me)) {
                     out.add(GameAction.MoveUnit(unit.id, it))
                 }
             }
@@ -73,7 +76,7 @@ object MoveGenerator {
         if (treasury >= rules.unitCost[0]) {
             for ((hex, tile) in state.tiles.entries.sortedBy { it.key.packed }) {
                 if (tile.owner == me && !tile.starving && tile.flora is Flora.Tree &&
-                    tile.unit == null && tile.building == null
+                    tile.unit == null && tile.building == null && !managedByOwnCamp(state, hex, me)
                 ) {
                     out.add(GameAction.BuyUnit(1, hex))
                 }
@@ -122,7 +125,94 @@ object MoveGenerator {
                     .take(2)
                 farmSpots.forEach { out.add(GameAction.BuyBuilding(BuildingType.FARM, it.key)) }
             }
+
+            // Mines: a vein without a mine is dead weight at every difficulty.
+            if (treasury >= rules.mineCost) {
+                state.tiles.entries
+                    .filter { (_, tile) ->
+                        tile.owner == me && !tile.starving && tile.building == null &&
+                            tile.unit == null && tile.flora == null &&
+                            tile.deposit == com.msa.fightandconquer.core.model.Deposit.GOLD_VEIN
+                    }
+                    .sortedBy { it.key.packed }
+                    .forEach { out.add(GameAction.BuyBuilding(BuildingType.MINE, it.key)) }
+            }
+
+            if (difficulty != Difficulty.EASY) {
+                // Markets: interior hexes only — a frontier market is a gift to the
+                // attacker — and capped, or a rich AI paves its interior with them
+                // and turtles instead of fighting (observed stalemate mode).
+                val myMarkets = state.tiles.values.count {
+                    it.owner == me && it.building == com.msa.fightandconquer.core.model.Building.MARKET
+                }
+                if (myMarkets < MAX_AI_MARKETS && treasury >= rules.marketCost + 10) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null && tile.deposit == null &&
+                                HexMath.neighbors(hex).all { state.tiles[it]?.owner == me }
+                        }
+                        .sortedBy { it.key.packed }
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.MARKET, it.key)) }
+                }
+                // Lumber camps where at least two own trees make them beat clearing.
+                if (treasury >= rules.lumberCampCost + 10) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null && tile.deposit == null &&
+                                adjacentOwnTrees(state, hex, me) >= 2
+                        }
+                        .sortedWith(
+                            compareByDescending<Map.Entry<Hex, com.msa.fightandconquer.core.model.Tile>> {
+                                adjacentOwnTrees(state, it.key, me)
+                            }.thenBy { it.key.packed },
+                        )
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.LUMBER_CAMP, it.key)) }
+                }
+            }
+
+            // Watchtowers: Hard only, fog games only, and only with a healthy economy.
+            if (difficulty == Difficulty.HARD && rules.fogOfWar &&
+                treasury >= rules.watchtowerCost + 10 && income - Rules.upkeepOf(state, me) >= 4
+            ) {
+                val discovered = state.player(me).discovered
+                // Score by never-seen POSITIONS in range, from pure hex geometry: probing
+                // state.tiles for undiscovered hexes would leak the coastline through fog.
+                fun unseen(hex: Hex): Int =
+                    HexMath.range(hex, rules.watchtowerVisionRadius).count { it !in discovered }
+                state.tiles.entries
+                    .filter { (_, tile) ->
+                        tile.owner == me && !tile.starving && tile.building == null &&
+                            tile.unit == null && tile.flora == null && tile.deposit == null
+                    }
+                    .map { it.key to unseen(it.key) }
+                    .filter { it.second > 0 }
+                    .sortedWith(compareByDescending<Pair<Hex, Int>> { it.second }.thenBy { it.first.packed })
+                    .take(2)
+                    .forEach { out.add(GameAction.BuyBuilding(BuildingType.WATCHTOWER, it.first)) }
+            }
         }
         return out
+    }
+
+    private fun managedByOwnCamp(state: GameState, hex: Hex, me: com.msa.fightandconquer.core.model.PlayerId): Boolean {
+        var found = false
+        HexMath.forEachNeighbor(hex) { n ->
+            val t = state.tiles[n]
+            if (t != null && t.owner == me && t.building == com.msa.fightandconquer.core.model.Building.LUMBER_CAMP) found = true
+        }
+        return found
+    }
+
+    private fun adjacentOwnTrees(state: GameState, hex: Hex, me: com.msa.fightandconquer.core.model.PlayerId): Int {
+        var count = 0
+        HexMath.forEachNeighbor(hex) { n ->
+            val t = state.tiles[n]
+            if (t != null && t.owner == me && t.flora is Flora.Tree) count++
+        }
+        return count
     }
 }

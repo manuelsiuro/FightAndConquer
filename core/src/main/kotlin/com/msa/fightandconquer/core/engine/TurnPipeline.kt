@@ -80,7 +80,8 @@ internal object TurnPipeline {
     /**
      * Each tree on or adjacent to the current player's territory rolls once to spread
      * to a uniformly-random adjacent empty land hex. Deterministic iteration order
-     * (sorted by packed coordinate) keeps replays stable.
+     * (sorted by packed coordinate) keeps replays stable. Trees adjacent to a Lumber
+     * Camp (any owner) are managed forest and never spread.
      */
     private fun spreadTrees(b: StateBuilder) {
         val playerId = b.currentPlayer
@@ -88,7 +89,10 @@ internal object TurnPipeline {
             .filter { (hex, tile) ->
                 tile.flora is Flora.Tree &&
                     (tile.owner == playerId ||
-                        HexMath.neighbors(hex).any { b.tiles[it]?.owner == playerId })
+                        HexMath.neighbors(hex).any { b.tiles[it]?.owner == playerId }) &&
+                    HexMath.neighbors(hex).none {
+                        b.tiles[it]?.building == com.msa.fightandconquer.core.model.Building.LUMBER_CAMP
+                    }
             }
             .map { it.key }
             .sortedBy { it.packed }
@@ -106,16 +110,8 @@ internal object TurnPipeline {
         }
     }
 
-    private fun incomeIn(b: StateBuilder): Int {
-        var income = 0
-        for (tile in b.tiles.values) {
-            if (tile.owner == b.currentPlayer && !tile.starving && tile.flora == null) {
-                income += b.rules.hexIncome
-                if (tile.building == com.msa.fightandconquer.core.model.Building.FARM) income += b.rules.farmIncome
-            }
-        }
-        return income
-    }
+    private fun incomeIn(b: StateBuilder): Int =
+        Rules.incomeFrom(b.tiles, b.rules, b.currentPlayer)
 
     private fun upkeepIn(b: StateBuilder): Int =
         b.units.values.sumOf { if (it.owner == b.currentPlayer) b.rules.unitUpkeep[it.tier - 1] else 0 }

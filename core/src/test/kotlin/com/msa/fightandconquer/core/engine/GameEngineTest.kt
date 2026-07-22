@@ -81,8 +81,9 @@ class GameEngineTest {
     fun `buyableAt lists exactly the affordable legal options`() {
         val s = strip(9, 0..2, 6..8).withUnit(owner = 0, tier = 1, at = hex(1))
         val engine = GameEngine(s)
-        // Empty own hex 2: all four unit tiers affordable at 100, tower + strong tower;
-        // farm rejected (hex 2 not adjacent to capital at 0).
+        // Empty own hex 2: all four unit tiers affordable at 100, tower + strong tower,
+        // market + lumber camp; farm rejected (hex 2 not adjacent to capital at 0),
+        // mine rejected (no gold vein), watchtower rejected (fog of war off).
         val options = engine.buyableAt(hex(2))
         assertEquals(
             setOf(
@@ -90,6 +91,8 @@ class GameEngineTest {
                 PurchaseOption.Unit(3, 30), PurchaseOption.Unit(4, 40),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.TOWER, 15),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER, 35),
+                PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.MARKET, 25),
+                PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP, 15),
             ),
             options.toSet(),
         )

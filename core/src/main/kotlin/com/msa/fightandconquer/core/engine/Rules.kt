@@ -51,7 +51,9 @@ object Rules {
         Building.TOWER -> state.config.rules.towerDefense
         Building.STRONG_TOWER -> state.config.rules.strongTowerDefense
         Building.CAPITAL -> state.config.rules.capitalDefense
-        Building.FARM, null -> 0
+        Building.FARM, Building.MINE, Building.MARKET,
+        Building.LUMBER_CAMP, Building.WATCHTOWER, null,
+        -> 0
     }
 
     /**
@@ -107,16 +109,54 @@ object Rules {
             com.msa.fightandconquer.core.model.BuildingType.FARM -> nextFarmCost(state, player)
             com.msa.fightandconquer.core.model.BuildingType.TOWER -> state.config.rules.towerCost
             com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER -> state.config.rules.strongTowerCost
+            com.msa.fightandconquer.core.model.BuildingType.MINE -> state.config.rules.mineCost
+            com.msa.fightandconquer.core.model.BuildingType.MARKET -> state.config.rules.marketCost
+            com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> state.config.rules.lumberCampCost
+            com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> state.config.rules.watchtowerCost
         }
 
-    /** Income the player will collect at turn start: producing hexes + farms. */
-    fun incomeOf(state: GameState, player: PlayerId): Int {
-        val rules = state.config.rules
+    /** Income the player will collect at turn start: producing hexes, deposits, buildings. */
+    fun incomeOf(state: GameState, player: PlayerId): Int =
+        incomeFrom(state.tiles, state.config.rules, player)
+
+    /**
+     * Single source of truth for income, shared with TurnPipeline. A tile produces only
+     * when owned, non-starving and flora-free; deposit bonuses and building income stack
+     * on top of [RuleConstants.hexIncome].
+     */
+    internal fun incomeFrom(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        rules: com.msa.fightandconquer.core.model.RuleConstants,
+        player: PlayerId,
+    ): Int {
         var income = 0
-        for (tile in state.tiles.values) {
-            if (tile.owner == player && !tile.starving && tile.flora == null) {
-                income += rules.hexIncome
-                if (tile.building == Building.FARM) income += rules.farmIncome
+        for ((hex, tile) in tiles) {
+            if (tile.owner != player || tile.starving || tile.flora != null) continue
+            income += rules.hexIncome
+            if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) income += rules.fertileHexBonus
+            when (tile.building) {
+                Building.FARM -> {
+                    income += rules.farmIncome
+                    if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) income += rules.fertileFarmBonus
+                }
+                Building.MINE -> income += rules.mineIncome
+                Building.MARKET -> {
+                    var neighbors = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = tiles[n]
+                        if (t != null && t.owner == player && !t.starving && t.flora == null) neighbors++
+                    }
+                    income += rules.marketNeighborIncome * minOf(neighbors, rules.marketNeighborCap)
+                }
+                Building.LUMBER_CAMP -> {
+                    var trees = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = tiles[n]
+                        if (t != null && t.owner == player && t.flora is com.msa.fightandconquer.core.model.Flora.Tree) trees++
+                    }
+                    income += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
+                }
+                else -> {}
             }
         }
         return income
@@ -153,7 +193,8 @@ object Rules {
             when (tile.building) {
                 Building.CAPITAL, Building.TOWER, Building.STRONG_TOWER ->
                     addRange(hex, rules.visionRadiusBuilding)
-                Building.FARM, null -> {}
+                Building.WATCHTOWER -> addRange(hex, rules.watchtowerVisionRadius)
+                Building.FARM, Building.MINE, Building.MARKET, Building.LUMBER_CAMP, null -> {}
             }
         }
         for (unit in units) {

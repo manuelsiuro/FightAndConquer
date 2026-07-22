@@ -3,6 +3,7 @@ package com.msa.fightandconquer.core.map
 import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GameConfig
 import com.msa.fightandconquer.core.model.GameState
@@ -38,6 +39,7 @@ data class TileDef(
     val owner: Int? = null,
     val building: Building? = null,
     val flora: Flora? = null,
+    val deposit: Deposit? = null,
 )
 
 /**
@@ -64,6 +66,7 @@ data class MapDefinition(
                 owner = def.owner?.let(::PlayerId),
                 building = def.building,
                 flora = def.flora,
+                deposit = def.deposit,
             )
         }
         capitals.forEach { capital ->

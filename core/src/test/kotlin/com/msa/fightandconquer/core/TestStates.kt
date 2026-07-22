@@ -97,6 +97,9 @@ object TestStates {
     fun GameState.withFlora(flora: Flora, at: Hex): GameState =
         copy(tiles = tiles + (at to tiles.getValue(at).copy(flora = flora)))
 
+    fun GameState.withDeposit(deposit: com.msa.fightandconquer.core.model.Deposit, at: Hex): GameState =
+        copy(tiles = tiles + (at to tiles.getValue(at).copy(deposit = deposit)))
+
     fun GameState.withTreasury(player: Int, amount: Int): GameState =
         copy(players = players.map { if (it.id.value == player) it.copy(treasury = amount) else it })
 

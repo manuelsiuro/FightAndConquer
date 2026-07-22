@@ -51,4 +51,36 @@ data class RuleConstants(
     val visionRadiusUnit: Int = 3,
     /** Vision radius around the player's Capital, Tower and Strong Tower. */
     val visionRadiusBuilding: Int = 4,
+
+    // --- Terrain deposits (expansion) ---
+    /** Extra income of a FERTILE hex on top of [hexIncome]. */
+    val fertileHexBonus: Int = 1,
+    /** Extra income of a FARM standing on a FERTILE hex. */
+    val fertileFarmBonus: Int = 2,
+    /** Gold veins placed near each capital at generation (0 disables). */
+    val goldVeinsPerPlayer: Int = 1,
+    /** Distance band (from the capital) for each player's fair gold vein. */
+    val goldVeinBandMin: Int = 3,
+    val goldVeinBandMax: Int = 6,
+    /** Contested extra veins in the map middle, per 150 land hexes. */
+    val goldVeinsNeutralPer150Hexes: Int = 1,
+    /** Fair FERTILE hexes near each capital (band 2..5; 0 disables). */
+    val fertilePerPlayer: Int = 2,
+    /** Percent of unprotected neutral land seeded with FERTILE. */
+    val fertileNeutralPercent: Int = 3,
+
+    // --- Economy buildings (expansion) ---
+    val mineCost: Int = 20,
+    val mineIncome: Int = 6,
+    val marketCost: Int = 25,
+    /** Market income per adjacent owned, non-starving, flora-free hex. */
+    val marketNeighborIncome: Int = 1,
+    val marketNeighborCap: Int = 5,
+    val lumberCampCost: Int = 15,
+    /** Lumber camp income per adjacent own tree hex; those trees never spread. */
+    val lumberCampTreeIncome: Int = 2,
+    val lumberCampTreeCap: Int = 4,
+    val watchtowerCost: Int = 8,
+    /** Watchtower vision radius (fog games only; it has zero defense). */
+    val watchtowerVisionRadius: Int = 6,
 )
