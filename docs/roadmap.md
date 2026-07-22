@@ -46,9 +46,9 @@ the determinism tests in `:core` are the tripwire.
   with effort/impact ratings in
   [fog-of-war.md](fog-of-war.md#extension-proposals-evaluated-not-implemented).
   (The Watchtower from that list shipped with the expansion.)
-- Diplomacy follow-ups — full alliances (shared vision, passage, joint victory),
-  an economic victory condition, and a menu toggle row for
-  `specialUnitsEnabled`/`diplomacyEnabled` (engine flags exist; UI chips don't).
+- Diplomacy follow-ups — full alliances (shared vision, passage, joint victory)
+  and an economic victory condition. (The menu toggle rows for
+  `specialUnitsEnabled`/`diplomacyEnabled` shipped with the UI-polish pass.)
 - Tablet/landscape layout (HUD is the only portrait-specific part).
 - Translations: the string *extraction* is done (every user-facing string is in
   `res/values/strings.xml`, with `UiText` carrying resource ids out of the
