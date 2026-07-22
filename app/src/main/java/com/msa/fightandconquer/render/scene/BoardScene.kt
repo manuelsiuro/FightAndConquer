@@ -101,6 +101,10 @@ class BoardScene(
         var dimmed = false
             private set
 
+        /** View-only fog flag: hidden pieces leave the scene (entities stay alive). */
+        var hidden = false
+            private set
+
         fun setDimmed(dim: Boolean) {
             if (dim == dimmed) return
             dimmed = dim
@@ -108,6 +112,14 @@ class BoardScene(
             for (i in instances.indices) {
                 val c = colorFor(roles[i], ownerIndex)
                 instances[i].setParameter("baseColor", c.x * f, c.y * f, c.z * f)
+            }
+        }
+
+        fun setHidden(hide: Boolean) {
+            if (hide == hidden) return
+            hidden = hide
+            for (entity in entities) {
+                if (hide) engine.scene.removeEntity(entity) else engine.scene.addEntity(entity)
             }
         }
 
@@ -159,6 +171,50 @@ class BoardScene(
     private class AuraEntity(val entity: Int, val instance: MaterialInstance, var inScene: Boolean)
     private val auraPool = ArrayList<AuraEntity>()
     private var aurasShown = 0
+
+    // ----- fog of war (view-only, synced silently — never a reconcile correction) -----
+
+    /** Hexes in the viewer's live vision; null = fog off (everything visible). */
+    private var fogVisible: Set<Hex>? = null
+
+    /** Explored memory: fogged hexes render as dark terrain instead of near-black. */
+    private var fogExplored: Set<Hex> = emptySet()
+
+    /**
+     * Swap in the viewer's fog sets and re-apply them immediately. Tiles keep their
+     * LOGICAL faction color in [TileEntity.color] (reconcile's diff is untouched);
+     * only the rendered uniforms change. Pieces on fogged hexes leave the scene the
+     * same way highlights do.
+     */
+    fun setFog(visible: Set<Hex>?, explored: Set<Hex>?) {
+        fogVisible = visible
+        fogExplored = explored ?: emptySet()
+        for ((hex, te) in tiles) applyTileColor(hex, te)
+        for (piece in unitPieces.values) piece.setHidden(isFogged(piece.hex))
+        for ((hex, piece) in buildingPieces) piece.setHidden(isFogged(hex))
+        for ((hex, piece) in floraPieces) piece.setHidden(isFogged(hex))
+        // Auras were possibly drawn before fog arrived (init reconcile) or the fog
+        // edge moved — re-derive them so no ring survives inside the fog.
+        refreshAuras(latestState)
+    }
+
+    private fun isFogged(hex: Hex): Boolean {
+        val visible = fogVisible ?: return false
+        return hex !in visible
+    }
+
+    /** Writes the tile's rendered color: logical color when visible, dark neutral in fog. */
+    private fun applyTileColor(hex: Hex, te: TileEntity) {
+        val visible = fogVisible
+        val c = when {
+            visible == null || hex in visible -> te.color
+            hex in fogExplored -> Palette.NEUTRAL * FOG_EXPLORED_FACTOR
+            else -> Palette.NEUTRAL * FOG_HIDDEN_FACTOR
+        }
+        te.instance.setParameter("colorFrom", c.x, c.y, c.z)
+        te.instance.setParameter("colorTo", c.x, c.y, c.z)
+        te.instance.setParameter("waveRadius", 0f)
+    }
 
     // ----- screen anchors for HUD labels/popups -----
 
@@ -418,7 +474,7 @@ class BoardScene(
                 unitPieces[event.unit.id] = piece
                 piece.setDimmed(latestState.units[event.unit.id]?.spent == true)
                 spawnBounce(piece)
-                rumbleTime = 0f
+                if (!isFogged(event.unit.hex)) rumbleTime = 0f // no juice for unseen spawns
             }
 
             is GameEvent.UnitMoved -> {
@@ -435,6 +491,16 @@ class BoardScene(
             is GameEvent.HexCaptured -> {
                 val te = tiles[event.hex] ?: return
                 val color = Palette.faction(event.newOwner.value)
+                if (isFogged(event.hex)) {
+                    // Fogged capture: update logical state silently — no wave, no reveal.
+                    te.color = color
+                    te.raised = true
+                    te.y = Primitives.CAPTURE_RAISE
+                    applyTileColor(event.hex, te)
+                    setTileTransform(event.hex, te)
+                    refreshPiecesOn(event.hex)
+                    return
+                }
                 te.raised = true
                 te.instance.setParameter("colorTo", color.x, color.y, color.z)
                 val startY = te.y
@@ -498,7 +564,7 @@ class BoardScene(
                 val piece = createPiece(buildingKind(event.building), event.hex, owner)
                 buildingPieces[event.hex] = piece
                 spawnBounce(piece)
-                rumbleTime = 0f
+                if (!isFogged(event.hex)) rumbleTime = 0f // no juice for unseen builds
             }
 
             is GameEvent.BuildingDestroyed -> {
@@ -696,7 +762,11 @@ class BoardScene(
             instances.add(instance)
         }
         return Piece(kind, entities, instances, parts.map { it.role }, ownerIndex, hex)
-            .also { it.updateTransform() }
+            .also {
+                it.updateTransform()
+                // Fog: hide in the same pass so a fogged piece never flashes for a frame.
+                it.setHidden(isFogged(hex))
+            }
     }
 
     private fun destroyPiece(piece: Piece) {
@@ -766,6 +836,7 @@ class BoardScene(
         }
         aurasShown = 0
         for ((hex, level) in covered) {
+            if (isFogged(hex)) continue // a tower ring deep in fog would leak its presence
             val aura = if (aurasShown < auraPool.size) {
                 auraPool[aurasShown]
             } else {
@@ -813,9 +884,7 @@ class BoardScene(
                 te.color = color
                 te.raised = raised
                 te.y = y
-                te.instance.setParameter("colorFrom", color.x, color.y, color.z)
-                te.instance.setParameter("colorTo", color.x, color.y, color.z)
-                te.instance.setParameter("waveRadius", 0f)
+                applyTileColor(hex, te) // fog-aware: renders the logical color only when visible
                 setTileTransform(hex, te)
             }
         }
@@ -838,8 +907,9 @@ class BoardScene(
                 piece.updateTransform()
                 corrections++
             }
-            // Dim is a view annotation events intentionally defer — sync silently.
+            // Dim and fog are view annotations events intentionally defer — sync silently.
             unitPieces.getValue(unit.id).setDimmed(unit.spent)
+            unitPieces.getValue(unit.id).setHidden(isFogged(unit.hex))
         }
 
         // Buildings + flora, per tile.
@@ -887,6 +957,8 @@ class BoardScene(
                 piece.updateTransform()
                 corrections++
             }
+            // Fog is a view annotation — sync silently (never a correction).
+            pieces.getValue(hex).setHidden(isFogged(hex))
         }
         return corrections
     }
@@ -926,6 +998,9 @@ class BoardScene(
         private const val TAG = "BoardScene"
         private const val WAVE_MAX_RADIUS = Primitives.HEX_RADIUS * 1.3f + 0.2f
         private const val DIM_FACTOR = 0.72f
+        /** Fog tile darkening: explored memory stays readable, unseen land goes near-black. */
+        private const val FOG_EXPLORED_FACTOR = 0.45f
+        private const val FOG_HIDDEN_FACTOR = 0.12f
         private const val MAX_PATH_LEN = 24
         /** Label anchor height: above the tallest piece (capital banner ~0.70). */
         private const val ANCHOR_LIFT = 0.8f

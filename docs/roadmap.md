@@ -23,6 +23,9 @@ the determinism tests in `:core` are the tripwire.
 - Multiple autosave slots (`SaveGame` is self-contained; only the repository file
   naming needs work).
 - Difficulty per AI seat (plumb a list through `GameSetup` instead of one value).
+- Fog-of-war follow-ups — Watchtower building, softer fog visuals, last-known-piece
+  memory: evaluated with effort/impact ratings in
+  [fog-of-war.md](fog-of-war.md#extension-proposals-evaluated-not-implemented).
 - Tablet/landscape layout (HUD is the only portrait-specific part).
 - Translations: the string *extraction* is done (every user-facing string is in
   `res/values/strings.xml`, with `UiText` carrying resource ids out of the

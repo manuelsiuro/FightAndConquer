@@ -12,6 +12,7 @@ import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.PlayerId
 import com.msa.fightandconquer.core.model.PlayerKind
+import com.msa.fightandconquer.core.model.RuleConstants
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -19,7 +20,12 @@ import org.junit.Test
 
 class AiSimulationTest {
 
-    private fun newAiGame(seed: Long, difficulties: List<Difficulty>, size: MapSize = MapSize.SMALL): GameState {
+    private fun newAiGame(
+        seed: Long,
+        difficulties: List<Difficulty>,
+        size: MapSize = MapSize.SMALL,
+        rules: RuleConstants = RuleConstants(),
+    ): GameState {
         val params = MapParams(
             seed = seed,
             size = size,
@@ -29,6 +35,7 @@ class AiSimulationTest {
         return MapGenerator.generate(params).newGame(
             gameSeed = seed * 31 + 7,
             kinds = difficulties.map { PlayerKind.Ai(it) },
+            rules = rules,
         )
     }
 
@@ -125,6 +132,64 @@ class AiSimulationTest {
             worstMs = maxOf(worstMs, (System.nanoTime() - startNs) / 1_000_000)
         }
         assertTrue("worst AI turn took ${worstMs}ms", worstMs < 1000)
+    }
+
+    @Test
+    fun `fog games terminate with fog-honoring AIs and invariants intact`() {
+        // No winrate gate under fog (balance may legitimately shift) — the fog-off
+        // 70% mirror gate stays the balance baseline. This guards termination only.
+        val fogRules = RuleConstants(fogOfWar = true)
+        for (seed in 1L..4L) {
+            var state = newAiGame(seed, listOf(Difficulty.NORMAL, Difficulty.HARD), rules = fogRules)
+            val ais = listOf(AiPlayer(Difficulty.NORMAL), AiPlayer(Difficulty.HARD))
+            while (state.phase is GamePhase.Playing && state.turnNumber < 400) {
+                state = playTurn(state, ais)
+                assertInvariants(state)
+            }
+            assertTrue(
+                "fog seed $seed did not finish (round ${state.turnNumber})",
+                state.phase is GamePhase.Finished,
+            )
+        }
+    }
+
+    @Test
+    fun `fog games are fully deterministic including discovered sets`() {
+        val json = Json
+        fun run(): String {
+            var state = newAiGame(
+                5L,
+                listOf(Difficulty.NORMAL, Difficulty.HARD),
+                rules = RuleConstants(fogOfWar = true),
+            )
+            val ais = listOf(AiPlayer(Difficulty.NORMAL), AiPlayer(Difficulty.HARD))
+            var rounds = 0
+            while (state.phase is GamePhase.Playing && rounds < 30) {
+                state = playTurn(state, ais)
+                rounds++
+            }
+            return json.encodeToString(GameState.serializer(), state)
+        }
+        assertEquals(run(), run())
+    }
+
+    @Test
+    fun `fog ai turn completes within one second on a large map`() {
+        var state = newAiGame(
+            3L,
+            List(4) { Difficulty.HARD },
+            size = MapSize.LARGE,
+            rules = RuleConstants(fogOfWar = true),
+        )
+        val ais = List(4) { AiPlayer(Difficulty.HARD) }
+        var worstMs = 0L
+        repeat(12) {
+            if (state.phase !is GamePhase.Playing) return@repeat
+            val startNs = System.nanoTime()
+            state = playTurn(state, ais)
+            worstMs = maxOf(worstMs, (System.nanoTime() - startNs) / 1_000_000)
+        }
+        assertTrue("worst fog AI turn took ${worstMs}ms", worstMs < 1000)
     }
 
     @Test

@@ -49,6 +49,7 @@ fun MenuScreen(
     var mode by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(GameMode.VS_AI) }
     var difficulty by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(Difficulty.NORMAL) }
     var size by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(MapSize.MEDIUM) }
+    var fogOfWar by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -131,10 +132,22 @@ fun MenuScreen(
                 )
             }
         }
+        OptionRow(stringResource(R.string.menu_section_fog)) {
+            FilterChip(
+                selected = !fogOfWar,
+                onClick = { fogOfWar = false },
+                label = { Text(stringResource(R.string.menu_fog_off)) },
+            )
+            FilterChip(
+                selected = fogOfWar,
+                onClick = { fogOfWar = true },
+                label = { Text(stringResource(R.string.menu_fog_on)) },
+            )
+        }
 
         Spacer(Modifier.height(28.dp))
         OutlinedButton(
-            onClick = { onNewGame(GameSetup(playerCount, mode, difficulty, size)) },
+            onClick = { onNewGame(GameSetup(playerCount, mode, difficulty, size, fogOfWar = fogOfWar)) },
             modifier = Modifier.fillMaxWidth(),
         ) { Text(stringResource(R.string.menu_new_game), color = UiColors.ink) }
     }

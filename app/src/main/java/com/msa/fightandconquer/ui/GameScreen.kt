@@ -132,6 +132,10 @@ fun GameScreen(viewModel: GameViewModel) {
                 BoardScene(renderEngine, context, engine.state.value).also { scene ->
                     scene.onTap = { hex -> viewModel.onHexTapped(hex) }
                     scene.onTapMiss = { viewModel.cancelSelection() }
+                    // Fog must cover the board from the very first frame.
+                    viewModel.visibility.value.let { vis ->
+                        scene.setFog(vis?.visible, vis?.explored)
+                    }
                     ref.scene = scene
                 }
             }
@@ -160,6 +164,11 @@ fun GameScreen(viewModel: GameViewModel) {
         }
         LaunchedEffect(Unit) {
             viewModel.cameraJumps.collect { hex -> ref.scene?.jumpTo(hex, targetDistance = 10f) }
+        }
+        LaunchedEffect(Unit) {
+            viewModel.visibility.collect { vis ->
+                ref.scene?.setFog(vis?.visible, vis?.explored)
+            }
         }
         LaunchedEffect(overlayLabels, popups) {
             val tracked = overlayLabels.mapTo(HashSet()) { it.hex }

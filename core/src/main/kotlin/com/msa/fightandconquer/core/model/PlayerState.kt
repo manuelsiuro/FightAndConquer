@@ -22,4 +22,10 @@ data class PlayerState(
     val treasury: Int,
     val capital: Hex?,
     val eliminated: Boolean = false,
+    /**
+     * Fog of war explored memory: every hex this player has ever had in vision.
+     * Grows monotonically; always empty when fog is off. Kept sorted by
+     * [Hex.packed] so serialized state is byte-stable (determinism tests).
+     */
+    val discovered: Set<Hex> = emptySet(),
 )

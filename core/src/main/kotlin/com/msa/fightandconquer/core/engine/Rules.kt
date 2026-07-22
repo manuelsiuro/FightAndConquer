@@ -126,4 +126,43 @@ object Rules {
         val rules = state.config.rules
         return state.units.values.sumOf { if (it.owner == player) rules.unitUpkeep[it.tier - 1] else 0 }
     }
+
+    /**
+     * Fog-of-war live vision: union of radius ranges around the player's owned hexes,
+     * units, and vision buildings (capital/towers), clipped to the map. Pure and
+     * RNG-free — vision is always derived, never stored (only [PlayerState.discovered]
+     * persists). See docs/fog-of-war.md, including the visionRadiusOwned >= 2 invariant.
+     */
+    fun visibleHexes(state: GameState, player: PlayerId): Set<Hex> =
+        visibleHexesFrom(state.tiles, state.units.values, state.config.rules, player)
+
+    /** Map-shape-agnostic core of [visibleHexes], shared with the engine's StateBuilder. */
+    internal fun visibleHexesFrom(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        units: Collection<com.msa.fightandconquer.core.model.GameUnit>,
+        rules: com.msa.fightandconquer.core.model.RuleConstants,
+        player: PlayerId,
+    ): Set<Hex> {
+        val visible = HashSet<Hex>()
+        fun addRange(center: Hex, radius: Int) {
+            for (h in HexMath.range(center, radius)) if (h in tiles) visible.add(h)
+        }
+        for ((hex, tile) in tiles) {
+            if (tile.owner != player) continue
+            addRange(hex, rules.visionRadiusOwned)
+            when (tile.building) {
+                Building.CAPITAL, Building.TOWER, Building.STRONG_TOWER ->
+                    addRange(hex, rules.visionRadiusBuilding)
+                Building.FARM, null -> {}
+            }
+        }
+        for (unit in units) {
+            if (unit.owner == player) addRange(unit.hex, rules.visionRadiusUnit)
+        }
+        return visible
+    }
+
+    /** Canonical packed-sorted storage form for [PlayerState.discovered] (byte-stable JSON). */
+    internal fun sortedDiscovered(hexes: Set<Hex>): Set<Hex> =
+        hexes.sortedBy { it.packed }.toCollection(LinkedHashSet())
 }

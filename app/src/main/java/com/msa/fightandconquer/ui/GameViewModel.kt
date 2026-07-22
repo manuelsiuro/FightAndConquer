@@ -22,7 +22,9 @@ import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.GameUnit
+import com.msa.fightandconquer.core.model.PlayerId
 import com.msa.fightandconquer.core.model.PlayerKind
+import com.msa.fightandconquer.core.model.RuleConstants
 import com.msa.fightandconquer.core.model.UnitId
 import com.msa.fightandconquer.core.persist.SaveCodec
 import com.msa.fightandconquer.R
@@ -48,6 +50,13 @@ data class GameSetup(
     val difficulty: Difficulty = Difficulty.NORMAL,
     val size: MapSize = MapSize.MEDIUM,
     val seed: Long = System.currentTimeMillis(),
+    val fogOfWar: Boolean = false,
+)
+
+/** Fog of war render sets for the viewing seat; null everywhere means fog is off. */
+data class BoardVisibility(
+    val visible: Set<Hex>,
+    val explored: Set<Hex>,
 )
 
 data class HighlightSet(
@@ -169,9 +178,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _resync = MutableStateFlow(0)
     val resync: StateFlow<Int> = _resync.asStateFlow()
 
+    /** Fog of war sets for the viewing seat; null = fog off (or game over: fog lifts). */
+    private val _visibility = MutableStateFlow<BoardVisibility?>(null)
+    val visibility: StateFlow<BoardVisibility?> = _visibility.asStateFlow()
+
     private var selectedUnit: UnitId? = null
     private var selectedHex: Hex? = null
     private var banner: Int? = null
+    /** Seat of the human who most recently played — the fog perspective during AI turns. */
+    private var lastHumanSeat: Int? = null
     private var aiJob: Job? = null
     private var eventsJob: Job? = null
     private var aiThinking = false
@@ -198,7 +213,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     else -> PlayerKind.Ai(setup.difficulty)
                 }
             }
-            val state = map.newGame(gameSeed = setup.seed * 31 + 17, kinds = kinds)
+            val state = map.newGame(
+                gameSeed = setup.seed * 31 + 17,
+                kinds = kinds,
+                rules = RuleConstants(fogOfWar = setup.fogOfWar),
+            )
             withContext(Dispatchers.Main.immediate) {
                 startEngine(GameEngine(state), showOpeningBanner = setup.mode == GameMode.PASS_AND_PLAY)
             }
@@ -230,6 +249,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _toasts.value = emptyList()
         _popups.value = emptyList()
         selectedUnit = null; selectedHex = null; banner = null
+        lastHumanSeat = null
+        _visibility.value = null
         _screen.value = Screen.Menu(autosaveFile.exists())
     }
 
@@ -238,6 +259,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         eventsJob?.cancel()
         engine = newEngine
         selectedUnit = null; selectedHex = null
+        lastHumanSeat = null
         banner = if (showOpeningBanner) 0 else null
         freshUnitCursor = 0
         aiCapturedFromHumans = 0
@@ -315,8 +337,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 return
             }
         }
-        // Not selectable: explain what was tapped instead.
-        _infoCard.value = tile?.let { infoCardFor(state, hex, it) }
+        // Not selectable: explain what was tapped instead. Fogged hexes never leak
+        // their contents — explored memory gets a generic card, unseen land nothing.
+        val vis = _visibility.value
+        _infoCard.value = when {
+            vis == null || hex in vis.visible -> tile?.let { infoCardFor(state, hex, it) }
+            hex in vis.explored -> InfoCard(
+                title = UiText.of(R.string.info_fog_title),
+                subtitle = UiText.of(R.string.info_fog),
+            )
+            else -> null
+        }
         _highlights.value = HighlightSet()
         _overlayLabels.value = emptyList()
         refreshHud()
@@ -772,6 +803,44 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (_economy.value != null) _economy.value = computeEconomy()
         // Keep highlights in sync with spent/moved units.
         if (selectedUnit?.let { !state.units.containsKey(it) } == true) clearSelection()
+        // Fog of war: refreshHud runs after every state entry point (submit, undo,
+        // load, AI actions), so the vision sets stay in lockstep with the board.
+        if (state.player(me).kind is PlayerKind.Human) lastHumanSeat = me.value
+        refreshVisibility(state)
     }
+
+    // ----- fog of war -----
+
+    private fun refreshVisibility(state: GameState) {
+        // Fog off — or game over: the fog lifts so players can review the final board.
+        if (!state.config.rules.fogOfWar || state.phase !is GamePhase.Playing) {
+            if (_visibility.value != null) _visibility.value = null
+            return
+        }
+        val viewer = viewPerspective(state)
+        _visibility.value = BoardVisibility(
+            visible = Rules.visibleHexes(state, viewer),
+            explored = state.player(viewer).discovered,
+        )
+    }
+
+    /**
+     * Whose fog the board shows. During AI turns this stays on the human who most
+     * recently played — never the next human, whose map would leak to the player
+     * still holding the device in pass-and-play.
+     */
+    private fun viewPerspective(state: GameState): PlayerId {
+        if (state.player(state.currentPlayer).kind is PlayerKind.Human) return state.currentPlayer
+        lastHumanSeat?.let { seat ->
+            val p = state.players[seat]
+            if (p.kind is PlayerKind.Human && !p.eliminated) return p.id
+        }
+        return state.players.firstOrNull { it.kind is PlayerKind.Human && !it.eliminated }?.id
+            ?: state.currentPlayer
+    }
+
+    // Note on anchors/popups under fog: overlay labels are frontier hexes (always
+    // within vision) and coin popups fire only on the viewer's own actions, so the
+    // Compose anchor overlay never reveals fogged activity by construction.
 
 }

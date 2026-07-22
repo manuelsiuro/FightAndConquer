@@ -21,6 +21,8 @@ per game without breaking old saves.
 | Tree clear bonus | +3 coins | |
 | Tree spread chance | 10 % per tree per owner-turn | |
 | Initial trees | count = 8 % of **all** land hexes | Placed on neutral land, never in/adjacent to start regions |
+| Fog of war | off by default | Optional per game; see [fog-of-war.md](fog-of-war.md) |
+| Vision radii (fog on) | owned 2 / unit 3 / Capital+Tower+Castle 4 | `visionRadiusOwned` must stay ≥ 2 (Legality/AI invariant) |
 
 ## Core mechanics
 
@@ -61,6 +63,13 @@ negative, treasury is set to 0 and **all** of that player's units die (graveston
 
 **Victory.** Last non-eliminated color wins. Surrender reverts territory to neutral,
 kills the quitter's units, and passes the turn.
+
+**Fog of war (optional, off by default).** Classic fog: hexes outside a player's
+live vision render near-black; once-seen hexes persist as dimmed terrain-only
+"explored memory" (`PlayerState.discovered`, monotonic). Vision is derived —
+never stored — from owned hexes, own units, and vision buildings. No action can
+target an unseen hex (radius-2 guarantee), the AI honors fog symmetrically, and
+the fog lifts when the game ends. Full spec: [fog-of-war.md](fog-of-war.md).
 
 ## Turn-start pipeline (exact order — `TurnPipeline.kt`)
 

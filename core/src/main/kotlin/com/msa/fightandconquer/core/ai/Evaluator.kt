@@ -16,19 +16,26 @@ object Evaluator {
             return if (it.winner == me) 1e9 else -1e9
         }
 
+        // Fog of war: the AI honors fog — enemy information outside its own vision
+        // simply doesn't exist for scoring (own assets are always fully visible).
+        val visible: Set<com.msa.fightandconquer.core.hex.Hex>? =
+            if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
+
         var myHexes = 0
         var myTrees = 0
         var enemyHexes = 0
         var enemyStarving = 0
-        for (tile in state.tiles.values) {
+        for ((hex, tile) in state.tiles) {
             when {
                 tile.owner == me -> {
                     if (!tile.starving) myHexes++
                     if (tile.flora is Flora.Tree) myTrees++
                 }
                 tile.owner != null -> {
-                    enemyHexes++
-                    if (tile.starving) enemyStarving++
+                    if (visible == null || hex in visible) {
+                        enemyHexes++
+                        if (tile.starving) enemyStarving++
+                    }
                 }
             }
         }
@@ -72,20 +79,30 @@ object Evaluator {
             // Slicing pays: enemy tiles cut off from their capital are dying assets.
             score += 8.0 * enemyStarving
             // Retake awareness: undefended fresh borders are a liability.
-            score -= 1.5 * exposedBorderHexes(state, me)
+            score -= 1.5 * exposedBorderHexes(state, me, visible)
         }
         return score
     }
 
-    /** Own hexes adjacent to an enemy unit that outguns their defense. */
-    private fun exposedBorderHexes(state: GameState, me: PlayerId): Int {
+    /**
+     * Own hexes adjacent to an enemy unit that outguns their defense. Under fog the
+     * inputs (own hexes + neighbors) are always within the visionRadiusOwned >= 2
+     * guarantee, but we gate on [visible] anyway to stay honest if radii change.
+     */
+    private fun exposedBorderHexes(
+        state: GameState,
+        me: PlayerId,
+        visible: Set<com.msa.fightandconquer.core.hex.Hex>?,
+    ): Int {
         var exposed = 0
         for ((hex, tile) in state.tiles) {
             if (tile.owner != me) continue
             var threat = 0
             com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
-                val enemy = state.unitAt(n)
-                if (enemy != null && enemy.owner != me) threat = maxOf(threat, enemy.tier)
+                if (visible == null || n in visible) {
+                    val enemy = state.unitAt(n)
+                    if (enemy != null && enemy.owner != me) threat = maxOf(threat, enemy.tier)
+                }
             }
             if (threat > Rules.defenseOf(state, hex)) exposed++
         }
