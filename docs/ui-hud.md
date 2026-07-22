@@ -77,7 +77,9 @@ alert, and `ActionRejected` reasons as info toasts.
    + `ProposalStrip` (persistent accept/decline rows for incoming pact offers —
    StateFlow-driven, only for the acting human, never behind the banner) +
    `BottomBar` (InfoCard with a 60 dp baked piece render on a plinth (`iconRes`
-   from `PieceIcons`, null for abstract cards) / selected-unit hint / `PurchaseCard`
+   from `PieceIcons`, null for abstract cards) / selected-unit hint (same card
+   layout: 40 dp unit render on a plinth + name + "pick a highlighted hex" line,
+   via `HudState.selectedUnitIconRes`) / `PurchaseCard`
    tray — 92 dp cards with 44 dp piece renders, desaturated+dimmed when
    unaffordable, coin-icon cost, upkeep & defense lines / Undo / End-Turn FAB that
    morphs in place into "N unmoved · ✕ · End anyway" for 3 s when fresh units

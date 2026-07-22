@@ -48,7 +48,7 @@
     <string name="cd_open_menu">Open game menu</string>
 
     <!-- Bottom bar -->
-    <string name="hud_selected_unit_hint">%s — pick a highlighted hex</string>
+    <string name="hud_selected_unit_hint">Pick a highlighted hex to move or capture</string>
     <string name="hud_undo">Undo</string>
     <string name="hud_end_turn">End Turn</string>
     <string name="hud_end_anyway">End anyway</string>

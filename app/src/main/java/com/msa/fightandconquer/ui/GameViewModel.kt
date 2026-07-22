@@ -160,6 +160,8 @@ data class HudState(
     val turnNumber: Int,
     /** Display-name resource of the selected unit (type-aware), null when none. */
     val selectedUnitNameRes: Int?,
+    /** Baked render of the selected unit for the hint card, null when none. */
+    val selectedUnitIconRes: Int?,
     val purchases: List<PurchaseOption>,
     val canUndo: Boolean,
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
@@ -1111,7 +1113,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         val rules = state.config.rules
         val summary = engine.incomeSummary(me)
-        val selectedName = selectedUnit?.let { state.units[it] }?.let { unitNameRes(it.type, it.tier) }
+        val selected = selectedUnit?.let { state.units[it] }
+        val selectedName = selected?.let { unitNameRes(it.type, it.tier) }
         val purchases = if (selectedUnit == null) {
             selectedHex?.let { engine.buyableAt(it) } ?: emptyList()
         } else {
@@ -1127,6 +1130,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             upkeep = summary.upkeep,
             turnNumber = state.turnNumber,
             selectedUnitNameRes = selectedName,
+            selectedUnitIconRes = selected?.let { PieceIcons.unit(it.type, it.tier) },
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,

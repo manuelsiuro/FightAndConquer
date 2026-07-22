@@ -971,12 +971,32 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
         }
         state.selectedUnitNameRes?.let { nameRes ->
             Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
-                Text(
-                    stringResource(R.string.hud_selected_unit_hint, stringResource(nameRes)),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    color = UiColors.ink,
-                    fontSize = 14.sp,
-                )
+                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    state.selectedUnitIconRes?.let { icon ->
+                        Box(
+                            Modifier
+                                .size(44.dp)
+                                .background(UiColors.background, RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(painterResource(icon), contentDescription = null, Modifier.size(40.dp))
+                        }
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Column {
+                        Text(
+                            stringResource(nameRes),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            color = UiColors.ink,
+                        )
+                        Text(
+                            stringResource(R.string.hud_selected_unit_hint),
+                            fontSize = 12.sp,
+                            color = UiColors.inkSecondary,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
         }
