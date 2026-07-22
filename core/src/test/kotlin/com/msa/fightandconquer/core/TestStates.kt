@@ -82,8 +82,14 @@ object TestStates {
         )
     }
 
-    fun GameState.withUnit(owner: Int, tier: Int, at: Hex, spent: Boolean = false): GameState {
-        val unit = GameUnit(UnitId(nextUnitId), PlayerId(owner), tier, at, spent)
+    fun GameState.withUnit(
+        owner: Int,
+        tier: Int,
+        at: Hex,
+        spent: Boolean = false,
+        type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    ): GameState {
+        val unit = GameUnit(UnitId(nextUnitId), PlayerId(owner), tier, at, spent, type)
         return copy(
             units = units + (unit.id to unit),
             tiles = tiles + (at to tiles.getValue(at).copy(unit = unit.id)),
@@ -110,7 +116,11 @@ object TestStates {
         for (unit in state.units.values) {
             assertEquals("tile back-pointer for $unit", unit.id, state.tiles[unit.hex]?.unit)
             assertEquals("unit stands on own tile: $unit", unit.owner, state.tiles[unit.hex]?.owner)
-            assertTrue("tier in range: $unit", unit.tier in 1..state.config.rules.maxTier)
+            if (unit.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER) {
+                assertTrue("tier in range: $unit", unit.tier in 1..state.config.rules.maxTier)
+            } else {
+                assertEquals("special units stay tier 1: $unit", 1, unit.tier)
+            }
         }
         for ((hex, tile) in state.tiles) {
             tile.unit?.let { id ->

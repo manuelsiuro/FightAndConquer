@@ -6,6 +6,7 @@ import com.msa.fightandconquer.core.model.BuildingType
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
+import com.msa.fightandconquer.core.model.UnitType
 
 sealed interface LegalityResult {
     data object Ok : LegalityResult
@@ -42,8 +43,12 @@ object Legality {
 
     private fun checkBuyUnit(state: GameState, action: GameAction.BuyUnit): LegalityResult {
         val rules = state.config.rules
+        if (action.type != UnitType.SOLDIER) {
+            if (!rules.specialUnitsEnabled) return reject(RejectionReason.SPECIAL_UNITS_DISABLED)
+            if (action.tier != 1) return reject(RejectionReason.INVALID_TIER)
+        }
         if (action.tier !in 1..rules.maxTier) return reject(RejectionReason.INVALID_TIER)
-        val cost = rules.unitCost[action.tier - 1]
+        val cost = Rules.unitCostOf(rules, action.tier, action.type)
         val player = state.player(state.currentPlayer)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)
         val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)
@@ -54,6 +59,8 @@ object Legality {
             val occupant = state.unitAt(action.at)
             return when {
                 occupant == null -> LegalityResult.Ok
+                occupant.type != UnitType.SOLDIER || action.type != UnitType.SOLDIER ->
+                    reject(RejectionReason.CANNOT_MERGE_SPECIAL)
                 occupant.tier == action.tier && action.tier < rules.maxTier -> LegalityResult.Ok // buy-merge
                 else -> reject(RejectionReason.HEX_OCCUPIED_INCOMPATIBLE)
             }
@@ -64,8 +71,10 @@ object Legality {
             t?.owner == state.currentPlayer && !t.starving
         }
         if (!adjacentToFunded) return reject(RejectionReason.NOT_ADJACENT_TO_TERRITORY)
-        val defense = Rules.defenseOf(state, action.at)
-        if (action.tier <= defense) return reject(RejectionReason.DEFENSE_TOO_HIGH, defense)
+        val defense = Rules.defenseOf(state, action.at, action.type)
+        if (Rules.buyStrength(rules, action.tier, action.type) <= defense) {
+            return reject(RejectionReason.DEFENSE_TOO_HIGH, defense)
+        }
         return LegalityResult.Ok
     }
 
@@ -104,6 +113,9 @@ object Legality {
         }
         if (a.id == b.id) return reject(RejectionReason.CANNOT_MERGE_WITH_SELF)
         if (a.spent) return reject(RejectionReason.UNIT_ALREADY_ACTED)
+        if (a.type != UnitType.SOLDIER || b.type != UnitType.SOLDIER) {
+            return reject(RejectionReason.CANNOT_MERGE_SPECIAL)
+        }
         if (a.tier != b.tier) return reject(RejectionReason.TIER_MISMATCH)
         if (a.tier >= state.config.rules.maxTier) return reject(RejectionReason.ALREADY_MAX_TIER)
         val reach = Rules.reachable(state, action.a)

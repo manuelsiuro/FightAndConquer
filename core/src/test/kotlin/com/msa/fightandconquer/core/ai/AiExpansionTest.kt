@@ -2,11 +2,14 @@ package com.msa.fightandconquer.core.ai
 
 import com.msa.fightandconquer.core.TestStates.hex
 import com.msa.fightandconquer.core.TestStates.strip
+import com.msa.fightandconquer.core.TestStates.withBuilding
 import com.msa.fightandconquer.core.TestStates.withDeposit
 import com.msa.fightandconquer.core.TestStates.withTreasury
+import com.msa.fightandconquer.core.TestStates.withUnit
 import com.msa.fightandconquer.core.engine.GameAction
 import com.msa.fightandconquer.core.engine.GameEvent
 import com.msa.fightandconquer.core.engine.Reducer
+import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.map.MapGenerator
 import com.msa.fightandconquer.core.map.MapParams
 import com.msa.fightandconquer.core.map.MapShape
@@ -107,6 +110,77 @@ class AiExpansionTest {
     fun `hard AI builds watchtowers in fog games`() {
         val built = builtAcrossGames(1L..4L, Difficulty.HARD, RuleConstants(fogOfWar = true))
         assertTrue("no WATCHTOWER built across 4 fog games", Building.WATCHTOWER in built)
+    }
+
+    /** Drives one full turn for the current player; returns the state after EndTurn. */
+    private fun playOneTurn(start: GameState, ai: AiPlayer): GameState {
+        var state = start
+        var actions = 0
+        while (true) {
+            val action = ai.chooseAction(state)
+            state = Reducer.reduce(state, action).state
+            actions++
+            if (action == GameAction.EndTurn || state.phase !is GamePhase.Playing) return state
+            if (actions >= AiPlayer.MAX_ACTIONS_PER_TURN) {
+                return Reducer.reduce(state, GameAction.EndTurn).state
+            }
+        }
+    }
+
+    @Test
+    fun `hard AI cracks a strong tower with a catapult where soldiers cannot`() {
+        // Strong tower guards hex 27 at defense 3; treasury 35 affords a catapult (30)
+        // but not the tier-4 soldier (40) — only siege can take the hex. The 27-hex
+        // economy keeps net income healthy so the catapult's upkeep is sustainable.
+        val stuck = strip(30, 0..26, 27..29)
+            .withTreasury(0, 35)
+            .withBuilding(Building.STRONG_TOWER, at = hex(27))
+        val cracked = playOneTurn(stuck, AiPlayer(Difficulty.HARD))
+        assertEquals(
+            com.msa.fightandconquer.core.model.PlayerId(0),
+            cracked.tiles.getValue(hex(27)).owner,
+        )
+        assertTrue(cracked.units.values.any { it.type == com.msa.fightandconquer.core.model.UnitType.CATAPULT })
+
+        // Same position with specials disabled: the hex is untakeable this turn.
+        val disabledRules = RuleConstants(specialUnitsEnabled = false)
+        val stuckClassic = strip(30, 0..26, 27..29, rules = disabledRules)
+            .withTreasury(0, 35)
+            .withBuilding(Building.STRONG_TOWER, at = hex(27))
+        val stalled = playOneTurn(stuckClassic, AiPlayer(Difficulty.HARD))
+        assertEquals(
+            com.msa.fightandconquer.core.model.PlayerId(1),
+            stalled.tiles.getValue(hex(27)).owner,
+        )
+    }
+
+    @Test
+    fun `hard AI hardens an exposed border on its first turn`() {
+        // P0 owns a 7-hex flower; two P1 spearmen threaten three border hexes, all
+        // coverable by one defensive purchase (archer or tower) at (1,0).
+        val center = com.msa.fightandconquer.core.hex.Hex.of(0, 0)
+        val owners = HashMap<com.msa.fightandconquer.core.hex.Hex, Int?>()
+        owners[center] = 0
+        com.msa.fightandconquer.core.hex.HexMath.neighbors(center).forEach { owners[it] = 0 }
+        val e1 = com.msa.fightandconquer.core.hex.Hex.of(2, -1)
+        val e2 = com.msa.fightandconquer.core.hex.Hex.of(1, 1)
+        owners[e1] = 1
+        owners[e2] = 1
+        val start = com.msa.fightandconquer.core.TestStates.custom(
+            owners,
+            capital0 = com.msa.fightandconquer.core.hex.Hex.of(-1, 0),
+            capital1 = e1,
+            treasury = 20,
+        )
+            .withUnit(owner = 1, tier = 2, at = e1, spent = true)
+            .withUnit(owner = 1, tier = 2, at = e2, spent = true)
+
+        val watched = com.msa.fightandconquer.core.hex.Hex.of(1, 0)
+        val after = playOneTurn(start, AiPlayer(Difficulty.HARD))
+        assertTrue(
+            "border still defends at ${Rules.defenseOf(after, watched)}",
+            Rules.defenseOf(after, watched) >= 2,
+        )
     }
 
     @Test

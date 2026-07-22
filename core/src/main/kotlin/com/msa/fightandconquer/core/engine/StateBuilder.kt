@@ -49,8 +49,14 @@ internal class StateBuilder(private val base: GameState) {
 
     // ----- shared operations -----
 
-    fun spawnUnit(owner: PlayerId, tier: Int, hex: Hex, spent: Boolean): GameUnit {
-        val unit = GameUnit(UnitId(nextUnitId++), owner, tier, hex, spent)
+    fun spawnUnit(
+        owner: PlayerId,
+        tier: Int,
+        hex: Hex,
+        spent: Boolean,
+        type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    ): GameUnit {
+        val unit = GameUnit(UnitId(nextUnitId++), owner, tier, hex, spent, type)
         units[unit.id] = unit
         updateTile(hex) { it.copy(unit = unit.id) }
         return unit

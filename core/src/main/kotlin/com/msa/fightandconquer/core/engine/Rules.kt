@@ -4,8 +4,11 @@ import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.GameState
+import com.msa.fightandconquer.core.model.GameUnit
 import com.msa.fightandconquer.core.model.PlayerId
+import com.msa.fightandconquer.core.model.RuleConstants
 import com.msa.fightandconquer.core.model.UnitId
+import com.msa.fightandconquer.core.model.UnitType
 
 data class ReachResult(
     val moveTargets: Set<Hex>,
@@ -26,22 +29,60 @@ object Rules {
         return HexMath.floodFill(start) { state.tiles[it]?.owner == owner }
     }
 
+    /** Attack/capture power of a unit: tier for soldiers, per-type for specials. */
+    fun strengthOf(unit: GameUnit, rules: RuleConstants): Int =
+        buyStrength(rules, unit.tier, unit.type)
+
+    /** [strengthOf] for a unit that doesn't exist yet (buy-capture legality). */
+    fun buyStrength(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
+        UnitType.SOLDIER -> tier
+        UnitType.ARCHER -> rules.archerStrength
+        UnitType.CATAPULT -> rules.catapultStrength
+    }
+
+    fun unitCostOf(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
+        UnitType.SOLDIER -> rules.unitCost[tier - 1]
+        UnitType.ARCHER -> rules.archerCost
+        UnitType.CATAPULT -> rules.catapultCost
+    }
+
+    /** Per-turn upkeep of a unit — the single source shared with TurnPipeline. */
+    fun unitUpkeepOf(unit: GameUnit, rules: RuleConstants): Int = when (unit.type) {
+        UnitType.SOLDIER -> rules.unitUpkeep[unit.tier - 1]
+        UnitType.ARCHER -> rules.archerUpkeep
+        UnitType.CATAPULT -> rules.catapultUpkeep
+    }
+
+    /**
+     * What a unit contributes to the defense of its hex and adjacent own hexes.
+     * The archer's aura slots into the existing max-based model exactly like tower
+     * coverage — no additive special case.
+     */
+    internal fun defenseContribution(unit: GameUnit, rules: RuleConstants): Int = when (unit.type) {
+        UnitType.ARCHER -> rules.archerAuraDefense
+        else -> strengthOf(unit, rules)
+    }
+
     /**
      * Defense rating of [hex] from an attacker's perspective:
      * max of the defending unit on it, the owner's units on adjacent own hexes,
      * and tower/capital coverage (self + adjacent). Neutral hexes defend at 0.
      * A capture requires attacker strength STRICTLY greater than this.
+     * A CATAPULT [attackerType] ignores building contributions entirely
+     * (units still defend at full value).
      */
-    fun defenseOf(state: GameState, hex: Hex): Int {
+    fun defenseOf(state: GameState, hex: Hex, attackerType: UnitType? = null): Int {
         val tile = state.tiles[hex] ?: return 0
         val owner = tile.owner ?: return 0
-        var defense = buildingDefense(state, tile.building)
-        state.unitAt(hex)?.let { defense = maxOf(defense, it.tier) }
+        val rules = state.config.rules
+        val siege = attackerType == UnitType.CATAPULT
+        var defense = if (siege) 0 else buildingDefense(state, tile.building)
+        state.unitAt(hex)?.let { defense = maxOf(defense, defenseContribution(it, rules)) }
         HexMath.forEachNeighbor(hex) { n ->
             val neighborTile = state.tiles[n]
             if (neighborTile?.owner == owner) {
-                state.unitAt(n)?.let { defense = maxOf(defense, it.tier) }
-                defense = maxOf(defense, buildingDefense(state, neighborTile.building))
+                state.unitAt(n)?.let { defense = maxOf(defense, defenseContribution(it, rules)) }
+                if (!siege) defense = maxOf(defense, buildingDefense(state, neighborTile.building))
             }
         }
         return defense
@@ -61,29 +102,37 @@ object Rules {
      * - moveTargets: unoccupied, building-free hexes of its region (flora is fine — moving
      *   onto a tree clears it);
      * - captureTargets: non-owned hexes adjacent to the region with defense < strength;
-     * - mergeTargets: hexes in the region holding a same-tier friendly unit (tier < max).
+     * - mergeTargets: hexes in the region holding a same-tier friendly SOLDIER (tier < max;
+     *   specials never merge).
+     * A CATAPULT is range-capped: every target must lie within
+     * [RuleConstants.catapultMoveRange] of its current hex.
      */
     fun reachable(state: GameState, unitId: UnitId): ReachResult {
         val unit = state.units[unitId] ?: return ReachResult.EMPTY
         if (unit.spent || state.phase !is com.msa.fightandconquer.core.model.GamePhase.Playing) return ReachResult.EMPTY
+        val rules = state.config.rules
+        val strength = strengthOf(unit, rules)
+        val maxRange = if (unit.type == UnitType.CATAPULT) rules.catapultMoveRange else Int.MAX_VALUE
+        fun inRange(hex: Hex) = HexMath.distance(unit.hex, hex) <= maxRange
         val region = region(state, unit.hex)
         val move = HashSet<Hex>()
         val capture = HashSet<Hex>()
         val merge = HashSet<Hex>()
         for (hex in region) {
             val tile = state.tiles.getValue(hex)
-            if (hex != unit.hex && tile.building == null) {
+            if (hex != unit.hex && tile.building == null && inRange(hex)) {
                 val occupant = state.unitAt(hex)
                 when {
                     occupant == null -> move.add(hex)
-                    occupant.tier == unit.tier && unit.tier < state.config.rules.maxTier -> merge.add(hex)
+                    unit.type == UnitType.SOLDIER && occupant.type == UnitType.SOLDIER &&
+                        occupant.tier == unit.tier && unit.tier < rules.maxTier -> merge.add(hex)
                 }
             }
             HexMath.forEachNeighbor(hex) { n ->
-                if (n !in capture) {
+                if (n !in capture && inRange(n)) {
                     val neighborTile = state.tiles[n]
                     if (neighborTile != null && neighborTile.owner != unit.owner &&
-                        unit.tier > defenseOf(state, n)
+                        strength > defenseOf(state, n, unit.type)
                     ) {
                         capture.add(n)
                     }
@@ -164,7 +213,7 @@ object Rules {
 
     fun upkeepOf(state: GameState, player: PlayerId): Int {
         val rules = state.config.rules
-        return state.units.values.sumOf { if (it.owner == player) rules.unitUpkeep[it.tier - 1] else 0 }
+        return state.units.values.sumOf { if (it.owner == player) unitUpkeepOf(it, rules) else 0 }
     }
 
     /**

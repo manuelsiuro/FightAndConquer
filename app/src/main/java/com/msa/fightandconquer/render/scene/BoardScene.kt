@@ -498,7 +498,7 @@ class BoardScene(
     private fun processEvent(event: GameEvent) {
         when (event) {
             is GameEvent.UnitSpawned -> {
-                val piece = createPiece(pieceMeshes.unitKind(event.unit.tier), event.unit.hex, event.unit.owner.value)
+                val piece = createPiece(pieceMeshes.unitKind(event.unit), event.unit.hex, event.unit.owner.value)
                 unitPieces[event.unit.id] = piece
                 piece.setDimmed(latestState.units[event.unit.id]?.spent == true)
                 spawnBounce(piece)
@@ -562,7 +562,7 @@ class BoardScene(
                     // Swap the target piece for the upgraded tier with a bounce.
                     target?.let { destroyPiece(it) }
                     val upgraded = createPiece(
-                        pieceMeshes.unitKind(event.into.tier),
+                        pieceMeshes.unitKind(event.into),
                         event.into.hex,
                         event.into.owner.value,
                     )
@@ -838,9 +838,9 @@ class BoardScene(
     // ----- defense auras -----
 
     /**
-     * Ring decals on every tile covered by a tower/castle/capital (self + owned
-     * neighbors), so protection is visible before you bump into it. Alpha scales
-     * with the best defense level covering the tile.
+     * Ring decals on every tile covered by a tower/castle/capital or an archer's
+     * aura (self + owned neighbors), so protection is visible before you bump into
+     * it. Alpha scales with the best defense level covering the tile.
      */
     private fun refreshAuras(state: GameState) {
         // hex -> best covering defense level
@@ -856,6 +856,14 @@ class BoardScene(
             covered.merge(hex, defense, ::maxOf)
             com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
                 if (state.tiles[n]?.owner == owner) covered.merge(n, defense, ::maxOf)
+            }
+        }
+        for (unit in state.units.values) {
+            if (unit.type != com.msa.fightandconquer.core.model.UnitType.ARCHER) continue
+            val aura = state.config.rules.archerAuraDefense
+            covered.merge(unit.hex, aura, ::maxOf)
+            com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(unit.hex) { n ->
+                if (state.tiles[n]?.owner == unit.owner) covered.merge(n, aura, ::maxOf)
             }
         }
 
@@ -926,7 +934,7 @@ class BoardScene(
         val staleUnits = unitPieces.keys.filter { it !in state.units }
         staleUnits.forEach { id -> unitPieces.remove(id)?.let { destroyPiece(it); corrections++ } }
         for (unit in state.units.values) {
-            val expectedKind = pieceMeshes.unitKind(unit.tier)
+            val expectedKind = pieceMeshes.unitKind(unit)
             val piece = unitPieces[unit.id]
             if (piece == null || piece.kind != expectedKind) {
                 piece?.let { destroyPiece(it) }

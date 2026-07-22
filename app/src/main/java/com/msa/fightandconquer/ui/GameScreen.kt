@@ -78,6 +78,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.engine.PurchaseOption
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.BuildingType
+import com.msa.fightandconquer.core.model.UnitType
 import com.msa.fightandconquer.render.FilamentHost
 import com.msa.fightandconquer.render.scene.BoardScene
 import dev.romainguy.kotlin.math.Float2
@@ -383,15 +384,15 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
             if (economy.tiers.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Text(stringResource(R.string.economy_upkeep), fontSize = 12.sp, color = UiColors.inkMuted)
-                for (tier in economy.tiers) {
+                for (row in economy.tiers) {
                     EconomyRow(
                         stringResource(
                             R.string.economy_upkeep_row,
-                            tier.count,
-                            stringResource(unitNameRes(tier.tier)),
-                            tier.each,
+                            row.count,
+                            stringResource(row.nameRes),
+                            row.each,
                         ),
-                        stringResource(R.string.economy_amount_negative, tier.total),
+                        stringResource(R.string.economy_amount_negative, row.total),
                     )
                 }
             }
@@ -622,10 +623,10 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
             InfoCardView(info)
             Spacer(Modifier.height(8.dp))
         }
-        state.selectedUnitTier?.let { tier ->
+        state.selectedUnitNameRes?.let { nameRes ->
             Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
                 Text(
-                    stringResource(R.string.hud_selected_unit_hint, stringResource(unitNameRes(tier))),
+                    stringResource(R.string.hud_selected_unit_hint, stringResource(nameRes)),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     color = UiColors.ink,
                     fontSize = 14.sp,
@@ -761,7 +762,7 @@ private fun InfoCardView(info: InfoCard) {
 @Composable
 private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boolean, onBuy: () -> Unit) {
     val nameRes = when (option) {
-        is PurchaseOption.Unit -> unitNameRes(option.tier)
+        is PurchaseOption.Unit -> unitNameRes(option.type, option.tier)
         is PurchaseOption.Structure -> when (option.type) {
             BuildingType.FARM -> R.string.building_farm
             BuildingType.TOWER -> R.string.building_tower
@@ -773,11 +774,15 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
         }
     }
     val emojiRes = when (option) {
-        is PurchaseOption.Unit -> when (option.tier) {
-            1 -> R.string.emoji_peasant
-            2 -> R.string.emoji_spearman
-            3 -> R.string.emoji_baron
-            else -> R.string.emoji_knight
+        is PurchaseOption.Unit -> when (option.type) {
+            UnitType.ARCHER -> R.string.emoji_archer
+            UnitType.CATAPULT -> R.string.emoji_catapult
+            UnitType.SOLDIER -> when (option.tier) {
+                1 -> R.string.emoji_peasant
+                2 -> R.string.emoji_spearman
+                3 -> R.string.emoji_baron
+                else -> R.string.emoji_knight
+            }
         }
         is PurchaseOption.Structure -> when (option.type) {
             BuildingType.FARM -> R.string.emoji_farm
@@ -792,7 +797,11 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
     val detail = when (option) {
         is PurchaseOption.Unit -> stringResource(
             R.string.shop_upkeep_per_turn,
-            shop.unitUpkeep[option.tier - 1],
+            when (option.type) {
+                UnitType.ARCHER -> shop.archerUpkeep
+                UnitType.CATAPULT -> shop.catapultUpkeep
+                UnitType.SOLDIER -> shop.unitUpkeep[option.tier - 1]
+            },
         )
         is PurchaseOption.Structure -> when (option.type) {
             BuildingType.FARM -> stringResource(R.string.shop_income_per_turn, shop.farmIncome)

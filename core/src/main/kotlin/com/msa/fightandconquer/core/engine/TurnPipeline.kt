@@ -114,5 +114,5 @@ internal object TurnPipeline {
         Rules.incomeFrom(b.tiles, b.rules, b.currentPlayer)
 
     private fun upkeepIn(b: StateBuilder): Int =
-        b.units.values.sumOf { if (it.owner == b.currentPlayer) b.rules.unitUpkeep[it.tier - 1] else 0 }
+        b.units.values.sumOf { if (it.owner == b.currentPlayer) Rules.unitUpkeepOf(it, b.rules) else 0 }
 }

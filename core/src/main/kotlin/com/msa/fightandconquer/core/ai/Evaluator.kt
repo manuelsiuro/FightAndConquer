@@ -32,6 +32,7 @@ object Evaluator {
         var myFertile = 0
         var myWatchtowers = 0
         var enemyVeins = 0
+        var enemyForts = 0
         var buildingScore = 0.0
         for ((hex, tile) in state.tiles) {
             when {
@@ -61,6 +62,10 @@ object Evaluator {
                         enemyHexes++
                         if (tile.starving) enemyStarving++
                         if (tile.deposit == Deposit.GOLD_VEIN) enemyVeins++
+                        when (tile.building) {
+                            Building.TOWER, Building.STRONG_TOWER, Building.CAPITAL -> enemyForts++
+                            else -> {}
+                        }
                     }
                 }
             }
@@ -115,6 +120,14 @@ object Evaluator {
             score += 8.0 * enemyStarving
             // Retake awareness: undefended fresh borders are a liability.
             score -= 1.5 * exposedBorderHexes(state, me, visible)
+            // Anti-hoard: a catapult with no visible fortification left to crack is
+            // pure upkeep — let attrition pressure retire it.
+            if (enemyForts == 0) {
+                val idleCatapults = state.units.values.count {
+                    it.owner == me && it.type == com.msa.fightandconquer.core.model.UnitType.CATAPULT
+                }
+                score -= 1.5 * idleCatapults
+            }
         }
         return score
     }
@@ -163,7 +176,9 @@ object Evaluator {
             com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
                 if (visible == null || n in visible) {
                     val enemy = state.unitAt(n)
-                    if (enemy != null && enemy.owner != me) threat = maxOf(threat, enemy.tier)
+                    if (enemy != null && enemy.owner != me) {
+                        threat = maxOf(threat, Rules.strengthOf(enemy, state.config.rules))
+                    }
                 }
             }
             if (threat > Rules.defenseOf(state, hex)) exposed++

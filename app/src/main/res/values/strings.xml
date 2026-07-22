@@ -70,6 +70,8 @@
     <string name="unit_spearman">Spearman</string>
     <string name="unit_baron">Baron</string>
     <string name="unit_knight">Knight</string>
+    <string name="unit_archer">Archer</string>
+    <string name="unit_catapult">Catapult</string>
     <string name="building_capital">Capital</string>
     <string name="building_farm">Farm</string>
     <string name="building_tower">Tower</string>
@@ -90,6 +92,8 @@
     <string name="emoji_farm">🌾</string>
     <string name="emoji_tower">🗼</string>
     <string name="emoji_castle">🏰</string>
+    <string name="emoji_archer">🏹</string>
+    <string name="emoji_catapult">🪨</string>
     <string name="emoji_mine">⛏️</string>
     <string name="emoji_market">⚖️</string>
     <string name="emoji_lumber_camp">🪓</string>
@@ -121,7 +125,10 @@
     <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
     <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
     <string name="info_stat_vision">Vision</string>
+    <string name="info_stat_range">Range</string>
     <string name="info_value_income_max">up to +%d/turn</string>
+    <string name="info_archer">Guards its hex and neighbors from a distance</string>
+    <string name="info_catapult">Slow siege engine — building defenses mean nothing to it</string>
     <string name="info_tree">Blocks this hex\'s income — move a unit onto it to clear</string>
     <string name="info_gravestone">A unit died here — a tree will sprout soon</string>
     <string name="info_cut_off">Disconnected from your capital — no income, units here will starve</string>
@@ -186,6 +193,8 @@
     <string name="reject_farm_needs_adjacency">Farms must touch your capital or another farm</string>
     <string name="reject_building_needs_deposit">Mines can only be built on gold veins</string>
     <string name="reject_requires_fog">Watchtowers only help under fog of war</string>
+    <string name="reject_cannot_merge_special">Archers and catapults can\'t merge</string>
+    <string name="reject_specials_disabled">Special units are disabled in this game</string>
     <string name="reject_not_your_units">Those are not your units</string>
     <string name="reject_cannot_merge_self">A unit cannot merge with itself</string>
     <string name="reject_tier_mismatch">Only units of the same tier can merge</string>

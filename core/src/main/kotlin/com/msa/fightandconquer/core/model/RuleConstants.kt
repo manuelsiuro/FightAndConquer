@@ -83,4 +83,18 @@ data class RuleConstants(
     val watchtowerCost: Int = 8,
     /** Watchtower vision radius (fog games only; it has zero defense). */
     val watchtowerVisionRadius: Int = 6,
+
+    // --- Special units (expansion) ---
+    val specialUnitsEnabled: Boolean = true,
+    val archerCost: Int = 14,
+    val archerUpkeep: Int = 4,
+    val archerStrength: Int = 1,
+    /** Tower-like coverage of the archer's own hex + adjacent own hexes. */
+    val archerAuraDefense: Int = 2,
+    val catapultCost: Int = 30,
+    val catapultUpkeep: Int = 10,
+    /** Catapult attack strength vs units; building defense is ignored entirely. */
+    val catapultStrength: Int = 2,
+    /** Max hex distance a catapult covers per action (interceptable, slow). */
+    val catapultMoveRange: Int = 2,
 )

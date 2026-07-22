@@ -11,6 +11,7 @@ class Part(val mesh: GpuMesh, val role: ColorRole)
 
 enum class PieceKind {
     UNIT_T1, UNIT_T2, UNIT_T3, UNIT_T4,
+    ARCHER, CATAPULT,
     CAPITAL, FARM, TOWER, STRONG_TOWER,
     MINE, MARKET, LUMBER_CAMP, WATCHTOWER,
     TREE, GRAVESTONE,
@@ -35,11 +36,15 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
 
     fun partsFor(kind: PieceKind): List<Part> = parts.getValue(kind)
 
-    fun unitKind(tier: Int): PieceKind = when (tier) {
-        1 -> PieceKind.UNIT_T1
-        2 -> PieceKind.UNIT_T2
-        3 -> PieceKind.UNIT_T3
-        else -> PieceKind.UNIT_T4
+    fun unitKind(unit: com.msa.fightandconquer.core.model.GameUnit): PieceKind = when (unit.type) {
+        com.msa.fightandconquer.core.model.UnitType.ARCHER -> PieceKind.ARCHER
+        com.msa.fightandconquer.core.model.UnitType.CATAPULT -> PieceKind.CATAPULT
+        com.msa.fightandconquer.core.model.UnitType.SOLDIER -> when (unit.tier) {
+            1 -> PieceKind.UNIT_T1
+            2 -> PieceKind.UNIT_T2
+            3 -> PieceKind.UNIT_T3
+            else -> PieceKind.UNIT_T4
+        }
     }
 
     fun destroy(engine: Engine) {
@@ -162,6 +167,47 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
                 },
                 ColorRole.TREE_FOLIAGE,
             ),
+        )
+
+        // Special units (expansion): silhouette-faithful tokens.
+        // Archer: hooded ranger with a side-held bow arc. H 0.44 (between T2/T3).
+        PieceKind.ARCHER -> listOf(
+            Part(up(Primitives.cylinder(0.135f, 0.06f, 8)), ColorRole.FACTION),
+            Part(pips(1, 0.15f, firstY = 0.02f), ColorRole.PIP),
+            Part(up(Primitives.frustum(0.095f, 0.06f, 0.20f, 8, baseY = 0.06f)), ColorRole.FACTION),
+            Part(up(Primitives.cone(0.055f, 0.10f, 8, baseY = 0.26f)), ColorRole.FACTION),
+            Part(
+                build {
+                    with(Primitives) {
+                        // Bow: three chained thin segments forming a vertical arc at the side.
+                        boxInto(0.115f, 0f, 0.012f, 0.10f, 0.012f, baseY = 0.10f)
+                        boxInto(0.135f, 0f, 0.012f, 0.08f, 0.012f, baseY = 0.19f)
+                        boxInto(0.135f, 0f, 0.012f, 0.08f, 0.012f, baseY = 0.03f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0.155f, 0f, 0.004f, 0.24f, 0.004f, baseY = 0.03f)), ColorRole.PIP),
+            Part(up(Primitives.sphere(0.02f, 3, 6, centerY = 0.34f)), ColorRole.GOLD),
+        )
+        // Catapult: the only wide-low unit — chassis, wheels, angled arm + boulder.
+        PieceKind.CATAPULT -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0f, 0.14f, 0.05f, 0.09f, baseY = 0.05f)
+                        for (sx in intArrayOf(-1, 1)) for (sz in intArrayOf(-1, 1)) {
+                            cylinderInto(0.055f, 0.03f, 8, baseY = 0.03f, cx = sx * 0.12f, cz = sz * 0.10f)
+                        }
+                        boxInto(0f, 0.02f, 0.02f, 0.28f, 0.02f, baseY = 0.10f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0f, -0.02f, 0.10f, 0.03f, 0.02f, baseY = 0.10f)), ColorRole.STONE),
+            Part(up(Primitives.sphere(0.045f, 3, 8, centerY = 0.42f)), ColorRole.STONE),
+            Part(up(Primitives.boxAt(0f, 0.11f, 0.13f, 0.05f, 0.012f, baseY = 0.05f)), ColorRole.FACTION),
+            Part(pips(1, 0.16f, firstY = 0.012f), ColorRole.PIP),
         )
 
         // Economy buildings (expansion): silhouette-faithful tokens.

@@ -56,13 +56,13 @@ object Reducer {
 
     private fun applyBuyUnit(state: GameState, b: StateBuilder, action: GameAction.BuyUnit) {
         val buyer = state.currentPlayer
-        val cost = b.rules.unitCost[action.tier - 1]
+        val cost = Rules.unitCostOf(b.rules, action.tier, action.type)
         b.updatePlayer(buyer) { it.copy(treasury = it.treasury - cost) }
 
         val tile = state.tiles.getValue(action.at)
         when {
             tile.owner == buyer && tile.unit != null -> {
-                // Buy-merge into the same-tier occupant.
+                // Buy-merge into the same-tier occupant (Legality guarantees SOLDIERs).
                 val occupant = state.units.getValue(tile.unit)
                 val merged = occupant.copy(tier = occupant.tier + 1)
                 b.units[occupant.id] = merged
@@ -73,7 +73,7 @@ object Reducer {
                 b.events.add(GameEvent.UnitsMerged(into = merged, consumed = ghost.id))
             }
             tile.owner == buyer -> {
-                val unit = b.spawnUnit(buyer, action.tier, action.at, spent = false)
+                val unit = b.spawnUnit(buyer, action.tier, action.at, spent = false, type = action.type)
                 b.events.add(GameEvent.UnitSpawned(unit))
                 val clearedTree = b.clearFloraAt(action.at, buyer)
                 if (clearedTree) b.units[unit.id] = b.units.getValue(unit.id).copy(spent = true)
@@ -81,7 +81,7 @@ object Reducer {
             else -> {
                 // Buy directly onto a capturable adjacent hex: arrives spent.
                 b.captureHex(buyer, action.at)
-                val unit = b.spawnUnit(buyer, action.tier, action.at, spent = true)
+                val unit = b.spawnUnit(buyer, action.tier, action.at, spent = true, type = action.type)
                 b.events.add(GameEvent.UnitSpawned(unit))
                 b.clearFloraAt(action.at, buyer)
                 b.recomputeStarving()

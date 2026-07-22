@@ -174,6 +174,46 @@ object MoveGenerator {
                 }
             }
 
+            // --- Special units (Normal/Hard) ---
+            if (rules.specialUnitsEnabled && difficulty != Difficulty.EASY) {
+                // Catapults where BUILDING defense is the blocker: the cheapest-tier
+                // logic can't crack defense >= maxTier, a catapult ignores it.
+                if (treasury >= rules.catapultCost) {
+                    frontier.entries
+                        .filter { (hex, defense) ->
+                            val siegeDefense = Rules.defenseOf(state, hex, com.msa.fightandconquer.core.model.UnitType.CATAPULT)
+                            defense > siegeDefense && siegeDefense < rules.catapultStrength
+                        }
+                        .sortedWith(
+                            compareByDescending<Map.Entry<Hex, Int>> { it.value }.thenBy { it.key.packed },
+                        )
+                        .take(4)
+                        .forEach {
+                            out.add(GameAction.BuyUnit(1, it.key, com.msa.fightandconquer.core.model.UnitType.CATAPULT))
+                        }
+                }
+                // Archers to harden threatened borders: rank by how many own hexes the
+                // aura would actually raise.
+                if (treasury >= rules.archerCost) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null &&
+                                HexMath.neighbors(hex).any { n ->
+                                    val t = state.tiles[n]
+                                    t?.owner != null && t.owner != me
+                                }
+                        }
+                        .map { it.key to auraGain(state, it.key, me) }
+                        .filter { it.second >= 2 }
+                        .sortedWith(compareByDescending<Pair<Hex, Int>> { it.second }.thenBy { it.first.packed })
+                        .take(3)
+                        .forEach {
+                            out.add(GameAction.BuyUnit(1, it.first, com.msa.fightandconquer.core.model.UnitType.ARCHER))
+                        }
+                }
+            }
+
             // Watchtowers: Hard only, fog games only, and only with a healthy economy.
             if (difficulty == Difficulty.HARD && rules.fogOfWar &&
                 treasury >= rules.watchtowerCost + 10 && income - Rules.upkeepOf(state, me) >= 4
@@ -196,6 +236,18 @@ object MoveGenerator {
             }
         }
         return out
+    }
+
+    /** How many hexes (self + adjacent own) an archer's aura would raise above their current defense. */
+    private fun auraGain(state: GameState, hex: Hex, me: com.msa.fightandconquer.core.model.PlayerId): Int {
+        val aura = state.config.rules.archerAuraDefense
+        var gain = 0
+        if (Rules.defenseOf(state, hex) < aura) gain++
+        HexMath.forEachNeighbor(hex) { n ->
+            val t = state.tiles[n]
+            if (t != null && t.owner == me && Rules.defenseOf(state, n) < aura) gain++
+        }
+        return gain
     }
 
     private fun managedByOwnCamp(state: GameState, hex: Hex, me: com.msa.fightandconquer.core.model.PlayerId): Boolean {

@@ -17,7 +17,11 @@ import kotlinx.coroutines.flow.asStateFlow
 sealed interface PurchaseOption {
     val cost: Int
 
-    data class Unit(val tier: Int, override val cost: Int) : PurchaseOption
+    data class Unit(
+        val tier: Int,
+        override val cost: Int,
+        val type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    ) : PurchaseOption
     data class Structure(val type: BuildingType, override val cost: Int) : PurchaseOption
 }
 
@@ -101,6 +105,14 @@ class GameEngine private constructor(
         for (tier in 1..s.config.rules.maxTier) {
             if (Legality.check(s, GameAction.BuyUnit(tier, hex)) is LegalityResult.Ok) {
                 options.add(PurchaseOption.Unit(tier, s.config.rules.unitCost[tier - 1]))
+            }
+        }
+        for (special in listOf(
+            com.msa.fightandconquer.core.model.UnitType.ARCHER,
+            com.msa.fightandconquer.core.model.UnitType.CATAPULT,
+        )) {
+            if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
+                options.add(PurchaseOption.Unit(1, Rules.unitCostOf(s.config.rules, 1, special), special))
             }
         }
         for (type in BuildingType.entries) {

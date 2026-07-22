@@ -38,6 +38,10 @@ enum class RejectionReason {
     TIER_MISMATCH,
     ALREADY_MAX_TIER,
     NOT_IN_SAME_REGION,
+    /** Special units (archer, catapult) never merge — with each other or soldiers. */
+    CANNOT_MERGE_SPECIAL,
+    /** Special units are disabled by this game's rules snapshot. */
+    SPECIAL_UNITS_DISABLED,
     /** The building requires a specific terrain deposit (Mine on a gold vein). */
     BUILDING_NEEDS_DEPOSIT,
     /** The building only functions with fog of war enabled (Watchtower). */

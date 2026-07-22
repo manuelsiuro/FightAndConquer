@@ -29,12 +29,39 @@ class LegacySaveTest {
         "marketCost", "marketNeighborIncome", "marketNeighborCap",
         "lumberCampCost", "lumberCampTreeIncome", "lumberCampTreeCap",
         "watchtowerCost", "watchtowerVisionRadius",
+        // GameUnit / BuyUnit (Phase B) — deliberately NOT "type", which is the
+        // polymorphic class discriminator in action logs.
+        "unitType",
+        // RuleConstants (Phase B)
+        "specialUnitsEnabled",
+        "archerCost", "archerUpkeep", "archerStrength", "archerAuraDefense",
+        "catapultCost", "catapultUpkeep", "catapultStrength", "catapultMoveRange",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {
         is JsonObject -> JsonObject(element.filterKeys { it !in expansionKeys }.mapValues { strip(it.value) })
         is JsonArray -> JsonArray(element.map { strip(it) })
         else -> element
+    }
+
+    /**
+     * Regression: BuyBuilding's property used to be serialized as "type", colliding
+     * with the sealed-class discriminator — every mid-turn autosave containing a
+     * building purchase silently failed to encode.
+     */
+    @Test
+    fun `a mid-turn save containing every action shape round-trips`() {
+        val save = SaveGame(
+            turnStartState = strip(9, 0..2, 6..8),
+            actionsThisTurn = listOf(
+                com.msa.fightandconquer.core.engine.GameAction.BuyBuilding(
+                    com.msa.fightandconquer.core.model.BuildingType.TOWER,
+                    hex(1),
+                ),
+                GameAction.BuyUnit(1, hex(2), com.msa.fightandconquer.core.model.UnitType.ARCHER),
+            ),
+        )
+        assertEquals(save, SaveCodec.decode(SaveCodec.encode(save)))
     }
 
     @Test

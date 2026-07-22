@@ -71,7 +71,7 @@ enum class LabelKind { CAPTURABLE, BLOCKED }
 data class OverlayLabel(val hex: Hex, val defense: Int, val kind: LabelKind)
 
 /** Coin counter breakdown panel. */
-data class TierUpkeep(val tier: Int, val count: Int, val each: Int, val total: Int)
+data class UpkeepRow(val nameRes: Int, val count: Int, val each: Int, val total: Int)
 
 /** One income line per building type (farms, mines, markets, lumber camps). */
 data class IncomeRow(val nameRes: Int, val count: Int, val total: Int)
@@ -83,7 +83,7 @@ data class EconomyBreakdown(
     /** Extra income from FERTILE ground (bare hexes; farm bonuses ride the farm row). */
     val depositBonus: Int,
     val buildingRows: List<IncomeRow>,
-    val tiers: List<TierUpkeep>,
+    val tiers: List<UpkeepRow>,
     val income: Int,
     val upkeep: Int,
     val net: Int,
@@ -120,6 +120,8 @@ data class ShopInfo(
     val marketIncomeMax: Int = 5,
     val lumberCampIncomeMax: Int = 8,
     val watchtowerVision: Int = 6,
+    val archerUpkeep: Int = 4,
+    val catapultUpkeep: Int = 10,
 )
 
 data class HudState(
@@ -131,7 +133,8 @@ data class HudState(
     val income: Int,
     val upkeep: Int,
     val turnNumber: Int,
-    val selectedUnitTier: Int?,
+    /** Display-name resource of the selected unit (type-aware), null when none. */
+    val selectedUnitNameRes: Int?,
     val purchases: List<PurchaseOption>,
     val canUndo: Boolean,
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
@@ -372,7 +375,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun buy(option: PurchaseOption) {
         val hex = selectedHex ?: return
         when (option) {
-            is PurchaseOption.Unit -> submit(GameAction.BuyUnit(option.tier, hex))
+            is PurchaseOption.Unit -> submit(GameAction.BuyUnit(option.tier, hex, option.type))
             is PurchaseOption.Structure -> submit(GameAction.BuyBuilding(option.type, hex))
         }
         clearSelection()
@@ -510,14 +513,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             IncomeRow(R.string.building_market, marketCount, marketTotal).takeIf { marketCount > 0 },
             IncomeRow(R.string.building_lumber_camp, campCount, campTotal).takeIf { campCount > 0 },
         )
-        val tiers = (1..rules.maxTier).mapNotNull { tier ->
-            val count = state.units.values.count { it.owner == me && it.tier == tier }
+        val soldierRows = (1..rules.maxTier).mapNotNull { tier ->
+            val count = state.units.values.count {
+                it.owner == me && it.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER && it.tier == tier
+            }
             if (count == 0) {
                 null
             } else {
-                TierUpkeep(tier, count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
+                UpkeepRow(unitNameRes(tier), count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
             }
         }
+        val specialRows = listOf(
+            Triple(com.msa.fightandconquer.core.model.UnitType.ARCHER, R.string.unit_archer, rules.archerUpkeep),
+            Triple(com.msa.fightandconquer.core.model.UnitType.CATAPULT, R.string.unit_catapult, rules.catapultUpkeep),
+        ).mapNotNull { (type, nameRes, each) ->
+            val count = state.units.values.count { it.owner == me && it.type == type }
+            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each)
+        }
+        val tiers = soldierRows + specialRows
         val income = Rules.incomeOf(state, me)
         val upkeep = Rules.upkeepOf(state, me)
         val treasury = state.player(me).treasury
@@ -650,20 +663,40 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val unit = tile.unit?.let { state.units[it] }
         if (unit != null) {
             val own = unit.owner == me
-            return InfoCard(
-                title = UiText.of(unitNameRes(unit.tier)),
-                subtitle = if (own) {
-                    UiText.of(R.string.info_unit_spent)
-                } else {
-                    UiText.of(R.string.info_unit_enemy, unit.tier)
-                },
-                stats = listOf(
-                    InfoStat(UiText.of(R.string.info_stat_strength), UiText.of(R.string.info_value_plain, unit.tier)),
+            val strength = Rules.strengthOf(unit, rules)
+            val stats = buildList {
+                add(InfoStat(UiText.of(R.string.info_stat_strength), UiText.of(R.string.info_value_plain, strength)))
+                add(
                     InfoStat(
                         UiText.of(R.string.info_stat_upkeep),
-                        UiText.of(R.string.info_value_per_turn, rules.unitUpkeep[unit.tier - 1]),
+                        UiText.of(R.string.info_value_per_turn, Rules.unitUpkeepOf(unit, rules)),
                     ),
-                ),
+                )
+                when (unit.type) {
+                    com.msa.fightandconquer.core.model.UnitType.ARCHER -> add(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_defense),
+                            UiText.of(R.string.info_value_defense_area, rules.archerAuraDefense),
+                        ),
+                    )
+                    com.msa.fightandconquer.core.model.UnitType.CATAPULT -> add(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_range),
+                            UiText.of(R.string.info_value_plain, rules.catapultMoveRange),
+                        ),
+                    )
+                    com.msa.fightandconquer.core.model.UnitType.SOLDIER -> {}
+                }
+            }
+            return InfoCard(
+                title = UiText.of(unitNameRes(unit.type, unit.tier)),
+                subtitle = when {
+                    unit.type == com.msa.fightandconquer.core.model.UnitType.ARCHER -> UiText.of(R.string.info_archer)
+                    unit.type == com.msa.fightandconquer.core.model.UnitType.CATAPULT -> UiText.of(R.string.info_catapult)
+                    own -> UiText.of(R.string.info_unit_spent)
+                    else -> UiText.of(R.string.info_unit_enemy, strength)
+                },
+                stats = stats,
                 factionIndex = unit.owner.value,
             )
         }
@@ -891,7 +924,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         val rules = state.config.rules
         val summary = engine.incomeSummary(me)
-        val selectedTier = selectedUnit?.let { state.units[it]?.tier }
+        val selectedName = selectedUnit?.let { state.units[it] }?.let { unitNameRes(it.type, it.tier) }
         val purchases = if (selectedUnit == null) {
             selectedHex?.let { engine.buyableAt(it) } ?: emptyList()
         } else {
@@ -906,7 +939,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             income = summary.income,
             upkeep = summary.upkeep,
             turnNumber = state.turnNumber,
-            selectedUnitTier = selectedTier,
+            selectedUnitNameRes = selectedName,
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,
@@ -922,6 +955,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 marketIncomeMax = rules.marketNeighborIncome * rules.marketNeighborCap,
                 lumberCampIncomeMax = rules.lumberCampTreeIncome * rules.lumberCampTreeCap,
                 watchtowerVision = rules.watchtowerVisionRadius,
+                archerUpkeep = rules.archerUpkeep,
+                catapultUpkeep = rules.catapultUpkeep,
             ),
         )
         // Live panel tracks every buy/move/undo.
