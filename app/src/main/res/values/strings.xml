@@ -59,7 +59,9 @@
     <string name="shop_cost">%d 🪙</string>
     <string name="shop_upkeep_per_turn">%d/turn</string>
     <string name="shop_income_per_turn">+%d/turn</string>
+    <string name="shop_income_up_to">up to +%d/turn</string>
     <string name="shop_defense">Def %d</string>
+    <string name="shop_vision">Sees %d</string>
     <string name="cd_purchase_card">%1$s, costs %2$d coins</string>
     <string name="cd_purchase_unaffordable">%1$s, costs %2$d coins — not affordable</string>
 
@@ -72,8 +74,14 @@
     <string name="building_farm">Farm</string>
     <string name="building_tower">Tower</string>
     <string name="building_castle">Castle</string>
+    <string name="building_mine">Mine</string>
+    <string name="building_market">Market</string>
+    <string name="building_lumber_camp">Lumber camp</string>
+    <string name="building_watchtower">Watchtower</string>
     <string name="piece_tree">Tree</string>
     <string name="piece_gravestone">Gravestone</string>
+    <string name="piece_gold_vein">Gold vein</string>
+    <string name="piece_fertile">Fertile ground</string>
     <string name="tile_cut_off">Cut-off territory</string>
     <string name="emoji_peasant">♟</string>
     <string name="emoji_spearman">♞</string>
@@ -82,6 +90,10 @@
     <string name="emoji_farm">🌾</string>
     <string name="emoji_tower">🗼</string>
     <string name="emoji_castle">🏰</string>
+    <string name="emoji_mine">⛏️</string>
+    <string name="emoji_market">⚖️</string>
+    <string name="emoji_lumber_camp">🪓</string>
+    <string name="emoji_watchtower">🔭</string>
 
     <!-- Info cards -->
     <string name="info_unit_enemy">Enemy unit — strength %d, defends its hex and neighbors</string>
@@ -102,6 +114,14 @@
     <string name="info_tower">Guards its hex and all 6 neighbors</string>
     <string name="info_castle">Heavy fortification — guards its hex and all 6 neighbors</string>
     <string name="info_farm">Steady income while connected to the capital</string>
+    <string name="info_mine">Extracts gold from the vein beneath it</string>
+    <string name="info_market">Trade income for every producing neighbor hex</string>
+    <string name="info_lumber_camp">Harvests nearby forest — its trees never spread</string>
+    <string name="info_watchtower">Extends vision through the fog</string>
+    <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
+    <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
+    <string name="info_stat_vision">Vision</string>
+    <string name="info_value_income_max">up to +%d/turn</string>
     <string name="info_tree">Blocks this hex\'s income — move a unit onto it to clear</string>
     <string name="info_gravestone">A unit died here — a tree will sprout soon</string>
     <string name="info_cut_off">Disconnected from your capital — no income, units here will starve</string>
@@ -113,7 +133,8 @@
     <string name="economy_upkeep">Upkeep</string>
     <string name="economy_net">Net</string>
     <string name="economy_hexes_row">%1$d hexes × %2$d</string>
-    <string name="economy_farms_row">%1$d farms × %2$d</string>
+    <string name="economy_fertile_row">Fertile ground</string>
+    <string name="economy_building_row">%1$d × %2$s</string>
     <string name="economy_cut_off_row">%d hexes cut off</string>
     <string name="economy_cut_off_value">·0</string>
     <string name="economy_upkeep_row">%1$d %2$s × %3$d</string>
@@ -163,6 +184,8 @@
     <string name="reject_not_your_hex">That hex is not yours</string>
     <string name="reject_hex_needs_clearing">Clear that hex first</string>
     <string name="reject_farm_needs_adjacency">Farms must touch your capital or another farm</string>
+    <string name="reject_building_needs_deposit">Mines can only be built on gold veins</string>
+    <string name="reject_requires_fog">Watchtowers only help under fog of war</string>
     <string name="reject_not_your_units">Those are not your units</string>
     <string name="reject_cannot_merge_self">A unit cannot merge with itself</string>
     <string name="reject_tier_mismatch">Only units of the same tier can merge</string>

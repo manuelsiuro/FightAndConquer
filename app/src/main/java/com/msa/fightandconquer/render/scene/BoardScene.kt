@@ -139,6 +139,13 @@ class BoardScene(
     private val buildingPieces = HashMap<Hex, Piece>()
     private val floraPieces = HashMap<Hex, Piece>()
 
+    /**
+     * Static terrain markers (gold veins, fertile ground). Never event-animated:
+     * they exist from map generation, hide while a building stands on their hex, and
+     * — unlike units/flora — stay visible (dimmed) on explored-but-fogged terrain.
+     */
+    private val depositPieces = HashMap<Hex, Piece>()
+
     // ----- event queue -----
 
     private val eventQueue = ArrayDeque<GameEvent>()
@@ -193,6 +200,7 @@ class BoardScene(
         for (piece in unitPieces.values) piece.setHidden(isFogged(piece.hex))
         for ((hex, piece) in buildingPieces) piece.setHidden(isFogged(hex))
         for ((hex, piece) in floraPieces) piece.setHidden(isFogged(hex))
+        for ((hex, piece) in depositPieces) applyDepositFog(hex, piece)
         // Auras were possibly drawn before fog arrived (init reconcile) or the fog
         // edge moved — re-derive them so no ring survives inside the fog.
         refreshAuras(latestState)
@@ -201,6 +209,26 @@ class BoardScene(
     private fun isFogged(hex: Hex): Boolean {
         val visible = fogVisible ?: return false
         return hex !in visible
+    }
+
+    /**
+     * Deposits are terrain, so explored memory keeps them on the board: hidden only on
+     * never-seen hexes, dimmed on remembered-but-fogged ones. Leaks nothing — a hex in
+     * [fogExplored] was fully seen once, and deposits never change afterwards.
+     */
+    private fun applyDepositFog(hex: Hex, piece: Piece) {
+        val visible = fogVisible
+        when {
+            visible == null || hex in visible -> {
+                piece.setHidden(false)
+                piece.setDimmed(false)
+            }
+            hex in fogExplored -> {
+                piece.setHidden(false)
+                piece.setDimmed(true)
+            }
+            else -> piece.setHidden(true)
+        }
     }
 
     /** Writes the tile's rendered color: logical color when visible, dark neutral in fog. */
@@ -783,6 +811,10 @@ class BoardScene(
         Building.FARM -> PieceKind.FARM
         Building.TOWER -> PieceKind.TOWER
         Building.STRONG_TOWER -> PieceKind.STRONG_TOWER
+        Building.MINE -> PieceKind.MINE
+        Building.MARKET -> PieceKind.MARKET
+        Building.LUMBER_CAMP -> PieceKind.LUMBER_CAMP
+        Building.WATCHTOWER -> PieceKind.WATCHTOWER
     }
 
     private fun tileTopY(hex: Hex): Float = (tiles[hex]?.y ?: 0f) + Primitives.HEX_HEIGHT
@@ -797,6 +829,7 @@ class BoardScene(
     private fun refreshPiecesOn(hex: Hex) {
         buildingPieces[hex]?.updateTransform()
         floraPieces[hex]?.updateTransform()
+        depositPieces[hex]?.updateTransform()
         for (piece in unitPieces.values) {
             if (piece.hex == hex && piece.xz == null) piece.updateTransform()
         }
@@ -923,15 +956,47 @@ class BoardScene(
             }
         }.also { corrections = it }
 
+        // Deposits: static terrain with no events, so presence changes (a building
+        // covering the marker, initial creation) are expected here — never corrections.
+        syncDeposits(state)
+
         // Keep pieces glued to final tile heights.
         for (piece in unitPieces.values) piece.updateTransform()
         for (piece in buildingPieces.values) piece.updateTransform()
         for (piece in floraPieces.values) piece.updateTransform()
+        for (piece in depositPieces.values) piece.updateTransform()
 
         refreshAuras(state)
 
         if (log && corrections > 0) {
             Log.w(TAG, "reconcile corrected $corrections discrepancies (events should have covered these)")
+        }
+    }
+
+    /** A deposit marker shows only while its hex has no building on it. */
+    private fun depositKind(tile: com.msa.fightandconquer.core.model.Tile): PieceKind? =
+        if (tile.building != null) {
+            null
+        } else {
+            when (tile.deposit) {
+                com.msa.fightandconquer.core.model.Deposit.GOLD_VEIN -> PieceKind.GOLD_VEIN
+                com.msa.fightandconquer.core.model.Deposit.FERTILE -> PieceKind.FERTILE
+                null -> null
+            }
+        }
+
+    private fun syncDeposits(state: GameState) {
+        val stale = depositPieces.keys.filter { hex -> state.tiles[hex]?.let(::depositKind) == null }
+        stale.forEach { hex -> depositPieces.remove(hex)?.let { destroyPiece(it) } }
+        for ((hex, tile) in state.tiles) {
+            val kind = depositKind(tile) ?: continue
+            var piece = depositPieces[hex]
+            if (piece == null || piece.kind != kind) {
+                piece?.let { destroyPiece(it) }
+                piece = createPiece(kind, hex, null)
+                depositPieces[hex] = piece
+            }
+            applyDepositFog(hex, piece)
         }
     }
 
@@ -964,8 +1029,9 @@ class BoardScene(
     }
 
     override fun destroy() {
-        (unitPieces.values + buildingPieces.values + floraPieces.values).forEach { destroyPiece(it) }
-        unitPieces.clear(); buildingPieces.clear(); floraPieces.clear()
+        (unitPieces.values + buildingPieces.values + floraPieces.values + depositPieces.values)
+            .forEach { destroyPiece(it) }
+        unitPieces.clear(); buildingPieces.clear(); floraPieces.clear(); depositPieces.clear()
         for (h in highlightPool) {
             if (h.inScene) engine.scene.removeEntity(h.entity)
             filament.destroyEntity(h.entity)

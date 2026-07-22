@@ -73,5 +73,7 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.TIER_MISMATCH -> UiText.of(R.string.reject_tier_mismatch)
     RejectionReason.ALREADY_MAX_TIER -> UiText.of(R.string.reject_already_max_tier)
     RejectionReason.NOT_IN_SAME_REGION -> UiText.of(R.string.reject_not_same_region)
+    RejectionReason.BUILDING_NEEDS_DEPOSIT -> UiText.of(R.string.reject_building_needs_deposit)
+    RejectionReason.REQUIRES_FOG_OF_WAR -> UiText.of(R.string.reject_requires_fog)
     RejectionReason.NO_GAME -> UiText.of(R.string.reject_no_game)
 }

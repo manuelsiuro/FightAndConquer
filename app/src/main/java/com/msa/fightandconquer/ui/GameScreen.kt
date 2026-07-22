@@ -361,10 +361,16 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
                 stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
                 stringResource(R.string.economy_amount_positive, economy.hexIncome),
             )
-            if (economy.farmCount > 0) {
+            if (economy.depositBonus > 0) {
                 EconomyRow(
-                    stringResource(R.string.economy_farms_row, economy.farmCount, economy.farmIncomePerFarm),
-                    stringResource(R.string.economy_amount_positive, economy.farmIncome),
+                    stringResource(R.string.economy_fertile_row),
+                    stringResource(R.string.economy_amount_positive, economy.depositBonus),
+                )
+            }
+            for (row in economy.buildingRows) {
+                EconomyRow(
+                    stringResource(R.string.economy_building_row, row.count, stringResource(row.nameRes)),
+                    stringResource(R.string.economy_amount_positive, row.total),
                 )
             }
             if (economy.starvingCount > 0) {
@@ -760,6 +766,10 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
             BuildingType.FARM -> R.string.building_farm
             BuildingType.TOWER -> R.string.building_tower
             BuildingType.STRONG_TOWER -> R.string.building_castle
+            BuildingType.MINE -> R.string.building_mine
+            BuildingType.MARKET -> R.string.building_market
+            BuildingType.LUMBER_CAMP -> R.string.building_lumber_camp
+            BuildingType.WATCHTOWER -> R.string.building_watchtower
         }
     }
     val emojiRes = when (option) {
@@ -773,6 +783,10 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
             BuildingType.FARM -> R.string.emoji_farm
             BuildingType.TOWER -> R.string.emoji_tower
             BuildingType.STRONG_TOWER -> R.string.emoji_castle
+            BuildingType.MINE -> R.string.emoji_mine
+            BuildingType.MARKET -> R.string.emoji_market
+            BuildingType.LUMBER_CAMP -> R.string.emoji_lumber_camp
+            BuildingType.WATCHTOWER -> R.string.emoji_watchtower
         }
     }
     val detail = when (option) {
@@ -784,6 +798,10 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
             BuildingType.FARM -> stringResource(R.string.shop_income_per_turn, shop.farmIncome)
             BuildingType.TOWER -> stringResource(R.string.shop_defense, shop.towerDefense)
             BuildingType.STRONG_TOWER -> stringResource(R.string.shop_defense, shop.strongTowerDefense)
+            BuildingType.MINE -> stringResource(R.string.shop_income_per_turn, shop.mineIncome)
+            BuildingType.MARKET -> stringResource(R.string.shop_income_up_to, shop.marketIncomeMax)
+            BuildingType.LUMBER_CAMP -> stringResource(R.string.shop_income_up_to, shop.lumberCampIncomeMax)
+            BuildingType.WATCHTOWER -> stringResource(R.string.shop_vision, shop.watchtowerVision)
         }
     }
     val name = stringResource(nameRes)

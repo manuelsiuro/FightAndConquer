@@ -72,13 +72,17 @@ data class OverlayLabel(val hex: Hex, val defense: Int, val kind: LabelKind)
 
 /** Coin counter breakdown panel. */
 data class TierUpkeep(val tier: Int, val count: Int, val each: Int, val total: Int)
+
+/** One income line per building type (farms, mines, markets, lumber camps). */
+data class IncomeRow(val nameRes: Int, val count: Int, val total: Int)
+
 data class EconomyBreakdown(
     val hexCount: Int,
     val hexIncome: Int,
     val hexIncomePerHex: Int,
-    val farmCount: Int,
-    val farmIncome: Int,
-    val farmIncomePerFarm: Int,
+    /** Extra income from FERTILE ground (bare hexes; farm bonuses ride the farm row). */
+    val depositBonus: Int,
+    val buildingRows: List<IncomeRow>,
     val tiers: List<TierUpkeep>,
     val income: Int,
     val upkeep: Int,
@@ -112,6 +116,10 @@ data class ShopInfo(
     val towerDefense: Int = 2,
     val strongTowerDefense: Int = 3,
     val farmIncome: Int = 4,
+    val mineIncome: Int = 6,
+    val marketIncomeMax: Int = 5,
+    val lumberCampIncomeMax: Int = 8,
+    val watchtowerVision: Int = 6,
 )
 
 data class HudState(
@@ -455,15 +463,53 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         val rules = state.config.rules
         var hexCount = 0
-        var farmCount = 0
         var starving = 0
-        for (tile in state.tiles.values) {
+        var depositBonus = 0
+        var farmCount = 0; var farmTotal = 0
+        var mineCount = 0; var mineTotal = 0
+        var marketCount = 0; var marketTotal = 0
+        var campCount = 0; var campTotal = 0
+        // Mirrors Rules.incomeFrom exactly so the panel rows always sum to `income`.
+        for ((hex, tile) in state.tiles) {
             if (tile.owner != me) continue
             if (tile.starving) { starving++; continue }
             if (tile.flora != null) continue
             hexCount++
-            if (tile.building == Building.FARM) farmCount++
+            val fertile = tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE
+            if (fertile) depositBonus += rules.fertileHexBonus
+            when (tile.building) {
+                Building.FARM -> {
+                    farmCount++
+                    farmTotal += rules.farmIncome + (if (fertile) rules.fertileFarmBonus else 0)
+                }
+                Building.MINE -> { mineCount++; mineTotal += rules.mineIncome }
+                Building.MARKET -> {
+                    marketCount++
+                    var neighbors = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = state.tiles[n]
+                        if (t != null && t.owner == me && !t.starving && t.flora == null) neighbors++
+                    }
+                    marketTotal += rules.marketNeighborIncome * minOf(neighbors, rules.marketNeighborCap)
+                }
+                Building.LUMBER_CAMP -> {
+                    campCount++
+                    var trees = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = state.tiles[n]
+                        if (t != null && t.owner == me && t.flora is Flora.Tree) trees++
+                    }
+                    campTotal += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
+                }
+                else -> {}
+            }
         }
+        val buildingRows = listOfNotNull(
+            IncomeRow(R.string.building_farm, farmCount, farmTotal).takeIf { farmCount > 0 },
+            IncomeRow(R.string.building_mine, mineCount, mineTotal).takeIf { mineCount > 0 },
+            IncomeRow(R.string.building_market, marketCount, marketTotal).takeIf { marketCount > 0 },
+            IncomeRow(R.string.building_lumber_camp, campCount, campTotal).takeIf { campCount > 0 },
+        )
         val tiers = (1..rules.maxTier).mapNotNull { tier ->
             val count = state.units.values.count { it.owner == me && it.tier == tier }
             if (count == 0) {
@@ -481,9 +527,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             hexCount = hexCount,
             hexIncome = hexCount * rules.hexIncome,
             hexIncomePerHex = rules.hexIncome,
-            farmCount = farmCount,
-            farmIncome = farmCount * rules.farmIncome,
-            farmIncomePerFarm = rules.farmIncome,
+            depositBonus = depositBonus,
+            buildingRows = buildingRows,
             tiers = tiers,
             income = income,
             upkeep = upkeep,
@@ -664,7 +709,60 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     listOf(
                         InfoStat(
                             UiText.of(R.string.info_stat_income),
-                            UiText.of(R.string.info_value_income, rules.farmIncome),
+                            UiText.of(
+                                R.string.info_value_income,
+                                rules.farmIncome + if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) rules.fertileFarmBonus else 0,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.MINE -> InfoCard(
+                    UiText.of(R.string.building_mine),
+                    UiText.of(R.string.info_mine),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(R.string.info_value_income, rules.mineIncome),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.MARKET -> InfoCard(
+                    UiText.of(R.string.building_market),
+                    UiText.of(R.string.info_market),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(
+                                R.string.info_value_income_max,
+                                rules.marketNeighborIncome * rules.marketNeighborCap,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.LUMBER_CAMP -> InfoCard(
+                    UiText.of(R.string.building_lumber_camp),
+                    UiText.of(R.string.info_lumber_camp),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(
+                                R.string.info_value_income_max,
+                                rules.lumberCampTreeIncome * rules.lumberCampTreeCap,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                )
+                Building.WATCHTOWER -> InfoCard(
+                    UiText.of(R.string.building_watchtower),
+                    UiText.of(R.string.info_watchtower),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_vision),
+                            UiText.of(R.string.info_value_plain, rules.watchtowerVisionRadius),
                         ),
                     ),
                     ownerIndex,
@@ -685,6 +783,29 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             is Flora.Gravestone -> return InfoCard(
                 UiText.of(R.string.piece_gravestone),
                 UiText.of(R.string.info_gravestone),
+            )
+            null -> {}
+        }
+        when (tile.deposit) {
+            com.msa.fightandconquer.core.model.Deposit.GOLD_VEIN -> return InfoCard(
+                UiText.of(R.string.piece_gold_vein),
+                UiText.of(R.string.info_gold_vein),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_income),
+                        UiText.of(R.string.info_value_income, rules.mineIncome),
+                    ),
+                ),
+            )
+            com.msa.fightandconquer.core.model.Deposit.FERTILE -> return InfoCard(
+                UiText.of(R.string.piece_fertile),
+                UiText.of(R.string.info_fertile),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_income),
+                        UiText.of(R.string.info_value_income, rules.fertileHexBonus),
+                    ),
+                ),
             )
             null -> {}
         }
@@ -797,6 +918,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 towerDefense = rules.towerDefense,
                 strongTowerDefense = rules.strongTowerDefense,
                 farmIncome = rules.farmIncome,
+                mineIncome = rules.mineIncome,
+                marketIncomeMax = rules.marketNeighborIncome * rules.marketNeighborCap,
+                lumberCampIncomeMax = rules.lumberCampTreeIncome * rules.lumberCampTreeCap,
+                watchtowerVision = rules.watchtowerVisionRadius,
             ),
         )
         // Live panel tracks every buy/move/undo.
