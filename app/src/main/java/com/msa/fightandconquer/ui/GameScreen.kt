@@ -538,11 +538,29 @@ private fun DiplomacyPanel(state: DiplomacyPanelState, viewModel: GameViewModel)
         shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text(stringResource(R.string.diplomacy_title), fontSize = 12.sp, color = UiColors.inkMuted)
-            for (row in state.rows) {
-                if (row.eliminated) continue
+            Text(
+                stringResource(R.string.diplomacy_title),
+                fontSize = 12.sp,
+                color = UiColors.inkMuted,
+                letterSpacing = 0.8.sp,
+            )
+            val visible = state.rows.filter { !it.eliminated }
+            visible.forEachIndexed { index, row ->
+                if (index > 0) HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
                 DiplomacyRow(row, state, viewModel)
             }
+            Spacer(Modifier.height(2.dp))
+            HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(
+                    R.string.diplomacy_footer,
+                    state.pactDurationRounds,
+                    state.breakPenaltyPercent,
+                ),
+                fontSize = 11.sp,
+                color = UiColors.inkFaint,
+            )
         }
     }
 }
@@ -571,23 +589,61 @@ private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel:
                 color = UiColors.ink,
             )
             Spacer(Modifier.width(10.dp))
-            Text(
-                when (row.state) {
-                    PactUiState.WAR -> stringResource(R.string.diplomacy_status_war)
-                    PactUiState.PACT -> stringResource(R.string.diplomacy_status_pact, row.turnsRemaining ?: 0)
-                    PactUiState.PROPOSAL_SENT -> stringResource(R.string.diplomacy_status_proposed)
-                    PactUiState.PROPOSAL_RECEIVED -> stringResource(R.string.diplomacy_status_offer)
-                },
-                fontSize = 13.sp,
-                color = if (row.state == PactUiState.PACT) UiColors.positive else UiColors.inkMuted,
-            )
+            val statusText = when (row.state) {
+                PactUiState.WAR -> stringResource(R.string.diplomacy_status_war)
+                PactUiState.PACT -> stringResource(R.string.diplomacy_status_pact, row.turnsRemaining ?: 0)
+                PactUiState.PROPOSAL_SENT -> stringResource(R.string.diplomacy_status_proposed)
+                PactUiState.PROPOSAL_RECEIVED -> stringResource(R.string.diplomacy_status_offer)
+            }
+            val statusColor = when (row.state) {
+                PactUiState.WAR -> UiColors.alert
+                PactUiState.PACT -> UiColors.positive
+                PactUiState.PROPOSAL_SENT -> UiColors.inkSecondary
+                PactUiState.PROPOSAL_RECEIVED -> UiColors.ink
+            }
+            val statusBackground = when (row.state) {
+                PactUiState.WAR -> UiColors.alert.copy(alpha = 0.10f)
+                PactUiState.PACT -> UiColors.positive.copy(alpha = 0.12f)
+                PactUiState.PROPOSAL_SENT -> UiColors.ink.copy(alpha = 0.06f)
+                PactUiState.PROPOSAL_RECEIVED -> UiColors.toastWarning.copy(alpha = 0.5f)
+            }
+            Surface(shape = RoundedCornerShape(50), color = statusBackground) {
+                Row(
+                    Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (row.state != PactUiState.WAR) {
+                        Icon(
+                            painterResource(R.drawable.ic_pact),
+                            contentDescription = null,
+                            Modifier.size(11.dp),
+                            tint = statusColor,
+                        )
+                        Spacer(Modifier.width(3.dp))
+                    }
+                    Text(
+                        statusText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor,
+                    )
+                }
+            }
         }
+        Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (row.state == PactUiState.WAR) {
                 OutlinedButton(
                     onClick = { viewModel.proposePact(row.playerIndex) },
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 ) {
+                    Icon(
+                        painterResource(R.drawable.ic_pact),
+                        contentDescription = null,
+                        Modifier.size(14.dp),
+                        tint = UiColors.ink,
+                    )
+                    Spacer(Modifier.width(5.dp))
                     Text(stringResource(R.string.diplomacy_propose), fontSize = 13.sp, color = UiColors.ink)
                 }
                 Spacer(Modifier.width(8.dp))
@@ -616,6 +672,13 @@ private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel:
                             .padding(end = 6.dp)
                             .semantics { contentDescription = tributeDescription },
                     ) {
+                        Icon(
+                            painterResource(R.drawable.ic_coin),
+                            contentDescription = null,
+                            Modifier.size(12.dp),
+                            tint = if (affordable) UiColors.coin else UiColors.inkFaint,
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             stringResource(R.string.diplomacy_tribute_amount, amount),
                             fontSize = 12.sp,

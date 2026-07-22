@@ -87,9 +87,12 @@ alert, and `ActionRejected` reasons as info toasts.
    one line per building type, each with a 20 dp piece icon — per-unit-type upkeep
    rows with unit icons, divider, emphasized net + projection, bankruptcy/upkeep-risk
    warning strips) / `DiplomacyPanel` (same slot, mutually exclusive: one row per
-   opponent with pact status, Propose pact, and Tribute chips 10/25/50). Capturing a
-   pact partner's hex needs a second tap (warning toast arms the confirmation) —
-   the no-dialog idiom throughout.
+   opponent — faction dot, name, tinted status pill (war=alert, pact=positive with
+   pact icon + turns left), Propose pact (pact icon) and Tribute buttons, coin-icon
+   tribute chips 10/25/50 dimmed when unaffordable, divider-separated rows, and a
+   footer stating pact duration + break penalty from `DiplomacyPanelState`).
+   Capturing a pact partner's hex needs a second tap (warning toast arms the
+   confirmation) — the no-dialog idiom throughout.
 5. `ToastStack` (top-center).
 6. `TurnBanner` (pass-and-play privacy scrim) / `GameOverOverlay` — topmost, they
    scrim everything below.

@@ -155,7 +155,8 @@
     <string name="diplomacy_accept">Accept</string>
     <string name="diplomacy_decline">Decline</string>
     <string name="diplomacy_tribute">Tribute</string>
-    <string name="diplomacy_tribute_amount">%d 🪙</string>
+    <string name="diplomacy_tribute_amount">%d</string>
+    <string name="diplomacy_footer">Pacts last %1$d rounds — breaking one costs %2$d%% of your treasury</string>
     <string name="diplomacy_proposal_text">Player %1$d proposes a %2$d-turn pact</string>
     <string name="cd_send_tribute">Send %1$d coins to player %2$d</string>
 
