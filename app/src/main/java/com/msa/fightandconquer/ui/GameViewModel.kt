@@ -51,6 +51,8 @@ data class GameSetup(
     val size: MapSize = MapSize.MEDIUM,
     val seed: Long = System.currentTimeMillis(),
     val fogOfWar: Boolean = false,
+    val specialUnits: Boolean = true,
+    val diplomacy: Boolean = true,
 )
 
 /** Fog of war render sets for the viewing seat; null everywhere means fog is off. */
@@ -71,10 +73,10 @@ enum class LabelKind { CAPTURABLE, BLOCKED }
 data class OverlayLabel(val hex: Hex, val defense: Int, val kind: LabelKind)
 
 /** Coin counter breakdown panel. */
-data class UpkeepRow(val nameRes: Int, val count: Int, val each: Int, val total: Int)
+data class UpkeepRow(val nameRes: Int, val count: Int, val each: Int, val total: Int, val iconRes: Int? = null)
 
 /** One income line per building type (farms, mines, markets, lumber camps). */
-data class IncomeRow(val nameRes: Int, val count: Int, val total: Int)
+data class IncomeRow(val nameRes: Int, val count: Int, val total: Int, val iconRes: Int? = null)
 
 data class EconomyBreakdown(
     val hexCount: Int,
@@ -258,7 +260,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val state = map.newGame(
                 gameSeed = setup.seed * 31 + 17,
                 kinds = kinds,
-                rules = RuleConstants(fogOfWar = setup.fogOfWar),
+                rules = RuleConstants(
+                    fogOfWar = setup.fogOfWar,
+                    specialUnitsEnabled = setup.specialUnits,
+                    diplomacyEnabled = setup.diplomacy,
+                ),
             )
             withContext(Dispatchers.Main.immediate) {
                 startEngine(GameEngine(state), showOpeningBanner = setup.mode == GameMode.PASS_AND_PLAY)
@@ -613,10 +619,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         val buildingRows = listOfNotNull(
-            IncomeRow(R.string.building_farm, farmCount, farmTotal).takeIf { farmCount > 0 },
-            IncomeRow(R.string.building_mine, mineCount, mineTotal).takeIf { mineCount > 0 },
-            IncomeRow(R.string.building_market, marketCount, marketTotal).takeIf { marketCount > 0 },
-            IncomeRow(R.string.building_lumber_camp, campCount, campTotal).takeIf { campCount > 0 },
+            IncomeRow(R.string.building_farm, farmCount, farmTotal, PieceIcons.building(Building.FARM))
+                .takeIf { farmCount > 0 },
+            IncomeRow(R.string.building_mine, mineCount, mineTotal, PieceIcons.building(Building.MINE))
+                .takeIf { mineCount > 0 },
+            IncomeRow(R.string.building_market, marketCount, marketTotal, PieceIcons.building(Building.MARKET))
+                .takeIf { marketCount > 0 },
+            IncomeRow(R.string.building_lumber_camp, campCount, campTotal, PieceIcons.building(Building.LUMBER_CAMP))
+                .takeIf { campCount > 0 },
         )
         val soldierRows = (1..rules.maxTier).mapNotNull { tier ->
             val count = state.units.values.count {
@@ -625,7 +635,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (count == 0) {
                 null
             } else {
-                UpkeepRow(unitNameRes(tier), count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
+                UpkeepRow(
+                    unitNameRes(tier),
+                    count,
+                    rules.unitUpkeep[tier - 1],
+                    count * rules.unitUpkeep[tier - 1],
+                    PieceIcons.unit(com.msa.fightandconquer.core.model.UnitType.SOLDIER, tier),
+                )
             }
         }
         val specialRows = listOf(
@@ -633,7 +649,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             Triple(com.msa.fightandconquer.core.model.UnitType.CATAPULT, R.string.unit_catapult, rules.catapultUpkeep),
         ).mapNotNull { (type, nameRes, each) ->
             val count = state.units.values.count { it.owner == me && it.type == type }
-            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each)
+            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each, PieceIcons.unit(type, 1))
         }
         val tiers = soldierRows + specialRows
         val income = Rules.incomeOf(state, me)

@@ -42,6 +42,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuDefaults
@@ -374,27 +375,36 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
         modifier = Modifier
             .safeDrawingPadding()
             .padding(start = HudGutter, top = TopBarHeight + HudGutter)
-            .width(238.dp),
+            .width(264.dp),
         shape = RoundedCornerShape(16.dp),
         color = UiColors.panel,
         shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text(stringResource(R.string.economy_income), fontSize = 12.sp, color = UiColors.inkMuted)
+            Text(
+                stringResource(R.string.economy_income),
+                fontSize = 12.sp,
+                color = UiColors.inkMuted,
+                letterSpacing = 0.8.sp,
+            )
             EconomyRow(
                 stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
                 stringResource(R.string.economy_amount_positive, economy.hexIncome),
+                iconRes = R.drawable.ic_coin,
+                iconTint = UiColors.inkMuted,
             )
             if (economy.depositBonus > 0) {
                 EconomyRow(
                     stringResource(R.string.economy_fertile_row),
                     stringResource(R.string.economy_amount_positive, economy.depositBonus),
+                    iconRes = PieceIcons.fertile,
                 )
             }
             for (row in economy.buildingRows) {
                 EconomyRow(
                     stringResource(R.string.economy_building_row, row.count, stringResource(row.nameRes)),
                     stringResource(R.string.economy_amount_positive, row.total),
+                    iconRes = row.iconRes,
                 )
             }
             if (economy.starvingCount > 0) {
@@ -406,7 +416,12 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
             }
             if (economy.tiers.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(stringResource(R.string.economy_upkeep), fontSize = 12.sp, color = UiColors.inkMuted)
+                Text(
+                    stringResource(R.string.economy_upkeep),
+                    fontSize = 12.sp,
+                    color = UiColors.inkMuted,
+                    letterSpacing = 0.8.sp,
+                )
                 for (row in economy.tiers) {
                     EconomyRow(
                         stringResource(
@@ -416,9 +431,12 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
                             row.each,
                         ),
                         stringResource(R.string.economy_amount_negative, row.total),
+                        iconRes = row.iconRes,
                     )
                 }
             }
+            Spacer(Modifier.height(6.dp))
+            HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
             Spacer(Modifier.height(6.dp))
             EconomyRow(
                 stringResource(R.string.economy_net),
@@ -446,24 +464,42 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
 }
 
 @Composable
-private fun EconomyRow(label: String, value: String, bold: Boolean = false, valueColor: Color = UiColors.ink) {
+private fun EconomyRow(
+    label: String,
+    value: String,
+    bold: Boolean = false,
+    valueColor: Color = UiColors.ink,
+    iconRes: Int? = null,
+    iconTint: Color? = null,
+) {
     Row(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            color = UiColors.ink,
-            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            iconRes?.let { icon ->
+                if (iconTint != null) {
+                    Icon(painterResource(icon), contentDescription = null, Modifier.size(16.dp), tint = iconTint)
+                } else {
+                    Image(painterResource(icon), contentDescription = null, Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                label,
+                fontSize = 13.sp,
+                color = UiColors.ink,
+                fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+            )
+        }
         Text(
             value,
-            fontSize = 13.sp,
+            fontSize = if (bold) 14.sp else 13.sp,
             color = valueColor,
-            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Medium,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
         )
     }
 }
@@ -611,6 +647,13 @@ private fun ProposalStrip(proposals: List<IncomingProposal>, viewModel: GameView
                         Modifier
                             .size(12.dp)
                             .background(UiColors.faction(proposal.fromIndex), CircleShape),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        painterResource(R.drawable.ic_pact),
+                        contentDescription = null,
+                        Modifier.size(14.dp),
+                        tint = UiColors.inkSecondary,
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
@@ -1139,7 +1182,15 @@ private fun GameOverOverlay(winner: Int, onBackToMenu: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(56.dp).background(UiColors.faction(winner), CircleShape))
+            // The winner's capital as the trophy, on their faction-color disc.
+            Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.size(72.dp).background(UiColors.faction(winner), CircleShape))
+                Image(
+                    painterResource(R.drawable.piece_capital),
+                    contentDescription = null,
+                    Modifier.size(96.dp),
+                )
+            }
             Spacer(Modifier.height(16.dp))
             Text(
                 stringResource(R.string.game_over_winner, winner + 1),

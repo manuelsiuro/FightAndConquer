@@ -26,6 +26,10 @@
     <string name="menu_section_fog">Fog of war</string>
     <string name="menu_fog_off">Off</string>
     <string name="menu_fog_on">On</string>
+    <string name="menu_section_specials">Special units</string>
+    <string name="menu_section_diplomacy">Diplomacy</string>
+    <string name="menu_toggle_on">On</string>
+    <string name="menu_toggle_off">Off</string>
 
     <!-- Top bar -->
     <string name="hud_player">Player %d</string>
