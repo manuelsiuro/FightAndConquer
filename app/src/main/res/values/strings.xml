@@ -30,12 +30,12 @@
     <!-- Top bar -->
     <string name="hud_player">Player %d</string>
     <string name="hud_ai_player">AI %d</string>
-    <string name="hud_treasury">🪙 %d</string>
+    <string name="hud_treasury">%d</string>
     <string name="hud_net_positive">+%d</string>
     <string name="hud_net_negative">%d</string>
     <string name="hud_turn">Turn %d</string>
     <string name="hud_ai_thinking">thinking…</string>
-    <string name="hud_fresh_units">%d ⚑</string>
+    <string name="hud_fresh_units">%d</string>
     <string name="hud_resign">Resign</string>
     <string name="hud_exit">Exit</string>
     <string name="cd_faction_color">Faction color of player %d</string>
@@ -56,7 +56,6 @@
     </plurals>
 
     <!-- Purchase tray -->
-    <string name="shop_cost">%d 🪙</string>
     <string name="shop_upkeep_per_turn">%d/turn</string>
     <string name="shop_income_per_turn">+%d/turn</string>
     <string name="shop_income_up_to">up to +%d/turn</string>
@@ -85,19 +84,6 @@
     <string name="piece_gold_vein">Gold vein</string>
     <string name="piece_fertile">Fertile ground</string>
     <string name="tile_cut_off">Cut-off territory</string>
-    <string name="emoji_peasant">♟</string>
-    <string name="emoji_spearman">♞</string>
-    <string name="emoji_baron">♜</string>
-    <string name="emoji_knight">♚</string>
-    <string name="emoji_farm">🌾</string>
-    <string name="emoji_tower">🗼</string>
-    <string name="emoji_castle">🏰</string>
-    <string name="emoji_archer">🏹</string>
-    <string name="emoji_catapult">🪨</string>
-    <string name="emoji_mine">⛏️</string>
-    <string name="emoji_market">⚖️</string>
-    <string name="emoji_lumber_camp">🪓</string>
-    <string name="emoji_watchtower">🔭</string>
 
     <!-- Info cards -->
     <string name="info_unit_enemy">Enemy unit — strength %d, defends its hex and neighbors</string>
@@ -154,8 +140,7 @@
 
     <!-- Diplomacy -->
     <string name="hud_diplomacy">Diplomacy</string>
-    <string name="emoji_pact">🤝</string>
-    <string name="hud_pact_badge">🤝 %d</string>
+    <string name="hud_pact_badge">%d</string>
     <string name="cd_open_diplomacy">Open the diplomacy panel</string>
     <string name="diplomacy_title">Diplomacy</string>
     <string name="diplomacy_status_war">At war</string>
@@ -175,7 +160,6 @@
     <string name="banner_tap_to_start">Tap to start your turn</string>
     <string name="game_over_winner">Player %d conquers!</string>
     <string name="game_over_back_to_menu">Back to menu</string>
-    <string name="overlay_defense_chip">🛡%d</string>
     <string name="cd_defense_capturable">Defense %d — you can capture this hex</string>
     <string name="cd_defense_blocked">Defense %d — too strong for the selected unit</string>
 

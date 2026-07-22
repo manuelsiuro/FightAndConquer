@@ -129,6 +129,8 @@ data class InfoCard(
     val subtitle: UiText,
     val stats: List<InfoStat> = emptyList(),
     val factionIndex: Int? = null,
+    /** Pre-rendered piece thumbnail; null for abstract cards (fog, cut-off). */
+    val iconRes: Int? = null,
 )
 
 /** Rules snapshot the purchase tray needs for upkeep/defense lines. */
@@ -854,6 +856,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 },
                 stats = stats,
                 factionIndex = unit.owner.value,
+                iconRes = PieceIcons.unit(unit.type, unit.tier),
             )
         }
         tile.building?.let { building ->
@@ -869,6 +872,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.TOWER -> InfoCard(
                     UiText.of(R.string.building_tower),
@@ -880,6 +884,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.STRONG_TOWER -> InfoCard(
                     UiText.of(R.string.building_castle),
@@ -891,6 +896,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.FARM -> InfoCard(
                     UiText.of(R.string.building_farm),
@@ -905,6 +911,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.MINE -> InfoCard(
                     UiText.of(R.string.building_mine),
@@ -916,6 +923,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.MARKET -> InfoCard(
                     UiText.of(R.string.building_market),
@@ -930,6 +938,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.LUMBER_CAMP -> InfoCard(
                     UiText.of(R.string.building_lumber_camp),
@@ -944,6 +953,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.WATCHTOWER -> InfoCard(
                     UiText.of(R.string.building_watchtower),
@@ -955,6 +965,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
             }
         }
@@ -968,10 +979,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_value_coins, rules.treeClearBonus),
                     ),
                 ),
+                iconRes = PieceIcons.tree,
             )
             is Flora.Gravestone -> return InfoCard(
                 UiText.of(R.string.piece_gravestone),
                 UiText.of(R.string.info_gravestone),
+                iconRes = PieceIcons.gravestone,
             )
             null -> {}
         }
@@ -985,6 +998,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_value_income, rules.mineIncome),
                     ),
                 ),
+                iconRes = PieceIcons.goldVein,
             )
             com.msa.fightandconquer.core.model.Deposit.FERTILE -> return InfoCard(
                 UiText.of(R.string.piece_fertile),
@@ -995,6 +1009,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_value_income, rules.fertileHexBonus),
                     ),
                 ),
+                iconRes = PieceIcons.fertile,
             )
             null -> {}
         }

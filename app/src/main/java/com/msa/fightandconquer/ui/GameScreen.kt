@@ -7,6 +7,7 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -59,14 +60,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
@@ -269,15 +274,26 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(visible, modifier = modifier, enter = fadeIn(tween(120))) {
         Surface(shape = RoundedCornerShape(50), color = background, shadowElevation = 2.dp) {
-            Text(
-                stringResource(R.string.overlay_defense_chip, label.defense),
-                modifier = Modifier
+            Row(
+                Modifier
                     .padding(horizontal = 7.dp, vertical = 2.dp)
-                    .semantics { contentDescription = description },
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-            )
+                    .clearAndSetSemantics { contentDescription = description },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_shield),
+                    contentDescription = null,
+                    Modifier.size(11.dp),
+                    tint = Color.White,
+                )
+                Spacer(Modifier.width(2.dp))
+                Text(
+                    stringResource(R.string.info_value_plain, label.defense),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                )
+            }
         }
     }
 }
@@ -669,6 +685,13 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
                         .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(
+                        painterResource(R.drawable.ic_coin),
+                        contentDescription = null,
+                        Modifier.size(16.dp),
+                        tint = UiColors.coin,
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Text(
                         stringResource(R.string.hud_treasury, state.treasury),
                         color = UiColors.ink,
@@ -704,13 +727,24 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
                             .semantics { contentDescription = freshDescription }
                             .defaultMinSize(minHeight = MinTouchTarget),
                     ) {
-                        Text(
-                            stringResource(R.string.hud_fresh_units, state.freshUnitCount),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = UiColors.ink,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
-                        )
+                        Row(
+                            Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.hud_fresh_units, state.freshUnitCount),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = UiColors.ink,
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Icon(
+                                painterResource(R.drawable.ic_flag),
+                                contentDescription = null,
+                                Modifier.size(13.dp),
+                                tint = UiColors.ink,
+                            )
+                        }
                     }
                 }
                 if (state.currentIsHuman && state.banner == null && proposalCount > 0) {
@@ -724,13 +758,24 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
                             .semantics { contentDescription = pactDescription }
                             .defaultMinSize(minHeight = MinTouchTarget),
                     ) {
-                        Text(
-                            stringResource(R.string.hud_pact_badge, proposalCount),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = UiColors.ink,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
-                        )
+                        Row(
+                            Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.ic_pact),
+                                contentDescription = null,
+                                Modifier.size(14.dp),
+                                tint = UiColors.ink,
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                stringResource(R.string.hud_pact_badge, proposalCount),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = UiColors.ink,
+                            )
+                        }
                     }
                 }
                 if (state.aiThinking) {
@@ -762,8 +807,13 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.hud_diplomacy)) },
-                    leadingIcon = { Text(stringResource(R.string.emoji_pact)) },
-                    colors = MenuDefaults.itemColors(textColor = UiColors.ink),
+                    leadingIcon = {
+                        Icon(painterResource(R.drawable.ic_pact), contentDescription = null)
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = UiColors.ink,
+                        leadingIconColor = UiColors.inkSecondary,
+                    ),
                     onClick = {
                         menuOpen = false
                         viewModel.toggleDiplomacyPanel()
@@ -903,23 +953,37 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
 private fun InfoCardView(info: InfoCard) {
     Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            info.factionIndex?.let { index ->
-                val description = stringResource(R.string.cd_faction_color, index + 1)
+            info.iconRes?.let { icon ->
+                // Plinth behind the transparent render so it reads on the panel.
                 Box(
                     Modifier
-                        .size(12.dp)
-                        .background(UiColors.faction(index), CircleShape)
-                        .semantics { contentDescription = description },
-                )
-                Spacer(Modifier.width(8.dp))
+                        .size(64.dp)
+                        .background(UiColors.background, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(painterResource(icon), contentDescription = null, Modifier.size(60.dp))
+                }
+                Spacer(Modifier.width(12.dp))
             }
             Column {
-                Text(
-                    info.title.resolve(),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    color = UiColors.ink,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        info.title.resolve(),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        color = UiColors.ink,
+                    )
+                    info.factionIndex?.let { index ->
+                        val description = stringResource(R.string.cd_faction_color, index + 1)
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            Modifier
+                                .size(12.dp)
+                                .background(UiColors.faction(index), CircleShape)
+                                .semantics { contentDescription = description },
+                        )
+                    }
+                }
                 Text(info.subtitle.resolve(), fontSize = 12.sp, color = UiColors.inkSecondary)
                 if (info.stats.isNotEmpty()) {
                     Row {
@@ -963,26 +1027,9 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
             BuildingType.WATCHTOWER -> R.string.building_watchtower
         }
     }
-    val emojiRes = when (option) {
-        is PurchaseOption.Unit -> when (option.type) {
-            UnitType.ARCHER -> R.string.emoji_archer
-            UnitType.CATAPULT -> R.string.emoji_catapult
-            UnitType.SOLDIER -> when (option.tier) {
-                1 -> R.string.emoji_peasant
-                2 -> R.string.emoji_spearman
-                3 -> R.string.emoji_baron
-                else -> R.string.emoji_knight
-            }
-        }
-        is PurchaseOption.Structure -> when (option.type) {
-            BuildingType.FARM -> R.string.emoji_farm
-            BuildingType.TOWER -> R.string.emoji_tower
-            BuildingType.STRONG_TOWER -> R.string.emoji_castle
-            BuildingType.MINE -> R.string.emoji_mine
-            BuildingType.MARKET -> R.string.emoji_market
-            BuildingType.LUMBER_CAMP -> R.string.emoji_lumber_camp
-            BuildingType.WATCHTOWER -> R.string.emoji_watchtower
-        }
+    val iconRes = when (option) {
+        is PurchaseOption.Unit -> PieceIcons.unit(option.type, option.tier)
+        is PurchaseOption.Structure -> PieceIcons.building(option.type.building)
     }
     val detail = when (option) {
         is PurchaseOption.Unit -> stringResource(
@@ -1011,6 +1058,7 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
     }
     Card(
         modifier = Modifier
+            .width(92.dp)
             .clickable(enabled = affordable, role = Role.Button, onClick = onBuy)
             .semantics { contentDescription = description },
         shape = RoundedCornerShape(12.dp),
@@ -1020,16 +1068,37 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
-            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(emojiRes), fontSize = 18.sp)
-            Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
-            Text(
-                stringResource(R.string.shop_cost, option.cost),
-                fontSize = 12.sp,
-                color = if (affordable) UiColors.inkSecondary else UiColors.alert,
+            Image(
+                painterResource(iconRes),
+                contentDescription = null,
+                Modifier.size(44.dp),
+                alpha = if (affordable) 1f else 0.35f,
+                colorFilter = if (affordable) {
+                    null
+                } else {
+                    ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+                },
             )
+            Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painterResource(R.drawable.ic_coin),
+                    contentDescription = null,
+                    Modifier.size(12.dp),
+                    tint = if (affordable) UiColors.coin else UiColors.alert,
+                )
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    stringResource(R.string.info_value_plain, option.cost),
+                    fontSize = 12.sp,
+                    color = if (affordable) UiColors.inkSecondary else UiColors.alert,
+                )
+            }
             Text(detail, fontSize = 12.sp, color = UiColors.inkMuted)
         }
     }
