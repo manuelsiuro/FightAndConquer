@@ -1,5 +1,6 @@
 package com.msa.fightandconquer.core.map
 
+import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Flora
@@ -70,13 +71,21 @@ data class MapDefinition(
                 "capital $capital missing its building"
             }
         }
+        val players = kinds.mapIndexed { index, kind ->
+            val player = PlayerState(PlayerId(index), kind, rules.startingTreasury, capitals[index])
+            if (!rules.fogOfWar) player
+            else player.copy(
+                // Fog of war: seed explored memory with the starting vision.
+                discovered = Rules.sortedDiscovered(
+                    Rules.visibleHexesFrom(tileMap, emptyList(), rules, player.id),
+                ),
+            )
+        }
         return GameState(
             config = GameConfig(seed = gameSeed, rules = rules),
             tiles = tileMap,
             units = emptyMap(),
-            players = kinds.mapIndexed { index, kind ->
-                PlayerState(PlayerId(index), kind, rules.startingTreasury, capitals[index])
-            },
+            players = players,
             currentPlayer = PlayerId(0),
             rngState = gameSeed,
         )

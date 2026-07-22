@@ -71,6 +71,14 @@ match the filament-android runtime** — recompile on every Filament upgrade.
   per-frame alpha sine) and `hexAnnulus` rings on every tile covered by a
   tower/castle/capital (alpha 0.30 + 0.08·(defense−1)), refreshed in reconcile.
   Z-layering: tile top < aura (+0.006) < discs (+0.012).
+- **Fog of war** (`setFog(visible, explored)`): view-only, synced **silently** —
+  never counted as a reconcile correction (same pattern as `spent`→dim). Tiles keep
+  their logical faction color in `TileEntity.color`; `applyTileColor` renders it
+  only when visible (explored = neutral × 0.45, hidden = × 0.12 — pure Kotlin
+  uniform scaling, no matc recompile). Pieces on fogged hexes leave the scene via
+  `Piece.setHidden` (applied inside `createPiece` too — no one-frame flash). Events
+  are never filtered; only juice is suppressed in fog (rumble, capture wave, aura
+  rings). `setFog` re-derives auras so no ring survives inside fog.
 - **Anchors for the HUD**: `setTrackedAnchors(Set<Hex>)` +
   `anchors: StateFlow<Map<Hex, Float2>>` — screen positions published from
   `onFrame` (quantized to ¼ px, change-detected ⇒ zero traffic when idle) at

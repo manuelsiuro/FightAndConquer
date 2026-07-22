@@ -22,6 +22,10 @@ object MoveGenerator {
         val out = ArrayList<GameAction>()
 
         // Frontier: non-owned hexes adjacent to funded territory, with their defense.
+        // Fog of war note: everything read here (frontier hexes and every defenseOf
+        // input — the hex plus its neighbors) lies within distance 2 of owned
+        // territory, i.e. inside the visionRadiusOwned >= 2 guarantee. That invariant
+        // is why this generator needs no fog filtering (see docs/fog-of-war.md).
         val frontier = HashMap<Hex, Int>()
         for ((hex, tile) in state.tiles) {
             if (tile.owner != me || tile.starving) continue

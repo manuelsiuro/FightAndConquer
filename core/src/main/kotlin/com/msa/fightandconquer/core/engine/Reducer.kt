@@ -26,6 +26,9 @@ object Reducer {
             GameAction.EndTurn -> TurnPipeline.endTurn(b)
             GameAction.Surrender -> applySurrender(b)
         }
+        // Fog of war: after EndTurn/Surrender currentPlayer is already the incoming
+        // seat, so this one hook also covers turn-start discovery.
+        if (b.rules.fogOfWar) b.refreshDiscovered(b.currentPlayer)
         return b.build()
     }
 

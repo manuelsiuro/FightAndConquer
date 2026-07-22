@@ -23,6 +23,9 @@
     <string name="map_size_small">Small</string>
     <string name="map_size_medium">Medium</string>
     <string name="map_size_large">Large</string>
+    <string name="menu_section_fog">Fog of war</string>
+    <string name="menu_fog_off">Off</string>
+    <string name="menu_fog_on">On</string>
 
     <!-- Top bar -->
     <string name="hud_player">Player %d</string>
@@ -102,6 +105,8 @@
     <string name="info_tree">Blocks this hex\'s income — move a unit onto it to clear</string>
     <string name="info_gravestone">A unit died here — a tree will sprout soon</string>
     <string name="info_cut_off">Disconnected from your capital — no income, units here will starve</string>
+    <string name="info_fog_title">Unexplored territory</string>
+    <string name="info_fog">Beyond your vision — expand your territory or move units closer to reveal it</string>
 
     <!-- Economy panel -->
     <string name="economy_income">Income</string>

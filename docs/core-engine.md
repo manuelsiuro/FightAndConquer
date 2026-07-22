@@ -28,6 +28,12 @@ seat order = turn order), `currentPlayer`, `turnNumber` (completed rounds),
 `Building`: CAPITAL, FARM, TOWER, STRONG_TOWER. `Flora`: `Gravestone(createdRound)`
 | `Tree`. `PlayerKind`: `Human` | `Ai(difficulty)`.
 
+`PlayerState` also carries `discovered: Set<Hex> = emptySet()` — fog-of-war
+explored memory, packed-sorted for byte-stable serialization, monotonic, always
+empty when fog is off (defaulted → old saves load unchanged). Updated by a single
+post-action hook in `Reducer.reduce`; live vision is always derived via
+`Rules.visibleHexes` (see docs/fog-of-war.md).
+
 ## Actions, events, reducer (`engine/`)
 
 `GameAction` (all implicitly by `currentPlayer`): `MoveUnit(unit, to)` (move OR
@@ -50,7 +56,8 @@ optional `amount` — the UI maps it to a localized toast) → apply on an inter
 
 `Rules` — pure queries used by Legality, AI and UI: `region`, `defenseOf`,
 `reachable(unitId) -> ReachResult(moveTargets, captureTargets, mergeTargets)`
-(single region scan), `capitalConnected`, `incomeOf`, `upkeepOf`, `nextFarmCost`,
+(single region scan), `capitalConnected`, `visibleHexes` (fog-of-war live vision,
+RNG-free), `incomeOf`, `upkeepOf`, `nextFarmCost`,
 `buildingCost`.
 
 ## Determinism contract (`engine/Rng.kt`)

@@ -32,6 +32,7 @@ Unit/building names come from `unitNameRes(tier)`.
 | `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, cut-off tiles) — `UiText` + numbers from `RuleConstants`, never hardcoded |
 | `cameraJumps` | `SharedFlow<Hex>` | One-shot camera glides |
 | `resync` | `StateFlow<Int>` | Board must skip+reconcile (undo/load) |
+| `visibility` | `StateFlow<BoardVisibility?>` | Fog sets (`visible` + `explored`) for the viewing seat; null = fog off or game over (fog lifts). During AI turns the perspective stays on the last human seat that played (no pass-and-play leak) |
 
 ## Interaction model (`onHexTapped`)
 
@@ -45,6 +46,8 @@ select(hex):
     own fresh unit              → select: highlights + defense overlay labels
     own empty usable tile       → purchase selection (tray from engine.buyableAt)
     anything else               → InfoCard (unit > building > flora > starving tile)
+                                  fog on: fogged hex → generic "unexplored" card if
+                                  explored, nothing if never seen — stats never leak
 tap off-board (picker miss)     → cancelSelection (via BoardScene.onTapMiss)
 ```
 
@@ -63,7 +66,8 @@ alert, and `ActionRejected` reasons as info toasts.
 
 1. Gesture Box + `FilamentHost`/`BoardScene` (tap → ViewModel; transform gestures →
    rig; wires: events→`apply`, highlights, resync→`skipAnimations`+`apply`,
-   cameraJumps→`jumpTo`, labels+popups→`setTrackedAnchors`).
+   cameraJumps→`jumpTo`, labels+popups→`setTrackedAnchors`, visibility→`setFog` —
+   also applied at scene creation so fog covers the very first frame).
 2. `AnchorOverlay` — **pixel-space, no safeDrawingPadding**: defense chips + coin
    popups positioned with `Modifier.offset` from `BoardScene.anchors`
    (`Float2` → `IntOffset`; placement-phase only).

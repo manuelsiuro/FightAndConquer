@@ -11,6 +11,7 @@ Google Filament 3D renderer inside Jetpack Compose, Blender-authored low-poly mi
 | [rendering.md](rendering.md) | Filament stack, materials, procedural meshes, board scene, animation |
 | [asset-pipeline.md](asset-pipeline.md) | Blender MCP authoring → glTF → `.pmesh` bake pipeline |
 | [ui-hud.md](ui-hud.md) | ViewModel state surface, interaction model, HUD components |
+| [fog-of-war.md](fog-of-war.md) | Fog of War spec, gameplay impact, and extension proposals |
 | [roadmap.md](roadmap.md) | Extension points, how-to recipes, known gaps |
 | [game-idea.md](game-idea.md) | The original design brief (vision doc — rules + art direction) |
 

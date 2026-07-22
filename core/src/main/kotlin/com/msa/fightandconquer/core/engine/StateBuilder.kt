@@ -139,6 +139,20 @@ internal class StateBuilder(private val base: GameState) {
         events.add(GameEvent.CapitalMoved(victim, hex, newCapital, loot))
     }
 
+    /**
+     * Fog of war: merges [player]'s current vision into their monotonic discovered set.
+     * Refreshing only the acting player is sufficient — vision sources are exclusively
+     * own assets, so an opponent's action can only shrink (never grow) another
+     * player's visible set. Pure (no RNG), so replays and saves reproduce it exactly.
+     */
+    fun refreshDiscovered(player: PlayerId) {
+        val visible = Rules.visibleHexesFrom(tiles, units.values, rules, player)
+        updatePlayer(player) { p ->
+            if (p.discovered.containsAll(visible)) p
+            else p.copy(discovered = Rules.sortedDiscovered(p.discovered + visible))
+        }
+    }
+
     /** Re-derives the starving flag for every owned tile (disconnected from its owner's capital). */
     fun recomputeStarving() {
         val connectedByPlayer = players.associate { p ->

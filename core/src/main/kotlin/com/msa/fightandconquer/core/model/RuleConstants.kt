@@ -37,4 +37,18 @@ data class RuleConstants(
     val treeSpreadPercent: Int = 10,
     /** Percent of neutral land hexes seeded with trees at map generation. */
     val initialTreePercent: Int = 8,
+
+    /** Classic fog of war: unseen hexes hidden, seen-once hexes remembered as terrain. */
+    val fogOfWar: Boolean = false,
+    /**
+     * Vision radius around every owned hex. MUST stay >= 2: every hex an action can
+     * target — and every input to defenseOf on those targets — lies within distance 2
+     * of owned territory, which is why Legality, reachable() and MoveGenerator need
+     * no fog checks (see docs/fog-of-war.md).
+     */
+    val visionRadiusOwned: Int = 2,
+    /** Vision radius around each of the player's units. */
+    val visionRadiusUnit: Int = 3,
+    /** Vision radius around the player's Capital, Tower and Strong Tower. */
+    val visionRadiusBuilding: Int = 4,
 )
