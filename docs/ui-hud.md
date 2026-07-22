@@ -72,12 +72,19 @@ alert, and `ActionRejected` reasons as info toasts.
    popups positioned with `Modifier.offset` from `BoardScene.anchors`
    (`Float2` → `IntOffset`; placement-phase only).
 3. HUD column (safeDrawingPadding): `TopBar` (player chip, clickable coin/net area →
-   economy panel, turn, `N ⚑` fresh badge, "thinking…", ⋯ menu with Resign/Exit) +
-   `BottomBar` (InfoCard / selected-unit hint / `PurchaseCard` tray with upkeep &
-   defense lines / Undo / End-Turn FAB that morphs in place into
-   "N unmoved · ✕ · End anyway" for 3 s when fresh units remain).
-4. `EconomyPanel` (under the TopBar; income rows, per-tier upkeep, net, projection,
-   bankruptcy/upkeep-risk warning strips).
+   economy panel, turn, `N ⚑` fresh badge, `🤝 N` pending-proposal badge → diplomacy
+   panel, "thinking…", ⋯ menu with Diplomacy/Resign/Exit) + `ProposalStrip`
+   (persistent accept/decline rows for incoming pact offers — StateFlow-driven, only
+   for the acting human, never behind the banner) + `BottomBar` (InfoCard /
+   selected-unit hint / `PurchaseCard` tray with upkeep & defense lines / Undo /
+   End-Turn FAB that morphs in place into "N unmoved · ✕ · End anyway" for 3 s when
+   fresh units remain).
+4. `EconomyPanel` (under the TopBar; income rows — hexes, fertile bonus, one line
+   per building type — per-unit-type upkeep, net, projection, bankruptcy/upkeep-risk
+   warning strips) / `DiplomacyPanel` (same slot, mutually exclusive: one row per
+   opponent with pact status, Propose pact, and Tribute chips 10/25/50). Capturing a
+   pact partner's hex needs a second tap (warning toast arms the confirmation) —
+   the no-dialog idiom throughout.
 5. `ToastStack` (top-center).
 6. `TurnBanner` (pass-and-play privacy scrim) / `GameOverOverlay` — topmost, they
    scrim everything below.

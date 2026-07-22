@@ -1,5 +1,24 @@
 # Roadmap & Extension Points
 
+## Shipped: the economy & diplomacy expansion
+
+The `feature/expansion` work landed in three save-compatible milestones (all
+defaulted serialized fields; pre-expansion saves load and replay unchanged —
+guarded by `persist/LegacySaveTest`):
+
+1. **Terrain economy** — GOLD_VEIN/FERTILE deposits (`Tile.deposit`, fair-by-
+   construction placement in `MapGenerator.placeDeposits`) + Mine, Market,
+   Lumber Camp and the fog Watchtower (previously listed below as a follow-up).
+2. **Special units** — `UnitType.ARCHER/CATAPULT` beside the soldier ladder
+   (aura defense / building-defense bypass, range cap, no merging).
+3. **Light diplomacy** — pacts + tribute as replayable actions
+   (`GameState.diplomacy`), auto-break-on-attack with treasury penalty, and a
+   deterministic RNG-free `ai/DiplomacyPolicy` (accept/propose/tribute/betray
+   thresholds with hysteresis bands and state-side cooldowns).
+
+Feature gates for A/B and classic play: `specialUnitsEnabled`,
+`diplomacyEnabled`, and zeroed deposit counts in `RuleConstants`.
+
 ## Designed-for, not yet built
 
 ### Campaign / authored maps
@@ -23,9 +42,13 @@ the determinism tests in `:core` are the tripwire.
 - Multiple autosave slots (`SaveGame` is self-contained; only the repository file
   naming needs work).
 - Difficulty per AI seat (plumb a list through `GameSetup` instead of one value).
-- Fog-of-war follow-ups — Watchtower building, softer fog visuals, last-known-piece
-  memory: evaluated with effort/impact ratings in
+- Fog-of-war follow-ups — softer fog visuals, last-known-piece memory: evaluated
+  with effort/impact ratings in
   [fog-of-war.md](fog-of-war.md#extension-proposals-evaluated-not-implemented).
+  (The Watchtower from that list shipped with the expansion.)
+- Diplomacy follow-ups — full alliances (shared vision, passage, joint victory),
+  an economic victory condition, and a menu toggle row for
+  `specialUnitsEnabled`/`diplomacyEnabled` (engine flags exist; UI chips don't).
 - Tablet/landscape layout (HUD is the only portrait-specific part).
 - Translations: the string *extraction* is done (every user-facing string is in
   `res/values/strings.xml`, with `UiText` carrying resource ids out of the

@@ -147,7 +147,7 @@ Effort ratings assume the recipes in [roadmap.md](roadmap.md).
 
 | Proposal | Effect | Effort | Impact | Notes |
 |---|---|---|---|---|
-| **Watchtower** | No defense, cheap (~8), `visionRadiusBuilding + 2` vision | **Low** | High with fog on | The natural fog companion. One new `Building`/`BuildingType` entry, a vision-source case in `visibleHexesFrom`, cost in `RuleConstants`, zero defense in `Rules.buildingDefense`. Piece model via asset pipeline. Pointless with fog off — gate its purchase card on `rules.fogOfWar`. |
+| **Watchtower** — ✅ SHIPPED with the expansion | No defense, cost 8, vision radius 6 | **Low** | High with fog on | Implemented exactly as sketched, plus a hard legality gate (`REQUIRES_FOG_OF_WAR`) instead of a UI-only filter, and a Hard-AI candidate family scored by never-seen positions. See game-rules.md. |
 | **Market** | Flat +N coins/turn, no hex income multiplier, expensive (~25) | Medium | Medium | Alternative economy scaling to farm chains; touches `incomeOf`/`incomeIn` + AI `Evaluator` economy weighting. Watch the farm-adjacency niche — markets should NOT chain. |
 | **Wall** | Defense 1 on its hex only (no aura), very cheap (~6) | Low/Medium | Medium | Cheap frontier stiffener below Tower; touches `defenseOf` coverage logic (self-only branch) and AI tower-placement heuristics. |
 

@@ -23,6 +23,17 @@ per game without breaking old saves.
 | Initial trees | count = 8 % of **all** land hexes | Placed on neutral land, never in/adjacent to start regions |
 | Fog of war | off by default | Optional per game; see [fog-of-war.md](fog-of-war.md) |
 | Vision radii (fog on) | owned 2 / unit 3 / Capital+Tower+Castle 4 | `visionRadiusOwned` must stay ≥ 2 (Legality/AI invariant) |
+| Gold vein (deposit) | 1 per player (band 3–6 from capital) + 1 per 150 land hexes in the middle | Permanent terrain; the only place a Mine can stand |
+| Fertile ground (deposit) | +1 hex income; +2 extra for a Farm on it | 2 per player (band 2–5) + 3 % of neutral land |
+| Mine | cost 20, +6 income | Gold-vein hexes only; destroyed on capture (vein survives) |
+| Market | cost 25, +1 per adjacent owned producing hex (cap 5) | Standard placement |
+| Lumber camp | cost 15, +2 per adjacent own tree (cap 4) | Adjacent trees never spread ("managed forest") |
+| Watchtower | cost 8, defense 0, vision radius 6 | Fog-of-war games only (hard legality gate) |
+| Archer | cost 14, upkeep 4, strength 1 | Defense aura 2 over its hex + adjacent own hexes; never merges |
+| Catapult | cost 30, upkeep 10, strength 2, move range 2 | Ignores building defense entirely; never merges |
+| Pact duration | 2–10 rounds (proposals default to 6) | Unanswered proposals lapse after 1 full round |
+| Pact proposal cooldown | 6 rounds per pair | Anti-spam, enforced by Legality |
+| Pact break penalty | 25 % of the breaker's treasury, paid to the victim | Breaking = capturing a partner's hex (no explicit action) |
 
 ## Core mechanics
 
@@ -64,6 +75,30 @@ negative, treasury is set to 0 and **all** of that player's units die (graveston
 **Victory.** Last non-eliminated color wins. Surrender reverts territory to neutral,
 kills the quitter's units, and passes the turn.
 
+**Terrain deposits.** Gold veins and fertile ground are permanent terrain placed at
+map generation (fair by construction: each capital gets its own inside its Voronoi
+cell; contested extras sit in the map middle, outside every fair zone). Deposits
+survive capture, never stack with flora at generation, and — like everything else —
+produce nothing while the hex is starving or overgrown. Under fog they behave as
+terrain: remembered (dimmed) on explored hexes, hidden only where never seen.
+
+**Special units.** Archers and Catapults live beside the soldier ladder
+(`GameUnit.type`, tier fixed at 1). The Archer projects tower-like defense
+(aura 2 over its hex + adjacent own hexes) through the ordinary max-based defense
+formula but attacks at strength 1. The Catapult attacks at strength 2 and ignores
+building defense entirely — the designed answer to castle stalemates — but moves at
+most 2 hexes per action, so units can intercept it. Specials never merge (any path)
+and pay per-type upkeep into the normal bankruptcy math.
+
+**Diplomacy (light).** Players may propose non-aggression pacts
+(accept/decline on the target's turn) and gift tribute. All of it flows through
+ordinary actions in the save's action log — fully replayable, zero RNG. There is no
+explicit "break" action: capturing a partner's hex breaks the pact automatically and
+transfers 25 % of the breaker's treasury to the victim (plus a lifetime break
+counter the AI reads as reputation). Pacts expire after their agreed duration;
+elimination prunes a player's pacts and proposals. Victory stays conquest-only —
+pacts are temporary tools, not alliances.
+
 **Fog of war (optional, off by default).** Classic fog: hexes outside a player's
 live vision render near-black; once-seen hexes persist as dimmed terrain-only
 "explored memory" (`PlayerState.discovered`, monotonic). Vision is derived —
@@ -76,9 +111,10 @@ the fog lifts when the game ends. Full spec: [fog-of-war.md](fog-of-war.md).
 On `EndTurn`, the seat advances to the next living player (round counter increments
 on wrap), then for the new player, in order:
 
+0. Diplomacy expiry: ended pacts and stale proposals lapse (sorted event order).
 1. Their gravestones ≥ 1 round old become trees.
-2. Tree spread rolls (theirs + adjacent).
-3. Income + upkeep applied atomically.
+2. Tree spread rolls (theirs + adjacent; lumber-camp-managed trees never spread).
+3. Income + upkeep applied atomically (deposits + economy buildings included).
 4. Bankruptcy check (negative → 0, all units die).
 5. Starvation: units on their sliced-off hexes die.
 6. All their units refresh (`spent = false`).

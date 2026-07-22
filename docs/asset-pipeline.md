@@ -87,6 +87,13 @@ identical to procedural meshes. `PieceMeshes` tries
 `assets/pieces/<kind_lowercase>.pmesh` first and falls back to the procedural
 token set per kind, so a missing/broken asset can never crash the game.
 
+Shipped model set (16): `unit_t1..t4`, `archer`, `catapult`, `capital`, `farm`,
+`tower`, `strong_tower`, `mine`, `market`, `lumber_camp`, `watchtower`, `tree`,
+`gravestone`, plus the terrain deposits `gold_vein` and `fertile` (low
+edge-scatter rings — the hex center stays clear so units never clip them).
+`PieceMeshLoaderTest` re-validates every checked-in `.pmesh` against the converter
+budgets and fails if a shipped kind loses its bake.
+
 ## Adding or changing a piece — checklist
 
 1. Edit/create `art/blender/pieces/<name>.py` (respect roles, budgets, heights).
