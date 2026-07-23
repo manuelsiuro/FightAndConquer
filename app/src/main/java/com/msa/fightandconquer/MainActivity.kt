@@ -7,10 +7,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.msa.fightandconquer.ui.GameScreen
 import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.MenuScreen
 import com.msa.fightandconquer.ui.Screen
+import com.msa.fightandconquer.ui.game.GameScreen
 import com.msa.fightandconquer.ui.theme.FightAndConquerTheme
 
 class MainActivity : ComponentActivity() {
