@@ -7,6 +7,7 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -41,6 +42,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuDefaults
@@ -59,14 +61,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
@@ -269,15 +275,26 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(visible, modifier = modifier, enter = fadeIn(tween(120))) {
         Surface(shape = RoundedCornerShape(50), color = background, shadowElevation = 2.dp) {
-            Text(
-                stringResource(R.string.overlay_defense_chip, label.defense),
-                modifier = Modifier
+            Row(
+                Modifier
                     .padding(horizontal = 7.dp, vertical = 2.dp)
-                    .semantics { contentDescription = description },
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-            )
+                    .clearAndSetSemantics { contentDescription = description },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_shield),
+                    contentDescription = null,
+                    Modifier.size(11.dp),
+                    tint = Color.White,
+                )
+                Spacer(Modifier.width(2.dp))
+                Text(
+                    stringResource(R.string.info_value_plain, label.defense),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                )
+            }
         }
     }
 }
@@ -358,27 +375,36 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
         modifier = Modifier
             .safeDrawingPadding()
             .padding(start = HudGutter, top = TopBarHeight + HudGutter)
-            .width(238.dp),
+            .width(264.dp),
         shape = RoundedCornerShape(16.dp),
         color = UiColors.panel,
         shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text(stringResource(R.string.economy_income), fontSize = 12.sp, color = UiColors.inkMuted)
+            Text(
+                stringResource(R.string.economy_income),
+                fontSize = 12.sp,
+                color = UiColors.inkMuted,
+                letterSpacing = 0.8.sp,
+            )
             EconomyRow(
                 stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
                 stringResource(R.string.economy_amount_positive, economy.hexIncome),
+                iconRes = R.drawable.ic_coin,
+                iconTint = UiColors.inkMuted,
             )
             if (economy.depositBonus > 0) {
                 EconomyRow(
                     stringResource(R.string.economy_fertile_row),
                     stringResource(R.string.economy_amount_positive, economy.depositBonus),
+                    iconRes = PieceIcons.fertile,
                 )
             }
             for (row in economy.buildingRows) {
                 EconomyRow(
                     stringResource(R.string.economy_building_row, row.count, stringResource(row.nameRes)),
                     stringResource(R.string.economy_amount_positive, row.total),
+                    iconRes = row.iconRes,
                 )
             }
             if (economy.starvingCount > 0) {
@@ -390,7 +416,12 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
             }
             if (economy.tiers.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(stringResource(R.string.economy_upkeep), fontSize = 12.sp, color = UiColors.inkMuted)
+                Text(
+                    stringResource(R.string.economy_upkeep),
+                    fontSize = 12.sp,
+                    color = UiColors.inkMuted,
+                    letterSpacing = 0.8.sp,
+                )
                 for (row in economy.tiers) {
                     EconomyRow(
                         stringResource(
@@ -400,9 +431,12 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
                             row.each,
                         ),
                         stringResource(R.string.economy_amount_negative, row.total),
+                        iconRes = row.iconRes,
                     )
                 }
             }
+            Spacer(Modifier.height(6.dp))
+            HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
             Spacer(Modifier.height(6.dp))
             EconomyRow(
                 stringResource(R.string.economy_net),
@@ -430,24 +464,42 @@ private fun EconomyPanel(economy: EconomyBreakdown) {
 }
 
 @Composable
-private fun EconomyRow(label: String, value: String, bold: Boolean = false, valueColor: Color = UiColors.ink) {
+private fun EconomyRow(
+    label: String,
+    value: String,
+    bold: Boolean = false,
+    valueColor: Color = UiColors.ink,
+    iconRes: Int? = null,
+    iconTint: Color? = null,
+) {
     Row(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            color = UiColors.ink,
-            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            iconRes?.let { icon ->
+                if (iconTint != null) {
+                    Icon(painterResource(icon), contentDescription = null, Modifier.size(16.dp), tint = iconTint)
+                } else {
+                    Image(painterResource(icon), contentDescription = null, Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                label,
+                fontSize = 13.sp,
+                color = UiColors.ink,
+                fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+            )
+        }
         Text(
             value,
-            fontSize = 13.sp,
+            fontSize = if (bold) 14.sp else 13.sp,
             color = valueColor,
-            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Medium,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
         )
     }
 }
@@ -486,11 +538,29 @@ private fun DiplomacyPanel(state: DiplomacyPanelState, viewModel: GameViewModel)
         shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text(stringResource(R.string.diplomacy_title), fontSize = 12.sp, color = UiColors.inkMuted)
-            for (row in state.rows) {
-                if (row.eliminated) continue
+            Text(
+                stringResource(R.string.diplomacy_title),
+                fontSize = 12.sp,
+                color = UiColors.inkMuted,
+                letterSpacing = 0.8.sp,
+            )
+            val visible = state.rows.filter { !it.eliminated }
+            visible.forEachIndexed { index, row ->
+                if (index > 0) HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
                 DiplomacyRow(row, state, viewModel)
             }
+            Spacer(Modifier.height(2.dp))
+            HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(
+                    R.string.diplomacy_footer,
+                    state.pactDurationRounds,
+                    state.breakPenaltyPercent,
+                ),
+                fontSize = 11.sp,
+                color = UiColors.inkFaint,
+            )
         }
     }
 }
@@ -519,23 +589,61 @@ private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel:
                 color = UiColors.ink,
             )
             Spacer(Modifier.width(10.dp))
-            Text(
-                when (row.state) {
-                    PactUiState.WAR -> stringResource(R.string.diplomacy_status_war)
-                    PactUiState.PACT -> stringResource(R.string.diplomacy_status_pact, row.turnsRemaining ?: 0)
-                    PactUiState.PROPOSAL_SENT -> stringResource(R.string.diplomacy_status_proposed)
-                    PactUiState.PROPOSAL_RECEIVED -> stringResource(R.string.diplomacy_status_offer)
-                },
-                fontSize = 13.sp,
-                color = if (row.state == PactUiState.PACT) UiColors.positive else UiColors.inkMuted,
-            )
+            val statusText = when (row.state) {
+                PactUiState.WAR -> stringResource(R.string.diplomacy_status_war)
+                PactUiState.PACT -> stringResource(R.string.diplomacy_status_pact, row.turnsRemaining ?: 0)
+                PactUiState.PROPOSAL_SENT -> stringResource(R.string.diplomacy_status_proposed)
+                PactUiState.PROPOSAL_RECEIVED -> stringResource(R.string.diplomacy_status_offer)
+            }
+            val statusColor = when (row.state) {
+                PactUiState.WAR -> UiColors.alert
+                PactUiState.PACT -> UiColors.positive
+                PactUiState.PROPOSAL_SENT -> UiColors.inkSecondary
+                PactUiState.PROPOSAL_RECEIVED -> UiColors.ink
+            }
+            val statusBackground = when (row.state) {
+                PactUiState.WAR -> UiColors.alert.copy(alpha = 0.10f)
+                PactUiState.PACT -> UiColors.positive.copy(alpha = 0.12f)
+                PactUiState.PROPOSAL_SENT -> UiColors.ink.copy(alpha = 0.06f)
+                PactUiState.PROPOSAL_RECEIVED -> UiColors.toastWarning.copy(alpha = 0.5f)
+            }
+            Surface(shape = RoundedCornerShape(50), color = statusBackground) {
+                Row(
+                    Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (row.state != PactUiState.WAR) {
+                        Icon(
+                            painterResource(R.drawable.ic_pact),
+                            contentDescription = null,
+                            Modifier.size(11.dp),
+                            tint = statusColor,
+                        )
+                        Spacer(Modifier.width(3.dp))
+                    }
+                    Text(
+                        statusText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor,
+                    )
+                }
+            }
         }
+        Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (row.state == PactUiState.WAR) {
                 OutlinedButton(
                     onClick = { viewModel.proposePact(row.playerIndex) },
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 ) {
+                    Icon(
+                        painterResource(R.drawable.ic_pact),
+                        contentDescription = null,
+                        Modifier.size(14.dp),
+                        tint = UiColors.ink,
+                    )
+                    Spacer(Modifier.width(5.dp))
                     Text(stringResource(R.string.diplomacy_propose), fontSize = 13.sp, color = UiColors.ink)
                 }
                 Spacer(Modifier.width(8.dp))
@@ -564,6 +672,13 @@ private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel:
                             .padding(end = 6.dp)
                             .semantics { contentDescription = tributeDescription },
                     ) {
+                        Icon(
+                            painterResource(R.drawable.ic_coin),
+                            contentDescription = null,
+                            Modifier.size(12.dp),
+                            tint = if (affordable) UiColors.coin else UiColors.inkFaint,
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             stringResource(R.string.diplomacy_tribute_amount, amount),
                             fontSize = 12.sp,
@@ -595,6 +710,13 @@ private fun ProposalStrip(proposals: List<IncomingProposal>, viewModel: GameView
                         Modifier
                             .size(12.dp)
                             .background(UiColors.faction(proposal.fromIndex), CircleShape),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        painterResource(R.drawable.ic_pact),
+                        contentDescription = null,
+                        Modifier.size(14.dp),
+                        tint = UiColors.inkSecondary,
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
@@ -669,6 +791,13 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
                         .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(
+                        painterResource(R.drawable.ic_coin),
+                        contentDescription = null,
+                        Modifier.size(16.dp),
+                        tint = UiColors.coin,
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Text(
                         stringResource(R.string.hud_treasury, state.treasury),
                         color = UiColors.ink,
@@ -704,13 +833,24 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
                             .semantics { contentDescription = freshDescription }
                             .defaultMinSize(minHeight = MinTouchTarget),
                     ) {
-                        Text(
-                            stringResource(R.string.hud_fresh_units, state.freshUnitCount),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = UiColors.ink,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
-                        )
+                        Row(
+                            Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.hud_fresh_units, state.freshUnitCount),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = UiColors.ink,
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Icon(
+                                painterResource(R.drawable.ic_flag),
+                                contentDescription = null,
+                                Modifier.size(13.dp),
+                                tint = UiColors.ink,
+                            )
+                        }
                     }
                 }
                 if (state.currentIsHuman && state.banner == null && proposalCount > 0) {
@@ -724,13 +864,24 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
                             .semantics { contentDescription = pactDescription }
                             .defaultMinSize(minHeight = MinTouchTarget),
                     ) {
-                        Text(
-                            stringResource(R.string.hud_pact_badge, proposalCount),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = UiColors.ink,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
-                        )
+                        Row(
+                            Modifier.padding(horizontal = 10.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.ic_pact),
+                                contentDescription = null,
+                                Modifier.size(14.dp),
+                                tint = UiColors.ink,
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                stringResource(R.string.hud_pact_badge, proposalCount),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = UiColors.ink,
+                            )
+                        }
                     }
                 }
                 if (state.aiThinking) {
@@ -762,8 +913,13 @@ private fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.hud_diplomacy)) },
-                    leadingIcon = { Text(stringResource(R.string.emoji_pact)) },
-                    colors = MenuDefaults.itemColors(textColor = UiColors.ink),
+                    leadingIcon = {
+                        Icon(painterResource(R.drawable.ic_pact), contentDescription = null)
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = UiColors.ink,
+                        leadingIconColor = UiColors.inkSecondary,
+                    ),
                     onClick = {
                         menuOpen = false
                         viewModel.toggleDiplomacyPanel()
@@ -815,12 +971,32 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
         }
         state.selectedUnitNameRes?.let { nameRes ->
             Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
-                Text(
-                    stringResource(R.string.hud_selected_unit_hint, stringResource(nameRes)),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    color = UiColors.ink,
-                    fontSize = 14.sp,
-                )
+                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    state.selectedUnitIconRes?.let { icon ->
+                        Box(
+                            Modifier
+                                .size(44.dp)
+                                .background(UiColors.background, RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(painterResource(icon), contentDescription = null, Modifier.size(40.dp))
+                        }
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Column {
+                        Text(
+                            stringResource(nameRes),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            color = UiColors.ink,
+                        )
+                        Text(
+                            stringResource(R.string.hud_selected_unit_hint),
+                            fontSize = 12.sp,
+                            color = UiColors.inkSecondary,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -903,23 +1079,37 @@ private fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewM
 private fun InfoCardView(info: InfoCard) {
     Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            info.factionIndex?.let { index ->
-                val description = stringResource(R.string.cd_faction_color, index + 1)
+            info.iconRes?.let { icon ->
+                // Plinth behind the transparent render so it reads on the panel.
                 Box(
                     Modifier
-                        .size(12.dp)
-                        .background(UiColors.faction(index), CircleShape)
-                        .semantics { contentDescription = description },
-                )
-                Spacer(Modifier.width(8.dp))
+                        .size(64.dp)
+                        .background(UiColors.background, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(painterResource(icon), contentDescription = null, Modifier.size(60.dp))
+                }
+                Spacer(Modifier.width(12.dp))
             }
             Column {
-                Text(
-                    info.title.resolve(),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    color = UiColors.ink,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        info.title.resolve(),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        color = UiColors.ink,
+                    )
+                    info.factionIndex?.let { index ->
+                        val description = stringResource(R.string.cd_faction_color, index + 1)
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            Modifier
+                                .size(12.dp)
+                                .background(UiColors.faction(index), CircleShape)
+                                .semantics { contentDescription = description },
+                        )
+                    }
+                }
                 Text(info.subtitle.resolve(), fontSize = 12.sp, color = UiColors.inkSecondary)
                 if (info.stats.isNotEmpty()) {
                     Row {
@@ -963,26 +1153,9 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
             BuildingType.WATCHTOWER -> R.string.building_watchtower
         }
     }
-    val emojiRes = when (option) {
-        is PurchaseOption.Unit -> when (option.type) {
-            UnitType.ARCHER -> R.string.emoji_archer
-            UnitType.CATAPULT -> R.string.emoji_catapult
-            UnitType.SOLDIER -> when (option.tier) {
-                1 -> R.string.emoji_peasant
-                2 -> R.string.emoji_spearman
-                3 -> R.string.emoji_baron
-                else -> R.string.emoji_knight
-            }
-        }
-        is PurchaseOption.Structure -> when (option.type) {
-            BuildingType.FARM -> R.string.emoji_farm
-            BuildingType.TOWER -> R.string.emoji_tower
-            BuildingType.STRONG_TOWER -> R.string.emoji_castle
-            BuildingType.MINE -> R.string.emoji_mine
-            BuildingType.MARKET -> R.string.emoji_market
-            BuildingType.LUMBER_CAMP -> R.string.emoji_lumber_camp
-            BuildingType.WATCHTOWER -> R.string.emoji_watchtower
-        }
+    val iconRes = when (option) {
+        is PurchaseOption.Unit -> PieceIcons.unit(option.type, option.tier)
+        is PurchaseOption.Structure -> PieceIcons.building(option.type.building)
     }
     val detail = when (option) {
         is PurchaseOption.Unit -> stringResource(
@@ -1011,6 +1184,7 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
     }
     Card(
         modifier = Modifier
+            .width(92.dp)
             .clickable(enabled = affordable, role = Role.Button, onClick = onBuy)
             .semantics { contentDescription = description },
         shape = RoundedCornerShape(12.dp),
@@ -1020,16 +1194,37 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
-            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(emojiRes), fontSize = 18.sp)
-            Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
-            Text(
-                stringResource(R.string.shop_cost, option.cost),
-                fontSize = 12.sp,
-                color = if (affordable) UiColors.inkSecondary else UiColors.alert,
+            Image(
+                painterResource(iconRes),
+                contentDescription = null,
+                Modifier.size(44.dp),
+                alpha = if (affordable) 1f else 0.35f,
+                colorFilter = if (affordable) {
+                    null
+                } else {
+                    ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+                },
             )
+            Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painterResource(R.drawable.ic_coin),
+                    contentDescription = null,
+                    Modifier.size(12.dp),
+                    tint = if (affordable) UiColors.coin else UiColors.alert,
+                )
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    stringResource(R.string.info_value_plain, option.cost),
+                    fontSize = 12.sp,
+                    color = if (affordable) UiColors.inkSecondary else UiColors.alert,
+                )
+            }
             Text(detail, fontSize = 12.sp, color = UiColors.inkMuted)
         }
     }
@@ -1070,7 +1265,15 @@ private fun GameOverOverlay(winner: Int, onBackToMenu: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(56.dp).background(UiColors.faction(winner), CircleShape))
+            // The winner's capital as the trophy, on their faction-color disc.
+            Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.size(72.dp).background(UiColors.faction(winner), CircleShape))
+                Image(
+                    painterResource(R.drawable.piece_capital),
+                    contentDescription = null,
+                    Modifier.size(96.dp),
+                )
+            }
             Spacer(Modifier.height(16.dp))
             Text(
                 stringResource(R.string.game_over_winner, winner + 1),

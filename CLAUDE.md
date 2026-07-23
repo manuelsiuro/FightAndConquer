@@ -13,6 +13,7 @@ renderer in Compose (`:app`) + Blender-authored piece models baked to binary ass
 ./gradlew :app:testDebugUnitTest     # app unit tests (mesh loader, projection)
 ./gradlew :app:assembleDebug         # build APK
 python3 tools/glb2pmesh.py --all art/models app/src/main/assets/pieces   # re-bake models
+python3 tools/render_piece_icons.py [name…]                              # re-bake UI icons (Blender w/ MCP)
 python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebuild a model (Blender must run w/ MCP add-on)
 ```
 

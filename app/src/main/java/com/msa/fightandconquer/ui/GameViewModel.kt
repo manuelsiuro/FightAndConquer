@@ -51,6 +51,8 @@ data class GameSetup(
     val size: MapSize = MapSize.MEDIUM,
     val seed: Long = System.currentTimeMillis(),
     val fogOfWar: Boolean = false,
+    val specialUnits: Boolean = true,
+    val diplomacy: Boolean = true,
 )
 
 /** Fog of war render sets for the viewing seat; null everywhere means fog is off. */
@@ -71,10 +73,10 @@ enum class LabelKind { CAPTURABLE, BLOCKED }
 data class OverlayLabel(val hex: Hex, val defense: Int, val kind: LabelKind)
 
 /** Coin counter breakdown panel. */
-data class UpkeepRow(val nameRes: Int, val count: Int, val each: Int, val total: Int)
+data class UpkeepRow(val nameRes: Int, val count: Int, val each: Int, val total: Int, val iconRes: Int? = null)
 
 /** One income line per building type (farms, mines, markets, lumber camps). */
-data class IncomeRow(val nameRes: Int, val count: Int, val total: Int)
+data class IncomeRow(val nameRes: Int, val count: Int, val total: Int, val iconRes: Int? = null)
 
 data class EconomyBreakdown(
     val hexCount: Int,
@@ -129,6 +131,8 @@ data class InfoCard(
     val subtitle: UiText,
     val stats: List<InfoStat> = emptyList(),
     val factionIndex: Int? = null,
+    /** Pre-rendered piece thumbnail; null for abstract cards (fog, cut-off). */
+    val iconRes: Int? = null,
 )
 
 /** Rules snapshot the purchase tray needs for upkeep/defense lines. */
@@ -156,6 +160,8 @@ data class HudState(
     val turnNumber: Int,
     /** Display-name resource of the selected unit (type-aware), null when none. */
     val selectedUnitNameRes: Int?,
+    /** Baked render of the selected unit for the hint card, null when none. */
+    val selectedUnitIconRes: Int?,
     val purchases: List<PurchaseOption>,
     val canUndo: Boolean,
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
@@ -256,7 +262,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val state = map.newGame(
                 gameSeed = setup.seed * 31 + 17,
                 kinds = kinds,
-                rules = RuleConstants(fogOfWar = setup.fogOfWar),
+                rules = RuleConstants(
+                    fogOfWar = setup.fogOfWar,
+                    specialUnitsEnabled = setup.specialUnits,
+                    diplomacyEnabled = setup.diplomacy,
+                ),
             )
             withContext(Dispatchers.Main.immediate) {
                 startEngine(GameEngine(state), showOpeningBanner = setup.mode == GameMode.PASS_AND_PLAY)
@@ -611,10 +621,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         val buildingRows = listOfNotNull(
-            IncomeRow(R.string.building_farm, farmCount, farmTotal).takeIf { farmCount > 0 },
-            IncomeRow(R.string.building_mine, mineCount, mineTotal).takeIf { mineCount > 0 },
-            IncomeRow(R.string.building_market, marketCount, marketTotal).takeIf { marketCount > 0 },
-            IncomeRow(R.string.building_lumber_camp, campCount, campTotal).takeIf { campCount > 0 },
+            IncomeRow(R.string.building_farm, farmCount, farmTotal, PieceIcons.building(Building.FARM))
+                .takeIf { farmCount > 0 },
+            IncomeRow(R.string.building_mine, mineCount, mineTotal, PieceIcons.building(Building.MINE))
+                .takeIf { mineCount > 0 },
+            IncomeRow(R.string.building_market, marketCount, marketTotal, PieceIcons.building(Building.MARKET))
+                .takeIf { marketCount > 0 },
+            IncomeRow(R.string.building_lumber_camp, campCount, campTotal, PieceIcons.building(Building.LUMBER_CAMP))
+                .takeIf { campCount > 0 },
         )
         val soldierRows = (1..rules.maxTier).mapNotNull { tier ->
             val count = state.units.values.count {
@@ -623,7 +637,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (count == 0) {
                 null
             } else {
-                UpkeepRow(unitNameRes(tier), count, rules.unitUpkeep[tier - 1], count * rules.unitUpkeep[tier - 1])
+                UpkeepRow(
+                    unitNameRes(tier),
+                    count,
+                    rules.unitUpkeep[tier - 1],
+                    count * rules.unitUpkeep[tier - 1],
+                    PieceIcons.unit(com.msa.fightandconquer.core.model.UnitType.SOLDIER, tier),
+                )
             }
         }
         val specialRows = listOf(
@@ -631,7 +651,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             Triple(com.msa.fightandconquer.core.model.UnitType.CATAPULT, R.string.unit_catapult, rules.catapultUpkeep),
         ).mapNotNull { (type, nameRes, each) ->
             val count = state.units.values.count { it.owner == me && it.type == type }
-            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each)
+            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each, PieceIcons.unit(type, 1))
         }
         val tiers = soldierRows + specialRows
         val income = Rules.incomeOf(state, me)
@@ -854,6 +874,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 },
                 stats = stats,
                 factionIndex = unit.owner.value,
+                iconRes = PieceIcons.unit(unit.type, unit.tier),
             )
         }
         tile.building?.let { building ->
@@ -869,6 +890,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.TOWER -> InfoCard(
                     UiText.of(R.string.building_tower),
@@ -880,6 +902,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.STRONG_TOWER -> InfoCard(
                     UiText.of(R.string.building_castle),
@@ -891,6 +914,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.FARM -> InfoCard(
                     UiText.of(R.string.building_farm),
@@ -905,6 +929,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.MINE -> InfoCard(
                     UiText.of(R.string.building_mine),
@@ -916,6 +941,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.MARKET -> InfoCard(
                     UiText.of(R.string.building_market),
@@ -930,6 +956,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.LUMBER_CAMP -> InfoCard(
                     UiText.of(R.string.building_lumber_camp),
@@ -944,6 +971,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
                 Building.WATCHTOWER -> InfoCard(
                     UiText.of(R.string.building_watchtower),
@@ -955,6 +983,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
+                    iconRes = PieceIcons.building(building),
                 )
             }
         }
@@ -968,10 +997,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_value_coins, rules.treeClearBonus),
                     ),
                 ),
+                iconRes = PieceIcons.tree,
             )
             is Flora.Gravestone -> return InfoCard(
                 UiText.of(R.string.piece_gravestone),
                 UiText.of(R.string.info_gravestone),
+                iconRes = PieceIcons.gravestone,
             )
             null -> {}
         }
@@ -985,6 +1016,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_value_income, rules.mineIncome),
                     ),
                 ),
+                iconRes = PieceIcons.goldVein,
             )
             com.msa.fightandconquer.core.model.Deposit.FERTILE -> return InfoCard(
                 UiText.of(R.string.piece_fertile),
@@ -995,6 +1027,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_value_income, rules.fertileHexBonus),
                     ),
                 ),
+                iconRes = PieceIcons.fertile,
             )
             null -> {}
         }
@@ -1080,7 +1113,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         val rules = state.config.rules
         val summary = engine.incomeSummary(me)
-        val selectedName = selectedUnit?.let { state.units[it] }?.let { unitNameRes(it.type, it.tier) }
+        val selected = selectedUnit?.let { state.units[it] }
+        val selectedName = selected?.let { unitNameRes(it.type, it.tier) }
         val purchases = if (selectedUnit == null) {
             selectedHex?.let { engine.buyableAt(it) } ?: emptyList()
         } else {
@@ -1096,6 +1130,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             upkeep = summary.upkeep,
             turnNumber = state.turnNumber,
             selectedUnitNameRes = selectedName,
+            selectedUnitIconRes = selected?.let { PieceIcons.unit(it.type, it.tier) },
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,

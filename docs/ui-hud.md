@@ -71,20 +71,30 @@ alert, and `ActionRejected` reasons as info toasts.
 2. `AnchorOverlay` — **pixel-space, no safeDrawingPadding**: defense chips + coin
    popups positioned with `Modifier.offset` from `BoardScene.anchors`
    (`Float2` → `IntOffset`; placement-phase only).
-3. HUD column (safeDrawingPadding): `TopBar` (player chip, clickable coin/net area →
-   economy panel, turn, `N ⚑` fresh badge, `🤝 N` pending-proposal badge → diplomacy
-   panel, "thinking…", ⋯ menu with Diplomacy/Resign/Exit) + `ProposalStrip`
-   (persistent accept/decline rows for incoming pact offers — StateFlow-driven, only
-   for the acting human, never behind the banner) + `BottomBar` (InfoCard /
-   selected-unit hint / `PurchaseCard` tray with upkeep & defense lines / Undo /
-   End-Turn FAB that morphs in place into "N unmoved · ✕ · End anyway" for 3 s when
-   fresh units remain).
-4. `EconomyPanel` (under the TopBar; income rows — hexes, fertile bonus, one line
-   per building type — per-unit-type upkeep, net, projection, bankruptcy/upkeep-risk
+3. HUD column (safeDrawingPadding): `TopBar` (player chip, clickable coin-icon/net
+   area → economy panel, turn, fresh badge `N`+flag icon, pending-proposal badge
+   pact-icon+`N` → diplomacy panel, "thinking…", ⋯ menu with Diplomacy/Resign/Exit)
+   + `ProposalStrip` (persistent accept/decline rows for incoming pact offers —
+   StateFlow-driven, only for the acting human, never behind the banner) +
+   `BottomBar` (InfoCard with a 60 dp baked piece render on a plinth (`iconRes`
+   from `PieceIcons`, null for abstract cards) / selected-unit hint (same card
+   layout: 40 dp unit render on a plinth + name + "pick a highlighted hex" line,
+   via `HudState.selectedUnitIconRes`) / `PurchaseCard`
+   tray — 92 dp cards with 44 dp piece renders, desaturated+dimmed when
+   unaffordable, coin-icon cost, upkeep & defense lines / Undo / End-Turn FAB that
+   morphs in place into "N unmoved · ✕ · End anyway" for 3 s when fresh units
+   remain). Flat glyphs are tinted vector drawables (`ic_coin/ic_flag/ic_shield/
+   ic_pact`) — no emoji in persistent HUD chrome (toast/popup prose keeps 🪙).
+4. `EconomyPanel` (under the TopBar, 264 dp; income rows — hexes, fertile bonus,
+   one line per building type, each with a 20 dp piece icon — per-unit-type upkeep
+   rows with unit icons, divider, emphasized net + projection, bankruptcy/upkeep-risk
    warning strips) / `DiplomacyPanel` (same slot, mutually exclusive: one row per
-   opponent with pact status, Propose pact, and Tribute chips 10/25/50). Capturing a
-   pact partner's hex needs a second tap (warning toast arms the confirmation) —
-   the no-dialog idiom throughout.
+   opponent — faction dot, name, tinted status pill (war=alert, pact=positive with
+   pact icon + turns left), Propose pact (pact icon) and Tribute buttons, coin-icon
+   tribute chips 10/25/50 dimmed when unaffordable, divider-separated rows, and a
+   footer stating pact duration + break penalty from `DiplomacyPanelState`).
+   Capturing a pact partner's hex needs a second tap (warning toast arms the
+   confirmation) — the no-dialog idiom throughout.
 5. `ToastStack` (top-center).
 6. `TurnBanner` (pass-and-play privacy scrim) / `GameOverOverlay` — topmost, they
    scrim everything below.
@@ -94,10 +104,13 @@ unhandled ones reach the board — no interop hit-test code exists or should be 
 
 ## Menu & modes
 
-`MenuScreen`: opponents 2–4 seats, mode vs-AI / pass-and-play, difficulty
-(Easy/Normal/Hard), map size, Continue when an autosave exists. New games generate
-maps off-main (`generating` spinner). Note the layout shifts when Continue is
-visible — scripted UI tests must not hardcode chip coordinates.
+`MenuScreen`: a decorative piece tableau (knight/capital/tower renders on a panel
+plinth) under the title, then opponents 2–4 seats, mode vs-AI / pass-and-play,
+difficulty (Easy/Normal/Hard), map size, fog, and On/Off rows for special units
+and diplomacy (wired through `GameSetup` into `RuleConstants`), Continue when an
+autosave exists (New Game is a filled button only when Continue is absent). New
+games generate maps off-main (`generating` spinner). Note the layout shifts when
+Continue is visible — scripted UI tests must not hardcode chip coordinates.
 
 ## AI driving & autosave
 

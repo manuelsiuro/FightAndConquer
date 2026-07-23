@@ -58,6 +58,32 @@ python3 tools/blender_run.py thumb /tmp/t1.png                    # returns temp
 ```
 Iterate until the silhouette reads at ~40 px, then bake and check on device.
 
+## UI icons (pre-rendered thumbnails)
+
+`python3 tools/render_piece_icons.py [names…]` (Blender + MCP running, same
+precondition as `exec`) bakes a transparent-background icon of every piece:
+512² master → `art/icons/piece_<name>.png`, 256² drawable →
+`app/src/main/res/drawable-nodpi/piece_<name>.png`. The Compose side maps enums
+to these via `ui/PieceIcons.kt` (tooltip InfoCard, purchase tray, economy rows,
+menu hero, game-over trophy).
+
+How it renders (the epilogue appended after each piece script):
+
+- **FACTION parts are baked in a fixed neutral warm gray** (`#B8B2AA`) — icons
+  read as "generic piece"; ownership is carried by the faction dot in the UI.
+  The sage preview color is restored afterwards, and the GLB is unaffected
+  (`export_materials='NONE'`).
+- **Orthographic auto-fit**: the camera keeps the standard ¾ view but goes
+  ortho, aimed at the collection bbox center, `ortho_scale` from the projected
+  extent — every icon gets the same margin regardless of piece size (a global
+  scale would make flat terrain scatters unreadable at 20 dp).
+- **`view_transform = 'Standard'`** — Blender 5 defaults to AgX, which visibly
+  desaturates the pastel palette away from the UI hex values. The sun is also
+  dropped to 1.5 with a mid-gray world so rendered color ≈ palette albedo
+  (the authoring sun at 3.0 clips the gold to lemon).
+- Renders bypass the MCP `thumb` tool entirely (temp-dir redirect, no
+  transparent film): Blender writes `scene.render.filepath` into the repo.
+
 ## `.pmesh` format (produced by `tools/glb2pmesh.py`)
 
 Little-endian; deliberately dumb (role-tagged triangle soup):
@@ -106,3 +132,6 @@ budgets and fails if a shipped kind loses its bake.
 5. `./gradlew :app:testDebugUnitTest` (loader tests) → install → **zoomed
    screenshot on device** (tint, dim, pips, animations) → commit the `.py`, `.glb`
    and `.pmesh` together.
+6. `python3 tools/render_piece_icons.py <name>` and commit the refreshed
+   `art/icons/` + `drawable-nodpi/` icons alongside — the UI thumbnail must
+   never drift from the shipped mesh.

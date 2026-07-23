@@ -26,16 +26,20 @@
     <string name="menu_section_fog">Fog of war</string>
     <string name="menu_fog_off">Off</string>
     <string name="menu_fog_on">On</string>
+    <string name="menu_section_specials">Special units</string>
+    <string name="menu_section_diplomacy">Diplomacy</string>
+    <string name="menu_toggle_on">On</string>
+    <string name="menu_toggle_off">Off</string>
 
     <!-- Top bar -->
     <string name="hud_player">Player %d</string>
     <string name="hud_ai_player">AI %d</string>
-    <string name="hud_treasury">🪙 %d</string>
+    <string name="hud_treasury">%d</string>
     <string name="hud_net_positive">+%d</string>
     <string name="hud_net_negative">%d</string>
     <string name="hud_turn">Turn %d</string>
     <string name="hud_ai_thinking">thinking…</string>
-    <string name="hud_fresh_units">%d ⚑</string>
+    <string name="hud_fresh_units">%d</string>
     <string name="hud_resign">Resign</string>
     <string name="hud_exit">Exit</string>
     <string name="cd_faction_color">Faction color of player %d</string>
@@ -44,7 +48,7 @@
     <string name="cd_open_menu">Open game menu</string>
 
     <!-- Bottom bar -->
-    <string name="hud_selected_unit_hint">%s — pick a highlighted hex</string>
+    <string name="hud_selected_unit_hint">Pick a highlighted hex to move or capture</string>
     <string name="hud_undo">Undo</string>
     <string name="hud_end_turn">End Turn</string>
     <string name="hud_end_anyway">End anyway</string>
@@ -56,7 +60,6 @@
     </plurals>
 
     <!-- Purchase tray -->
-    <string name="shop_cost">%d 🪙</string>
     <string name="shop_upkeep_per_turn">%d/turn</string>
     <string name="shop_income_per_turn">+%d/turn</string>
     <string name="shop_income_up_to">up to +%d/turn</string>
@@ -85,19 +88,6 @@
     <string name="piece_gold_vein">Gold vein</string>
     <string name="piece_fertile">Fertile ground</string>
     <string name="tile_cut_off">Cut-off territory</string>
-    <string name="emoji_peasant">♟</string>
-    <string name="emoji_spearman">♞</string>
-    <string name="emoji_baron">♜</string>
-    <string name="emoji_knight">♚</string>
-    <string name="emoji_farm">🌾</string>
-    <string name="emoji_tower">🗼</string>
-    <string name="emoji_castle">🏰</string>
-    <string name="emoji_archer">🏹</string>
-    <string name="emoji_catapult">🪨</string>
-    <string name="emoji_mine">⛏️</string>
-    <string name="emoji_market">⚖️</string>
-    <string name="emoji_lumber_camp">🪓</string>
-    <string name="emoji_watchtower">🔭</string>
 
     <!-- Info cards -->
     <string name="info_unit_enemy">Enemy unit — strength %d, defends its hex and neighbors</string>
@@ -154,8 +144,7 @@
 
     <!-- Diplomacy -->
     <string name="hud_diplomacy">Diplomacy</string>
-    <string name="emoji_pact">🤝</string>
-    <string name="hud_pact_badge">🤝 %d</string>
+    <string name="hud_pact_badge">%d</string>
     <string name="cd_open_diplomacy">Open the diplomacy panel</string>
     <string name="diplomacy_title">Diplomacy</string>
     <string name="diplomacy_status_war">At war</string>
@@ -166,7 +155,8 @@
     <string name="diplomacy_accept">Accept</string>
     <string name="diplomacy_decline">Decline</string>
     <string name="diplomacy_tribute">Tribute</string>
-    <string name="diplomacy_tribute_amount">%d 🪙</string>
+    <string name="diplomacy_tribute_amount">%d</string>
+    <string name="diplomacy_footer">Pacts last %1$d rounds — breaking one costs %2$d%% of your treasury</string>
     <string name="diplomacy_proposal_text">Player %1$d proposes a %2$d-turn pact</string>
     <string name="cd_send_tribute">Send %1$d coins to player %2$d</string>
 
@@ -175,7 +165,6 @@
     <string name="banner_tap_to_start">Tap to start your turn</string>
     <string name="game_over_winner">Player %d conquers!</string>
     <string name="game_over_back_to_menu">Back to menu</string>
-    <string name="overlay_defense_chip">🛡%d</string>
     <string name="cd_defense_capturable">Defense %d — you can capture this hex</string>
     <string name="cd_defense_blocked">Defense %d — too strong for the selected unit</string>
 

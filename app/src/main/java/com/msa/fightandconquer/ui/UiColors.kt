@@ -28,6 +28,9 @@ object UiColors {
     val inkMuted = ink.copy(alpha = 0.6f)
     val inkFaint = ink.copy(alpha = 0.45f)
 
+    /** Coin-icon tint: the render palette's gold darkened to hold on [panel]. */
+    val coin = Color(0xFFB8913D)
+
     val positive = Color(0xFF41663F)
     val alert = Color(0xFF9C4636)
     val toastWarning = Color(0xF2EAD9B8)
