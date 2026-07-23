@@ -95,3 +95,7 @@ Desktop.ini
 # Linux
 *~
 .directory
+
+# Python (tools/)
+__pycache__/
+*.pyc
