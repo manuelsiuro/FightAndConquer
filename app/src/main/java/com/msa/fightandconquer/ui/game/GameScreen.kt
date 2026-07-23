@@ -27,6 +27,7 @@ import com.msa.fightandconquer.render.FilamentHost
 import com.msa.fightandconquer.render.scene.BoardScene
 import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.HudState
+import com.msa.fightandconquer.ui.guide.FieldGuide
 
 private class SceneRef {
     var scene by mutableStateOf<BoardScene?>(null)
@@ -45,6 +46,11 @@ fun GameScreen(viewModel: GameViewModel) {
     val incomingProposals by viewModel.incomingProposals.collectAsState()
     val infoCard by viewModel.infoCard.collectAsState()
     val engine = viewModel.engine ?: return
+
+    // Field Guide overlay state (local UI only — no ViewModel/navigation involvement).
+    var guideOpen by remember { mutableStateOf(false) }
+    var guideFocus by remember { mutableStateOf<String?>(null) }
+    val openGuide: (String?) -> Unit = { focus -> guideFocus = focus; guideOpen = true }
 
     Box(Modifier.fillMaxSize()) {
         // ----- 3D board + gestures -----
@@ -119,12 +125,12 @@ fun GameScreen(viewModel: GameViewModel) {
         // ----- HUD -----
         hud?.let { state ->
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                TopBar(state, incomingProposals.size, viewModel)
+                TopBar(state, incomingProposals.size, viewModel, onOpenGuide = { openGuide(null) })
                 if (state.currentIsHuman && state.banner == null && incomingProposals.isNotEmpty()) {
                     ProposalStrip(incomingProposals, viewModel)
                 }
                 Spacer(Modifier.weight(1f))
-                BottomBar(state, infoCard, viewModel)
+                BottomBar(state, infoCard, viewModel, onOpenGuide = openGuide)
             }
 
             economy?.let { EconomyPanel(it) }
@@ -137,6 +143,10 @@ fun GameScreen(viewModel: GameViewModel) {
             state.winner?.let { winner ->
                 GameOverOverlay(winner) { viewModel.backToMenu() }
             }
+        }
+
+        if (guideOpen) {
+            FieldGuide(onClose = { guideOpen = false }, focusEntryId = guideFocus)
         }
     }
 }

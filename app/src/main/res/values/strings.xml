@@ -225,4 +225,63 @@
     <string name="reject_already_max_tier">Already at the highest tier</string>
     <string name="reject_not_same_region">Those units are not in the same territory</string>
     <string name="reject_no_game">No game in progress</string>
+
+    <!-- Field guide (browsable reference for every unit, building and resource) -->
+    <string name="guide_title">Field Guide</string>
+    <string name="guide_subtitle">What each unit, building and resource does — and how to use it</string>
+    <string name="guide_menu_entry">Field Guide</string>
+    <string name="guide_close">Close</string>
+    <string name="cd_guide_close">Close the field guide</string>
+    <string name="cd_guide_open">Open the field guide</string>
+    <string name="cd_guide_learn">Learn about %1$s</string>
+    <string name="guide_how_label">How to use</string>
+    <string name="guide_req_label">Requires</string>
+    <string name="guide_section_basics">Basics</string>
+    <string name="guide_section_units">Units</string>
+    <string name="guide_section_buildings">Buildings</string>
+    <string name="guide_section_resources">Resources &amp; terrain</string>
+
+    <!-- Field guide: Basics -->
+    <string name="guide_basic_economy_title">Income &amp; upkeep</string>
+    <string name="guide_basic_economy_desc">Every turn you earn income and pay upkeep.</string>
+    <string name="guide_basic_economy_how">Each connected hex earns coins; each unit charges upkeep. If your treasury ever goes negative you go bankrupt and lose all your units — always keep income above upkeep. Tap the treasury at the top to see the full breakdown.</string>
+    <string name="guide_basic_capture_title">Capturing hexes</string>
+    <string name="guide_basic_capture_desc">Take enemy or neutral land with your units.</string>
+    <string name="guide_basic_capture_how">A unit can capture an adjacent hex only when its strength is greater than that hex\'s defense. Towers, castles, capitals and nearby enemy units all raise defense — bring a stronger unit or a catapult to break through.</string>
+    <string name="guide_basic_merge_title">Merging units</string>
+    <string name="guide_basic_merge_desc">Combine soldiers into a stronger one.</string>
+    <string name="guide_basic_merge_how">Move two soldiers of the same tier together — or buy one onto another — to merge them into the next tier, up to Knight. Archers and catapults never merge.</string>
+    <string name="guide_basic_territory_title">Connected territory</string>
+    <string name="guide_basic_territory_desc">Land must stay linked to your capital.</string>
+    <string name="guide_basic_territory_how">Only hexes connected to your capital earn income. If an enemy splits your territory, the cut-off part earns nothing and its units slowly starve — reconnect it quickly.</string>
+
+    <!-- Field guide: Units -->
+    <string name="guide_unit_soldiers">Soldiers</string>
+    <string name="guide_desc_soldiers">Your core fighters — four tiers from Peasant to Knight. Higher tiers hit harder but cost far more upkeep.</string>
+    <string name="guide_how_soldiers">Buy one onto your own land. A fresh soldier can move anywhere inside your connected territory, or capture one adjacent hex whose defense is below its strength. Merge two of the same tier for the next tier up.</string>
+    <string name="guide_how_archer">Park it on ground you want to hold — it guards its own hex and every neighbour like a tower, but keeps pace with your army. It only attacks at strength 1, so don\'t rely on it to capture.</string>
+    <string name="guide_how_catapult">Send it at towers and castles — it ignores building defense completely. It moves only 2 hexes per turn and can be intercepted, and it still loses to defending enemy units.</string>
+    <string name="guide_req_special">Special units must be enabled</string>
+
+    <!-- Field guide: Buildings -->
+    <string name="guide_how_farm">Grows your income. Place it next to your capital or an existing farm. Each farm costs a little more than the last, and one built on fertile ground earns extra.</string>
+    <string name="guide_req_farm">Next to your capital or another farm</string>
+    <string name="guide_how_tower">A cheap wall. Raises the defense of its own hex and all six neighbours, so an enemy needs a stronger unit to break in.</string>
+    <string name="guide_how_castle">A stronger wall than the tower — defends its hex and all six neighbours. Use it to lock down a border or shield your capital.</string>
+    <string name="guide_how_mine">Turns a gold vein into steady income. Scout for veins near your capital early and claim them.</string>
+    <string name="guide_req_mine">Must be built on a gold vein</string>
+    <string name="guide_how_market">Earns more the more developed land surrounds it — one coin per producing neighbour, up to five. Place it in the middle of a cluster of your hexes, not on the frontier.</string>
+    <string name="guide_how_lumber">Build it beside a forest to earn from the trees around it (up to four). Bonus: trees next to a lumber camp stop spreading, so it also tames a growing forest.</string>
+    <string name="guide_req_lumber">Next to your own trees</string>
+    <string name="guide_how_watchtower">A pure scout — no defense, but sees far through the fog. Only useful when Fog of War is switched on.</string>
+    <string name="guide_req_watchtower">Fog of War games only</string>
+    <string name="guide_desc_capital">The heart of your empire.</string>
+    <string name="guide_how_capital">It defends its own hex and neighbours. If an enemy captures it they loot half your treasury and it relocates to your largest region — losing your last territory loses the game.</string>
+
+    <!-- Field guide: Resources &amp; terrain -->
+    <string name="guide_how_gold_vein">A resource in the ground — worthless until you build a Mine on top of it, which turns it into steady gold.</string>
+    <string name="guide_how_fertile">Richer soil. Any hex here earns a little extra, and a farm built on it earns more still.</string>
+    <string name="guide_how_tree">Blocks the hex\'s income. Move a unit onto it to clear it for a coin bonus, or build a Lumber camp nearby to profit from it. Left alone, forests slowly spread.</string>
+    <string name="guide_how_gravestone">Marks where a unit died. It blocks income and grows into a tree after one round.</string>
+    <string name="guide_how_cut_off">Land an enemy has severed from your capital. It earns no income and any units on it will starve — reconnect it fast.</string>
 </resources>

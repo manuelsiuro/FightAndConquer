@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -47,7 +48,12 @@ import com.msa.fightandconquer.ui.UiColors
 private val MinTouchTarget = 48.dp
 
 @Composable
-internal fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewModel) {
+internal fun TopBar(
+    state: HudState,
+    proposalCount: Int,
+    viewModel: GameViewModel,
+    onOpenGuide: () -> Unit,
+) {
     var menuOpen by remember { mutableStateOf(false) }
     val factionDescription = stringResource(R.string.cd_faction_color, state.currentPlayer + 1)
     val economyDescription = stringResource(R.string.cd_open_economy)
@@ -207,6 +213,20 @@ internal fun TopBar(state: HudState, proposalCount: Int, viewModel: GameViewMode
                 shape = RoundedCornerShape(12.dp),
                 containerColor = UiColors.panel,
             ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.guide_menu_entry)) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Info, contentDescription = null)
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = UiColors.ink,
+                        leadingIconColor = UiColors.inkSecondary,
+                    ),
+                    onClick = {
+                        menuOpen = false
+                        onOpenGuide()
+                    },
+                )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.hud_diplomacy)) },
                     leadingIcon = {

@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.core.model.Difficulty
+import com.msa.fightandconquer.ui.guide.FieldGuide
 
 @Composable
 fun MenuScreen(
@@ -58,7 +60,9 @@ fun MenuScreen(
     var fogOfWar by rememberSaveable { mutableStateOf(false) }
     var specialUnits by rememberSaveable { mutableStateOf(true) }
     var diplomacy by rememberSaveable { mutableStateOf(true) }
+    var guideOpen by rememberSaveable { mutableStateOf(false) }
 
+    Box(Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -232,6 +236,16 @@ fun MenuScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = UiColors.faction(0)),
             ) { Text(stringResource(R.string.menu_new_game)) }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        TextButton(onClick = { guideOpen = true }) {
+            Text(stringResource(R.string.guide_menu_entry), color = UiColors.inkSecondary)
+        }
+    }
+
+        if (guideOpen) {
+            FieldGuide(onClose = { guideOpen = false })
         }
     }
 }

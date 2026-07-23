@@ -18,11 +18,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,6 +48,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
@@ -57,12 +61,18 @@ import com.msa.fightandconquer.ui.InfoCard
 import com.msa.fightandconquer.ui.PieceIcons
 import com.msa.fightandconquer.ui.ShopInfo
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.guide.GuideCatalog
 import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.unitNameRes
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameViewModel) {
+internal fun BottomBar(
+    state: HudState,
+    infoCard: InfoCard?,
+    viewModel: GameViewModel,
+    onOpenGuide: (String?) -> Unit,
+) {
     Column(Modifier.padding(HudGutter)) {
         infoCard?.let { info ->
             InfoCardView(info)
@@ -105,9 +115,13 @@ internal fun BottomBar(state: HudState, infoCard: InfoCard?, viewModel: GameView
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 for (option in state.purchases) {
-                    PurchaseCard(option, state.shopInfo, affordable = option.cost <= state.treasury) {
-                        viewModel.buy(option)
-                    }
+                    PurchaseCard(
+                        option,
+                        state.shopInfo,
+                        affordable = option.cost <= state.treasury,
+                        onLearn = onOpenGuide,
+                        onBuy = { viewModel.buy(option) },
+                    )
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -239,7 +253,20 @@ private fun InfoCardView(info: InfoCard) {
 }
 
 @Composable
-private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boolean, onBuy: () -> Unit) {
+private fun PurchaseCard(
+    option: PurchaseOption,
+    shop: ShopInfo,
+    affordable: Boolean,
+    onLearn: (String?) -> Unit,
+    onBuy: () -> Unit,
+) {
+    val guideEntry = when (option) {
+        is PurchaseOption.Unit -> GuideCatalog.forUnit(option.type)
+        is PurchaseOption.Structure -> GuideCatalog.forStructure(option.type)
+    }
+    // Only a placement requirement is worth the cramped card space; the "specials
+    // enabled" meta-requirement on units is redundant here (they're already on sale).
+    val requirementRes = (option as? PurchaseOption.Structure)?.let { guideEntry.requirementRes }
     val nameRes = when (option) {
         is PurchaseOption.Unit -> unitNameRes(option.type, option.tier)
         is PurchaseOption.Structure -> when (option.type) {
@@ -281,50 +308,78 @@ private fun PurchaseCard(option: PurchaseOption, shop: ShopInfo, affordable: Boo
     } else {
         stringResource(R.string.cd_purchase_unaffordable, name, option.cost)
     }
-    Card(
-        modifier = Modifier
-            .width(92.dp)
-            .clickable(enabled = affordable, role = Role.Button, onClick = onBuy)
-            .semantics { contentDescription = description },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (affordable) UiColors.panel else UiColors.panel.copy(alpha = 0.5f),
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    val learnDescription = stringResource(R.string.cd_guide_learn, name)
+    Box {
+        Card(
+            modifier = Modifier
+                .width(92.dp)
+                .clickable(enabled = affordable, role = Role.Button, onClick = onBuy)
+                .semantics { contentDescription = description },
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (affordable) UiColors.panel else UiColors.panel.copy(alpha = 0.5f),
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) {
-            Image(
-                painterResource(iconRes),
-                contentDescription = null,
-                Modifier.size(44.dp),
-                alpha = if (affordable) 1f else 0.35f,
-                colorFilter = if (affordable) {
-                    null
-                } else {
-                    ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
-                },
-            )
-            Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painterResource(R.drawable.ic_coin),
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Image(
+                    painterResource(iconRes),
                     contentDescription = null,
-                    Modifier.size(12.dp),
-                    tint = if (affordable) UiColors.coin else UiColors.alert,
+                    Modifier.size(44.dp),
+                    alpha = if (affordable) 1f else 0.35f,
+                    colorFilter = if (affordable) {
+                        null
+                    } else {
+                        ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+                    },
                 )
-                Spacer(Modifier.width(3.dp))
-                Text(
-                    stringResource(R.string.info_value_plain, option.cost),
-                    fontSize = 12.sp,
-                    color = if (affordable) UiColors.inkSecondary else UiColors.alert,
-                )
+                Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painterResource(R.drawable.ic_coin),
+                        contentDescription = null,
+                        Modifier.size(12.dp),
+                        tint = if (affordable) UiColors.coin else UiColors.alert,
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        stringResource(R.string.info_value_plain, option.cost),
+                        fontSize = 12.sp,
+                        color = if (affordable) UiColors.inkSecondary else UiColors.alert,
+                    )
+                }
+                Text(detail, fontSize = 12.sp, color = UiColors.inkMuted)
+                requirementRes?.let { req ->
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        stringResource(req),
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        color = UiColors.inkFaint,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
-            Text(detail, fontSize = 12.sp, color = UiColors.inkMuted)
+        }
+        // Tap-through to the full Field Guide entry for this piece.
+        IconButton(
+            onClick = { onLearn(guideEntry.id) },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(26.dp)
+                .semantics { contentDescription = learnDescription },
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = null,
+                Modifier.size(15.dp),
+                tint = UiColors.inkFaint,
+            )
         }
     }
 }
