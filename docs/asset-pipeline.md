@@ -113,10 +113,15 @@ identical to procedural meshes. `PieceMeshes` tries
 `assets/pieces/<kind_lowercase>.pmesh` first and falls back to the procedural
 token set per kind, so a missing/broken asset can never crash the game.
 
-Shipped model set (16): `unit_t1..t4`, `archer`, `catapult`, `capital`, `farm`,
-`tower`, `strong_tower`, `mine`, `market`, `lumber_camp`, `watchtower`, `tree`,
-`gravestone`, plus the terrain deposits `gold_vein` and `fertile` (low
-edge-scatter rings — the hex center stays clear so units never clip them).
+Shipped model set (24 — every `PieceKind` has a bake, no procedural fallback
+ships): `unit_t1..t4`, `archer`, `catapult`, the naval `boat` (longboat, faction
+sail) and `warship` (ram + faction shields), `capital`, `farm`, `tower`,
+`strong_tower`, `mine`, `market`, `lumber_camp`, `watchtower`, `port`,
+`fishery`, `bridge` (timber deck on stone pylons — authored along Y with **no
+rotations**: rotated geometry once pushed the radius past the 0.45 budget),
+`tree`, `gravestone`, plus the terrain deposits `gold_vein`, `fertile` and the
+sea `fish_shoal` (low edge-scatter rings — the hex center stays clear so units
+never clip them).
 `PieceMeshLoaderTest` re-validates every checked-in `.pmesh` against the converter
 budgets and fails if a shipped kind loses its bake.
 

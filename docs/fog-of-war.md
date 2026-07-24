@@ -21,8 +21,18 @@ pure, RNG-free function of the current state. The radii live in
 | Own Capital / Tower / Strong Tower | `visionRadiusBuilding` | 4 |
 
 The visible set is the union of `HexMath.range(source, radius)` over all
-sources, intersected with the map's land hexes. There is no line-of-sight
-blocking — vision is pure radius (trees/mountains do not occlude).
+sources, intersected with the map's hexes (land and sea alike). There is no
+line-of-sight blocking — vision is pure radius (trees/mountains do not occlude).
+
+**Sea under fog.** Every sea hex is seeded into `discovered` at game creation
+(`MapDefinition.newGame`), so the ocean's shape — and with it the coastline —
+reads as explored terrain from turn one. This is deliberate: water bodies are
+strategic geography, not information to scout. Live vision stays pure radius,
+so enemy *boats* are only seen inside it. The naval counterpart of the land
+invariant below: **every naval move range must stay ≤ `visionRadiusUnit`** —
+boats self-illuminate their whole action radius, which is what keeps
+Legality and the MoveGenerator fog-check-free at sea (unit-tested against
+`RuleConstants`).
 
 **`visionRadiusOwned >= 2` is a load-bearing invariant.** Every hex a player
 action can target — region moves, frontier captures, adjacent buy-placements,
@@ -172,7 +182,7 @@ once, deliberately, not per-unit.
 | Proposal | Effect | Effort | Impact | Notes |
 |---|---|---|---|---|
 | **Wood** (from tree-clearing) | Clearing a tree yields 1 wood; buildings cost gold + wood | Medium | High | Turns the tree nuisance into a resource loop and gives clearing a second purpose. `PlayerState.wood: Int = 0` (save-compatible), `treeClearBonus` → wood, `Legality`/`Reducer` building costs, HUD chip, AI evaluator term. Biggest bang-for-buck of the resource ideas. |
-| **Terrain types** (hills/plains) | Hills: +1 vision, +1 defense; generated at map creation | Medium | Medium | Needs `Tile.terrain` (defaulted), map-generator changes, renderer tile-height/material variation, and vision-source adjustment. Pairs beautifully with fog but is a broad, shallow touch. |
+| **Terrain types** (hills/plains) | Hills: +1 vision, +1 defense; generated at map creation | Medium | Medium | `Tile.terrain` now exists (LAND/SEA from the naval expansion) — extending the enum is the easy part; still needs map-generator changes, renderer tile-height/material variation, and vision-source adjustment. Pairs beautifully with fog but is a broad, shallow touch. |
 | **Second currency (mana/favor)** | Parallel income for special actions | High | Low | No current sink justifies it; revisit only if spells/abilities ever enter the design. Not recommended. |
 
 **Recommended order** if extending after fog: Watchtower → Wood → Wall →

@@ -8,6 +8,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -188,6 +190,7 @@ internal fun BottomBar(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun InfoCardView(info: InfoCard) {
     Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
@@ -225,25 +228,29 @@ private fun InfoCardView(info: InfoCard) {
                 }
                 Text(info.subtitle.resolve(), fontSize = 12.sp, color = UiColors.inkSecondary)
                 if (info.stats.isNotEmpty()) {
-                    Row {
+                    // FlowRow so each pair wraps as a whole; a plain Row squeezes
+                    // overflowing stats to letter-per-line.
+                    FlowRow {
                         info.stats.forEachIndexed { index, stat ->
-                            if (index > 0) {
+                            Row {
+                                if (index > 0) {
+                                    Text(
+                                        stringResource(R.string.info_stat_separator),
+                                        fontSize = 12.sp,
+                                        color = UiColors.inkFaint,
+                                    )
+                                }
                                 Text(
-                                    stringResource(R.string.info_stat_separator),
+                                    stringResource(
+                                        R.string.info_stat_pair,
+                                        stat.label.resolve(),
+                                        stat.value.resolve(),
+                                    ),
                                     fontSize = 12.sp,
-                                    color = UiColors.inkFaint,
+                                    fontWeight = FontWeight.Medium,
+                                    color = UiColors.inkSecondary,
                                 )
                             }
-                            Text(
-                                stringResource(
-                                    R.string.info_stat_pair,
-                                    stat.label.resolve(),
-                                    stat.value.resolve(),
-                                ),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = UiColors.inkSecondary,
-                            )
                         }
                     }
                 }

@@ -31,6 +31,7 @@ match the filament-android runtime** — recompile on every Filament upgrade.
 | `piece` | `baseColor` float3, `roughness` | Every piece part; faction tint + spent-dim are per-instance `baseColor` writes |
 | `hexTile` | `colorFrom/colorTo/tileCenter/waveRadius/waveSoftness` | Tiles; the radial capture wave is pure uniform animation |
 | `highlight` | `color` float4 (unlit, transparent) | Selection/move/capture discs + defense auras |
+| `water` | `shallowColor/deepColor/time` | Sea tiles; slow sine interference bands from `getWorldPosition().xz`, one shared instance (plus fog-band variants), a single `time` write per frame |
 
 ## Procedural meshes (`render/mesh/`)
 
@@ -43,8 +44,9 @@ match the filament-android runtime** — recompile on every Filament upgrade.
   never show a gap), hexDisc/hexAnnulus, cylinder/cone/frustum/sphere, boxes,
   wedges, merlon rings, star profiles, pennants — plus `*Into(builder, …)` variants
   for multi-part single meshes. Board metrics constants live here
-  (`HEX_RADIUS/HEX_HEIGHT/CAPTURE_RAISE`…).
-- `PieceMeshes` — the 10 `PieceKind`s as lists of `Part(GpuMesh, ColorRole)`.
+  (`HEX_RADIUS/HEX_HEIGHT/CAPTURE_RAISE`, and `SEA_SINK = 0.12` — sea tiles are
+  ordinary prisms translated down, so the land skirt forms the cliff coastline).
+- `PieceMeshes` — the 24 `PieceKind`s as lists of `Part(GpuMesh, ColorRole)`.
   **Loader-first**: baked `assets/pieces/<kind>.pmesh` wins; the procedural token
   set remains as per-kind fallback. `ColorRole`: FACTION (player tint), GOLD,
   TREE_FOLIAGE, TRUNK, STONE, PIP (ink).
@@ -53,15 +55,25 @@ match the filament-android runtime** — recompile on every Filament upgrade.
 
 - **Tiles**: one entity per hex, shared prism buffers, per-tile `hexTile` instance.
   Owned tiles sit +0.1 (`CAPTURE_RAISE`); capture animates height + wave (0.3 s).
+  Sea tiles share `water`-material instances instead (per fog band, swapped via
+  `setMaterialInstanceAt` — no per-tile uniforms), never raise, and get no
+  capture wave; `reconcile` computes height terrain-aware.
 - **Pieces**: registry `unitPieces[UnitId]`, `buildingPieces[Hex]`, `floraPieces[Hex]`.
   A `Piece` = N part entities sharing one transform (`Transforms.trs`: translate +
-  Y-rotation + uniform scale only), its roles + ownerIndex (for re-tinting) and
-  `setDimmed()` (spent units ×0.72 on every part).
+  Y-rotation + uniform scale only), its roles + ownerIndex (for re-tinting),
+  `setDimmed()` (spent units ×0.72 on every part), and a `yaw` — bridges rotate
+  toward their first land/bridge neighbor (`bridgeYaw`, a pure function of the
+  board so create and reconcile always agree).
 - **Event queue / director**: `apply(state, events)` enqueues; `onFrame` starts the
   next beat only when the `Animator` is idle, so beats play strictly in order.
   Handlers (spawn bounce easeOutBack + camera rumble, multi-hex path hops via
   region-BFS `ownedPath` at 0.16 s/hex capped 0.9 s, capture wave, merge
   converge→upgrade bounce, sink→gravestone, tree grow…) each map one `GameEvent`.
+  Naval beats: boats **glide** along a sea-BFS path (no hopping), embark hops the
+  passenger onto the boat then removes its piece, disembark spawns and hops off,
+  bombard flashes the target, and a death at sea sinks deeper with **no
+  gravestone**. Idle boats bob (±0.008 `yOffset` in `onFrame`, per-unit phase —
+  reconcile ignores `yOffset`, keeping the zero-warning gate safe).
   `TurnStarted` refreshes all dim states. Tap during playback = `skipAnimations()`.
 - **Reconcile**: after every queue drain (and on undo/load via the ViewModel's
   `resync` tick) the scene diffs against `GameState` and snaps tiles/pieces/dim —
@@ -89,10 +101,13 @@ match the filament-android runtime** — recompile on every Filament upgrade.
 Orbit rig (target on the ground plane, min distance 5, pitch 35–70°, FOV 30°
 near-ortho look). `fitCameraOnce` frames the whole board using the **viewport
 aspect** (portrait makes horizontal FOV the constraint) and raises the max
-distance per board (`max(40, fit×1.3)` — the constructor's 35 is only a default).
+distance per board (`max(40, fit×1.3)` — the constructor's 35 is only a default;
+the far plane sits at 800 because island maps fit the camera ~330 units out).
 `jumpTo(hex)` glides on a **separate Animator** (the shared one gates the event
 queue); user pan cancels glides. Picking is CPU ray-casting: `rayThrough(px)` →
-two-plane test (raised top first, then base) → axial cube-rounding — and
+plane tests against each possible tile top — raised land, land, sunken sea —
+accepting the first whose hex really has that height (`topYOf`) → axial
+cube-rounding — and
 `project(world)` is its exact inverse (unit-tested round-trip), which is what makes
 HUD anchors line up with picking.
 

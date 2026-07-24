@@ -49,10 +49,19 @@ unit already selected:
     tap on move/capture target  → submit MoveUnit, clear selection
     tap on merge target         → submit MergeUnits, clear selection
     otherwise                   → fall through to select(hex)
+unit selected is a transport:
+    tap adjacent land           → submit Disembark (engine-checked)
+unit selected is a warship:
+    tap raid target             → submit Bombard
 select(hex):
     own fresh unit              → select: highlights + defense overlay labels
+                                  (own units are selectable even on unowned sea —
+                                  boats sit on hexes they don't own; embark targets
+                                  highlight like moves)
     own empty usable tile       → purchase selection (tray from engine.buyableAt)
-    anything else               → InfoCard (unit > building > flora > starving tile)
+    bare sea hex with buyables  → purchase selection too (bridge/boat tray on water)
+    anything else               → InfoCard (unit > building > flora > deposit >
+                                  sea > starving tile)
                                   fog on: fogged hex → generic "unexplored" card if
                                   explored, nothing if never seen — stats never leak
 tap off-board (picker miss)     → cancelSelection (via BoardScene.onTapMiss)
@@ -127,8 +136,9 @@ shifts when Continue is visible — scripted UI tests must not hardcode coordina
 derive them from `uiautomator dump`.**
 
 `SetupScreen` (behind New game): opponents 2–4 seats, mode vs-AI / pass-and-play,
-difficulty (Easy/Normal/Hard), map size, fog, and On/Off rows for special units and
-diplomacy, wired through `GameSetup` into `RuleConstants`. Choices are
+difficulty (Easy/Normal/Hard), map type (Continent/Islands/Archipelago →
+`GameSetup.shape` → `MapParams.shape`), map size, fog, and On/Off rows for
+special units and diplomacy, wired through `GameSetup` into `RuleConstants`. Choices are
 `rememberSaveable` so rotation doesn't reset them. Start game generates the map
 off-main and shows the `generating` spinner here.
 
