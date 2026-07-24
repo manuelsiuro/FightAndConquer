@@ -19,6 +19,28 @@ guarded by `persist/LegacySaveTest`):
 Feature gates for A/B and classic play: `specialUnitsEnabled`,
 `diplomacyEnabled`, and zeroed deposit counts in `RuleConstants`.
 
+## Shipped: the naval expansion
+
+The `feature/naval-expansion` work (tester-requested: islands, sea, boats,
+bridges) landed in three save-compatible phases, same discipline as above
+(defaulted fields, `LegacySaveTest`-guarded):
+
+1. **Sea as first-class terrain** — `Tile.terrain` (LAND/SEA), map-type Setup
+   option (Continent + coastal fringe / Islands / Archipelago with real
+   water-separated islands and navigable channels), animated `water.mat`
+   rendering, terrain-aware picking.
+2. **Naval units & overseas play** — TRANSPORT (capacity-1 embark/disembark,
+   amphibious assault) and WARSHIP (sink-with-ties-to-attacker, `Bombard`
+   raids), PORT (boat vendor + overseas supply rules A/B/C), and a
+   deterministic `ai/NavalPolicy` invasion ladder so island AI games terminate.
+3. **Sea economy** — BRIDGE (the one building ON a sea hex; owned, walkable,
+   blocks boats, bombardable), FISHERY + FISH_SHOAL deposits with the standard
+   fairness machinery, AI economy terms, HARD-only warship interdiction.
+
+Feature gate: `navalEnabled` plus zeroed shoal counts in `RuleConstants`.
+Full rules in [game-rules.md](game-rules.md); engine details in
+[core-engine.md](core-engine.md).
+
 ## Designed-for, not yet built
 
 ### Campaign / authored maps

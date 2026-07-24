@@ -8,6 +8,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -188,6 +190,7 @@ internal fun BottomBar(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun InfoCardView(info: InfoCard) {
     Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
@@ -225,25 +228,29 @@ private fun InfoCardView(info: InfoCard) {
                 }
                 Text(info.subtitle.resolve(), fontSize = 12.sp, color = UiColors.inkSecondary)
                 if (info.stats.isNotEmpty()) {
-                    Row {
+                    // FlowRow so each pair wraps as a whole; a plain Row squeezes
+                    // overflowing stats to letter-per-line.
+                    FlowRow {
                         info.stats.forEachIndexed { index, stat ->
-                            if (index > 0) {
+                            Row {
+                                if (index > 0) {
+                                    Text(
+                                        stringResource(R.string.info_stat_separator),
+                                        fontSize = 12.sp,
+                                        color = UiColors.inkFaint,
+                                    )
+                                }
                                 Text(
-                                    stringResource(R.string.info_stat_separator),
+                                    stringResource(
+                                        R.string.info_stat_pair,
+                                        stat.label.resolve(),
+                                        stat.value.resolve(),
+                                    ),
                                     fontSize = 12.sp,
-                                    color = UiColors.inkFaint,
+                                    fontWeight = FontWeight.Medium,
+                                    color = UiColors.inkSecondary,
                                 )
                             }
-                            Text(
-                                stringResource(
-                                    R.string.info_stat_pair,
-                                    stat.label.resolve(),
-                                    stat.value.resolve(),
-                                ),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = UiColors.inkSecondary,
-                            )
                         }
                     }
                 }
@@ -277,6 +284,9 @@ private fun PurchaseCard(
             BuildingType.MARKET -> R.string.building_market
             BuildingType.LUMBER_CAMP -> R.string.building_lumber_camp
             BuildingType.WATCHTOWER -> R.string.building_watchtower
+            BuildingType.PORT -> R.string.building_port
+            BuildingType.FISHERY -> R.string.building_fishery
+            BuildingType.BRIDGE -> R.string.building_bridge
         }
     }
     val iconRes = when (option) {
@@ -289,6 +299,8 @@ private fun PurchaseCard(
             when (option.type) {
                 UnitType.ARCHER -> shop.archerUpkeep
                 UnitType.CATAPULT -> shop.catapultUpkeep
+                UnitType.TRANSPORT -> shop.transportUpkeep
+                UnitType.WARSHIP -> shop.warshipUpkeep
                 UnitType.SOLDIER -> shop.unitUpkeep[option.tier - 1]
             },
         )
@@ -300,6 +312,9 @@ private fun PurchaseCard(
             BuildingType.MARKET -> stringResource(R.string.shop_income_up_to, shop.marketIncomeMax)
             BuildingType.LUMBER_CAMP -> stringResource(R.string.shop_income_up_to, shop.lumberCampIncomeMax)
             BuildingType.WATCHTOWER -> stringResource(R.string.shop_vision, shop.watchtowerVision)
+            BuildingType.PORT -> stringResource(R.string.shop_income_per_turn, shop.portIncome)
+            BuildingType.FISHERY -> stringResource(R.string.shop_income_up_to, shop.fisheryIncomeMax)
+            BuildingType.BRIDGE -> stringResource(R.string.shop_walkway)
         }
     }
     val name = stringResource(nameRes)

@@ -17,6 +17,8 @@ object Palette {
     val TRUNK = linear(0x8A6B4F)          // tree trunk
     val STONE = linear(0xCFC9C2)          // tower masonry / gravestones
     val INK = linear(0x4A453F)            // tier pips, castle gate, flag poles
+    val SEA = linear(0xA3C6CC)            // pale lagoon (water shallow tone)
+    val SEA_DEEP = linear(0x86A9B4)       // water shimmer deep tone
 
     /** Faction colors by player index (doc defines 4; extended in the same spirit). */
     val FACTIONS = listOf(

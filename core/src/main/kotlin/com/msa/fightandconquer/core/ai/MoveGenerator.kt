@@ -52,7 +52,10 @@ object MoveGenerator {
             HexMath.forEachNeighbor(hex) { n ->
                 if (n !in frontier) {
                     val t = state.tiles[n]
-                    if (t != null && t.owner != me && t.owner !in partners) {
+                    // Open sea is not conquerable land — it never joins the frontier.
+                    if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                        t.owner != me && t.owner !in partners
+                    ) {
                         frontier[n] = Rules.defenseOf(state, n)
                     }
                 }
@@ -67,8 +70,23 @@ object MoveGenerator {
         for (unit in myUnits) {
             val reach = Rules.reachable(state, unit.id)
             reach.captureTargets.sortedBy { it.packed }.forEach {
+                // (Includes warship strikes: an enemy boat sits on unowned sea,
+                // and null is never in partners.)
                 if (state.tiles.getValue(it).owner !in partners) {
                     out.add(GameAction.MoveUnit(unit.id, it))
+                }
+            }
+            // Warship raids on adjacent coastal targets (never on pact partners).
+            if (unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP) {
+                HexMath.neighbors(unit.hex).sortedBy { it.packed }.forEach { n ->
+                    if (state.tiles[n]?.owner !in partners) {
+                        val bombard = GameAction.Bombard(unit.id, n)
+                        if (com.msa.fightandconquer.core.engine.Legality.check(state, bombard)
+                            is com.msa.fightandconquer.core.engine.LegalityResult.Ok
+                        ) {
+                            out.add(bombard)
+                        }
+                    }
                 }
             }
             // Clear trees rotting our income (managed camp trees are income, keep them).
@@ -232,6 +250,71 @@ object MoveGenerator {
                         .forEach {
                             out.add(GameAction.BuyUnit(1, it.first, com.msa.fightandconquer.core.model.UnitType.ARCHER))
                         }
+                }
+            }
+
+            if (rules.navalEnabled && difficulty != Difficulty.EASY) {
+                // Ports: the gateway asset of sea maps (income + boat yard + supply).
+                if (treasury >= rules.portCost + 10) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null && tile.deposit == null &&
+                                HexMath.neighbors(hex).any {
+                                    state.tiles[it]?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+                                }
+                        }
+                        .sortedWith(
+                            compareByDescending<Map.Entry<Hex, com.msa.fightandconquer.core.model.Tile>> { (hex, _) ->
+                                HexMath.neighbors(hex).count {
+                                    state.tiles[it]?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+                                }
+                            }.thenBy { it.key.packed },
+                        )
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.PORT, it.key)) }
+                }
+                // Fisheries where shoals glitter off the coast.
+                if (treasury >= rules.fisheryCost + 10) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null && tile.deposit == null &&
+                                HexMath.neighbors(hex).any {
+                                    val t = state.tiles[it]
+                                    t?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                                        t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+                                }
+                        }
+                        .sortedBy { it.key.packed }
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.FISHERY, it.key)) }
+                }
+                // Warships answer visible enemy boats (the -4/boat evaluator term
+                // makes the hunt worthwhile once one is afloat).
+                if (treasury >= rules.warshipCost) {
+                    val visible = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
+                    val enemyBoats = state.units.values.any {
+                        it.owner != me && Rules.isNaval(it.type) && (visible == null || it.hex in visible)
+                    }
+                    if (enemyBoats) {
+                        val spot = state.tiles.entries
+                            .asSequence()
+                            .filter { (_, tile) ->
+                                tile.owner == me && !tile.starving &&
+                                    tile.building == com.msa.fightandconquer.core.model.Building.PORT
+                            }
+                            .flatMap { (hex, _) -> HexMath.neighbors(hex) }
+                            .filter {
+                                val t = state.tiles[it]
+                                t?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                                    t.unit == null && t.building == null
+                            }
+                            .minByOrNull { it.packed }
+                        spot?.let {
+                            out.add(GameAction.BuyUnit(1, it, com.msa.fightandconquer.core.model.UnitType.WARSHIP))
+                        }
+                    }
                 }
             }
 

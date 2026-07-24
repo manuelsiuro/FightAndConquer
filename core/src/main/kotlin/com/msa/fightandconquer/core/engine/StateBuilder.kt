@@ -67,8 +67,10 @@ internal class StateBuilder(private val base: GameState) {
     fun killUnit(unitId: UnitId, cause: DeathCause) {
         val unit = units.remove(unitId) ?: return
         updateTile(unit.hex) { tile ->
-            val flora = if (cause == DeathCause.KILLED) tile.flora else Flora.Gravestone(turnNumber)
-            tile.copy(unit = null, flora = flora)
+            // No gravestones at sea — the dead sink.
+            val grave = cause != DeathCause.KILLED &&
+                tile.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
+            tile.copy(unit = null, flora = if (grave) Flora.Gravestone(turnNumber) else tile.flora)
         }
         events.add(GameEvent.UnitDied(unitId, unit.hex, cause))
     }
@@ -110,10 +112,20 @@ internal class StateBuilder(private val base: GameState) {
             Building.CAPITAL -> captureCapital(attacker, victim!!, hex)
             Building.FARM, Building.TOWER, Building.STRONG_TOWER,
             Building.MINE, Building.MARKET, Building.LUMBER_CAMP, Building.WATCHTOWER,
+            Building.PORT, Building.FISHERY,
             -> events.add(GameEvent.BuildingDestroyed(hex, tile.building))
+            // A bridge outlives its conquerors — capturing the span keeps it.
+            Building.BRIDGE -> {}
             null -> {}
         }
-        updateTile(hex) { it.copy(owner = attacker, building = null, starving = false) }
+        val keepBridge = tile.building == Building.BRIDGE
+        updateTile(hex) {
+            it.copy(
+                owner = attacker,
+                building = if (keepBridge) Building.BRIDGE else null,
+                starving = false,
+            )
+        }
         events.add(GameEvent.HexCaptured(hex, attacker, victim))
         recomputeStarving()
         checkElimination()
@@ -126,8 +138,12 @@ internal class StateBuilder(private val base: GameState) {
         updatePlayer(attacker) { it.copy(treasury = it.treasury + loot) }
 
         // Relocate to the victim's largest remaining region (this hex is lost).
+        // Capitals stand on land only — an owned bridge hex can't host one.
         val remaining = tiles.entries
-            .filter { it.value.owner == victim && it.key != hex }
+            .filter {
+                it.value.owner == victim && it.key != hex &&
+                    it.value.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
+            }
             .map { it.key }
             .toSet()
         if (remaining.isEmpty()) {
@@ -209,34 +225,60 @@ internal class StateBuilder(private val base: GameState) {
         }
     }
 
-    /** Re-derives the starving flag for every owned tile (disconnected from its owner's capital). */
+    /**
+     * Re-derives the starving flag for every owned tile. Fed territory is the
+     * capital's region PLUS any own region fed by an own OVERSEAS PORT — one on
+     * a different landmass than the capital. Overseas colonies live off their
+     * harbor (raze it and they starve); a port on the capital's own landmass
+     * deliberately feeds nothing extra, or slicing would stop working on land.
+     */
     fun recomputeStarving() {
-        val connectedByPlayer = players.associate { p ->
+        val fedByPlayer = players.associate { p ->
             p.id to run {
+                if (p.eliminated) return@run emptySet<Hex>()
+                val fed = HashSet<Hex>()
                 val capital = p.capital
-                if (p.eliminated || capital == null || tiles[capital]?.owner != p.id) {
-                    emptySet()
-                } else {
-                    HexMath.floodFill(capital) { tiles[it]?.owner == p.id }
+                if (capital != null && tiles[capital]?.owner == p.id) {
+                    fed += HexMath.floodFill(capital) { tiles[it]?.owner == p.id }
                 }
+                val homeland = capital?.let { c ->
+                    HexMath.floodFill(c) {
+                        tiles[it]?.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
+                    }
+                } ?: emptySet()
+                for ((hex, tile) in tiles) {
+                    if (tile.owner == p.id && tile.building == Building.PORT &&
+                        hex !in fed && hex !in homeland
+                    ) {
+                        fed += HexMath.floodFill(hex) { tiles[it]?.owner == p.id }
+                    }
+                }
+                fed
             }
         }
         for ((hex, tile) in tiles) {
             val owner = tile.owner ?: continue
-            val shouldStarve = hex !in connectedByPlayer.getValue(owner)
+            val shouldStarve = hex !in fedByPlayer.getValue(owner)
             if (tile.starving != shouldStarve) {
                 tiles[hex] = tile.copy(starving = shouldStarve)
             }
         }
     }
 
-    /** Eliminates players with no hexes; declares victory when one remains. */
+    /** Eliminates players with no LAND hexes; declares victory when one remains. */
     fun checkElimination() {
         for (p in players.toList()) {
-            if (!p.eliminated && tiles.values.none { it.owner == p.id }) {
+            if (!p.eliminated && tiles.values.none {
+                    it.owner == p.id && it.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
+                }
+            ) {
                 // Any surviving units of an eliminated player die (their tiles are gone,
                 // so this is normally a no-op safety net).
                 units.values.filter { it.owner == p.id }.forEach { killUnit(it.id, DeathCause.STARVED) }
+                // Owned sea hexes (bridges) outlive their builder as neutral structures.
+                for ((hex, tile) in tiles.entries.toList()) {
+                    if (tile.owner == p.id) tiles[hex] = tile.copy(owner = null, starving = false)
+                }
                 updatePlayer(p.id) { it.copy(eliminated = true, capital = null) }
                 events.add(GameEvent.PlayerEliminated(p.id))
             }

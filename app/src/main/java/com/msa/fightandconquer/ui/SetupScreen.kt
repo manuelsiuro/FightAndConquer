@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
+import com.msa.fightandconquer.core.map.MapShape
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.core.model.Difficulty
 
@@ -51,6 +52,7 @@ fun SetupScreen(
     var mode by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(GameMode.VS_AI) }
     var difficulty by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(Difficulty.NORMAL) }
     var size by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(MapSize.MEDIUM) }
+    var shape by rememberSaveable(stateSaver = enumSaver()) { mutableStateOf(MapShape.CONTINENT) }
     var fogOfWar by rememberSaveable { mutableStateOf(false) }
     var specialUnits by rememberSaveable { mutableStateOf(true) }
     var diplomacy by rememberSaveable { mutableStateOf(true) }
@@ -122,6 +124,15 @@ fun SetupScreen(
                 )
             }
         }
+        OptionRow(stringResource(R.string.menu_section_map_type)) {
+            for (option in MapShape.entries) {
+                FilterChip(
+                    selected = shape == option,
+                    onClick = { shape = option },
+                    label = { Text(stringResource(option.labelRes())) },
+                )
+            }
+        }
         OptionRow(stringResource(R.string.menu_section_fog)) {
             FilterChip(
                 selected = !fogOfWar,
@@ -168,6 +179,7 @@ fun SetupScreen(
                         mode,
                         difficulty,
                         size,
+                        shape = shape,
                         fogOfWar = fogOfWar,
                         specialUnits = specialUnits,
                         diplomacy = diplomacy,
@@ -201,6 +213,12 @@ private fun MapSize.labelRes() = when (this) {
     MapSize.SMALL -> R.string.map_size_small
     MapSize.MEDIUM -> R.string.map_size_medium
     MapSize.LARGE -> R.string.map_size_large
+}
+
+private fun MapShape.labelRes() = when (this) {
+    MapShape.CONTINENT -> R.string.map_shape_continent
+    MapShape.ISLANDS -> R.string.map_shape_islands
+    MapShape.ARCHIPELAGO -> R.string.map_shape_archipelago
 }
 
 @Composable

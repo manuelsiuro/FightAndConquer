@@ -11,6 +11,7 @@ import com.msa.fightandconquer.core.model.PlayerId
 import com.msa.fightandconquer.core.model.PlayerKind
 import com.msa.fightandconquer.core.model.PlayerState
 import com.msa.fightandconquer.core.model.RuleConstants
+import com.msa.fightandconquer.core.model.Terrain
 import com.msa.fightandconquer.core.model.Tile
 import kotlinx.serialization.Serializable
 
@@ -40,6 +41,7 @@ data class TileDef(
     val building: Building? = null,
     val flora: Flora? = null,
     val deposit: Deposit? = null,
+    val terrain: Terrain = Terrain.LAND,
 )
 
 /**
@@ -67,6 +69,7 @@ data class MapDefinition(
                 building = def.building,
                 flora = def.flora,
                 deposit = def.deposit,
+                terrain = def.terrain,
             )
         }
         capitals.forEach { capital ->
@@ -74,13 +77,17 @@ data class MapDefinition(
                 "capital $capital missing its building"
             }
         }
+        // Sea is common knowledge: charts exist. Seeding it into every player's
+        // discovered set keeps fog rendering and AI probes coastline-honest without
+        // special-casing terrain in live vision (units are still only seen in radius).
+        val seaHexes = tileMap.filterValues { it.terrain == Terrain.SEA }.keys
         val players = kinds.mapIndexed { index, kind ->
             val player = PlayerState(PlayerId(index), kind, rules.startingTreasury, capitals[index])
             if (!rules.fogOfWar) player
             else player.copy(
                 // Fog of war: seed explored memory with the starting vision.
                 discovered = Rules.sortedDiscovered(
-                    Rules.visibleHexesFrom(tileMap, emptyList(), rules, player.id),
+                    Rules.visibleHexesFrom(tileMap, emptyList(), rules, player.id) + seaHexes,
                 ),
             )
         }

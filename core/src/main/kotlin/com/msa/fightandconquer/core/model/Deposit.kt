@@ -8,8 +8,10 @@ import kotlinx.serialization.Serializable
  *
  * - [GOLD_VEIN]: the only place a Mine can be built.
  * - [FERTILE]: boosts the hex's base income and any Farm built on it.
+ * - [FISH_SHOAL]: the sea analog of the gold vein — the only deposit allowed on
+ *   SEA hexes; harvested by an adjacent coastal FISHERY.
  *
  * Flora on the hex still blocks all income, deposit bonuses included.
  */
 @Serializable
-enum class Deposit { GOLD_VEIN, FERTILE }
+enum class Deposit { GOLD_VEIN, FERTILE, FISH_SHOAL }

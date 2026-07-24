@@ -17,6 +17,7 @@ import com.msa.fightandconquer.core.map.MapGenerator
 import com.msa.fightandconquer.core.map.MapParams
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Terrain
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GamePhase
@@ -49,6 +50,7 @@ data class GameSetup(
     val mode: GameMode = GameMode.VS_AI,
     val difficulty: Difficulty = Difficulty.NORMAL,
     val size: MapSize = MapSize.MEDIUM,
+    val shape: com.msa.fightandconquer.core.map.MapShape = com.msa.fightandconquer.core.map.MapShape.CONTINENT,
     val seed: Long = System.currentTimeMillis(),
     val fogOfWar: Boolean = false,
     val specialUnits: Boolean = true,
@@ -147,6 +149,10 @@ data class ShopInfo(
     val watchtowerVision: Int = 6,
     val archerUpkeep: Int = 4,
     val catapultUpkeep: Int = 10,
+    val transportUpkeep: Int = 4,
+    val warshipUpkeep: Int = 8,
+    val portIncome: Int = 2,
+    val fisheryIncomeMax: Int = 9,
 )
 
 data class HudState(
@@ -256,7 +262,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _screen.value = Screen.Setup(generating = true)
         mapGenJob = viewModelScope.launch(Dispatchers.Default) {
             val map = MapGenerator.generate(
-                MapParams(seed = setup.seed, size = setup.size, playerCount = setup.playerCount),
+                MapParams(
+                    seed = setup.seed,
+                    size = setup.size,
+                    playerCount = setup.playerCount,
+                    shape = setup.shape,
+                ),
             )
             val kinds = List(setup.playerCount) { index ->
                 when {
@@ -330,6 +341,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         selectedUnit = null; selectedHex = null; banner = null; pendingPactBreak = null
         lastHumanSeat = null
         _visibility.value = null
+        // Synchronous backstop: the finished-game deletion above is async, and
+        // the menu must never offer to continue a game that is already over.
+        if (engine?.state?.value?.phase is GamePhase.Finished) autosaveFile.delete()
         _screen.value = Screen.Menu(autosaveFile.exists())
     }
 
@@ -365,12 +379,37 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         val heldUnit = selectedUnit
         if (heldUnit != null && state.units.containsKey(heldUnit)) {
+            val held = state.units.getValue(heldUnit)
+            // Naval specials first: land the cargo / bombard the shore.
+            if (held.cargo != null &&
+                com.msa.fightandconquer.core.engine.Legality.check(
+                    state,
+                    GameAction.Disembark(heldUnit, hex),
+                ) is com.msa.fightandconquer.core.engine.LegalityResult.Ok
+            ) {
+                submit(GameAction.Disembark(heldUnit, hex))
+                clearSelection()
+                refreshHud()
+                return
+            }
+            if (held.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP &&
+                com.msa.fightandconquer.core.engine.Legality.check(
+                    state,
+                    GameAction.Bombard(heldUnit, hex),
+                ) is com.msa.fightandconquer.core.engine.LegalityResult.Ok
+            ) {
+                submit(GameAction.Bombard(heldUnit, hex))
+                clearSelection()
+                refreshHud()
+                return
+            }
             val reach = engine.reachableFor(heldUnit)
             when (hex) {
-                in reach.moveTargets, in reach.captureTargets -> {
-                    // Capturing a pact partner's hex breaks the pact — arm a
-                    // second-tap confirmation instead of striking immediately.
-                    val targetOwner = state.tiles[hex]?.owner
+                in reach.moveTargets, in reach.captureTargets, in reach.embarkTargets -> {
+                    // Capturing a pact partner's hex (or sinking their boat)
+                    // breaks the pact — arm a second-tap confirmation instead
+                    // of striking immediately.
+                    val targetOwner = state.tiles[hex]?.owner ?: state.unitAt(hex)?.owner
                     if (hex in reach.captureTargets && targetOwner != null &&
                         engine.pactBetween(state.currentPlayer, targetOwner) != null &&
                         pendingPactBreak != hex
@@ -413,17 +452,40 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         selectedHex = null
         _infoCard.value = null
 
-        if (tile?.owner == me) {
-            val unit = tile.unit?.let { state.units[it] }
-            if (unit != null && !unit.spent) {
-                selectedUnit = unit.id
-                selectedHex = hex
-                val reach = engine.reachableFor(unit.id)
-                _highlights.value = HighlightSet(hex, reach.moveTargets, reach.captureTargets, reach.mergeTargets)
-                _overlayLabels.value = computeOverlay(state, unit, reach)
-                refreshHud()
-                return
+        // Own fresh unit anywhere — including a boat afloat on neutral sea.
+        val unit = tile?.unit?.let { state.units[it] }
+        if (unit != null && unit.owner == me && !unit.spent) {
+            selectedUnit = unit.id
+            selectedHex = hex
+            val reach = engine.reachableFor(unit.id)
+            // Naval extras: landings for a loaded transport, raids for a warship.
+            var friendly = emptySet<Hex>()
+            var hostile = emptySet<Hex>()
+            if (com.msa.fightandconquer.core.engine.Rules.isNaval(unit.type)) {
+                fun legal(action: GameAction) =
+                    com.msa.fightandconquer.core.engine.Legality.check(state, action) is
+                        com.msa.fightandconquer.core.engine.LegalityResult.Ok
+                val neighbors = com.msa.fightandconquer.core.hex.HexMath.neighbors(hex)
+                if (unit.cargo != null) {
+                    val landings = neighbors.filter { legal(GameAction.Disembark(unit.id, it)) }
+                    friendly = landings.filter { state.tiles[it]?.owner == me }.toSet()
+                    hostile = landings.filter { state.tiles[it]?.owner != me }.toSet()
+                }
+                if (unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP) {
+                    hostile = hostile + neighbors.filter { legal(GameAction.Bombard(unit.id, it)) }
+                }
             }
+            _highlights.value = HighlightSet(
+                hex,
+                reach.moveTargets + reach.embarkTargets + friendly,
+                reach.captureTargets + hostile,
+                reach.mergeTargets,
+            )
+            _overlayLabels.value = computeOverlay(state, unit, reach)
+            refreshHud()
+            return
+        }
+        if (tile?.owner == me) {
             if (!tile.starving && tile.building == null && tile.unit == null) {
                 selectedHex = hex
                 _highlights.value = HighlightSet(selected = hex)
@@ -431,6 +493,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 refreshHud()
                 return
             }
+        }
+        // Open sea beside an own port: the boat yard (purchase tray on a sea hex).
+        if (tile != null && tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+            tile.unit == null && tile.building == null && engine.buyableAt(hex).isNotEmpty()
+        ) {
+            selectedHex = hex
+            _highlights.value = HighlightSet(selected = hex)
+            _overlayLabels.value = emptyList()
+            refreshHud()
+            return
         }
         // Not selectable: explain what was tapped instead. Fogged hexes never leak
         // their contents — explored memory gets a generic card, unseen land nothing.
@@ -515,6 +587,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun submit(action: GameAction): LegalityResult {
         val result = engine?.submit(action)
             ?: LegalityResult.Rejected(com.msa.fightandconquer.core.engine.RejectionReason.NO_GAME)
+        // A game can finish mid-turn (capturing the last capital) — the turn-
+        // boundary autosave sites never run then, so the stale resume file
+        // must be dropped here or the menu keeps offering Continue Game.
+        if (engine?.state?.value?.phase is GamePhase.Finished) autosave()
         refreshHud()
         return result
     }
@@ -527,7 +603,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         for (h in region) {
             HexMath.forEachNeighbor(h) { n ->
                 val t = state.tiles[n]
-                if (t != null && t.owner != unit.owner) frontier.add(n)
+                // Open sea is not a threat surface — a land unit can never
+                // capture it, so a "blocked" shield chip there is just noise.
+                val standable = t != null &&
+                    (t.terrain == Terrain.LAND || t.building == Building.BRIDGE)
+                if (standable && t!!.owner != unit.owner) frontier.add(n)
             }
         }
         return frontier.mapNotNull { hex ->
@@ -612,11 +692,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         var mineCount = 0; var mineTotal = 0
         var marketCount = 0; var marketTotal = 0
         var campCount = 0; var campTotal = 0
+        var portCount = 0; var portTotal = 0
+        var fisheryCount = 0; var fisheryTotal = 0
         // Mirrors Rules.incomeFrom exactly so the panel rows always sum to `income`.
         for ((hex, tile) in state.tiles) {
             if (tile.owner != me) continue
             if (tile.starving) { starving++; continue }
             if (tile.flora != null) continue
+            if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) continue
             hexCount++
             val fertile = tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE
             if (fertile) depositBonus += rules.fertileHexBonus
@@ -644,6 +727,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     campTotal += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
                 }
+                Building.PORT -> { portCount++; portTotal += rules.portIncome }
+                Building.FISHERY -> {
+                    fisheryCount++
+                    var shoals = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = state.tiles[n]
+                        if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+                        ) {
+                            shoals++
+                        }
+                    }
+                    fisheryTotal += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
+                }
                 else -> {}
             }
         }
@@ -656,11 +753,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 .takeIf { marketCount > 0 },
             IncomeRow(R.string.building_lumber_camp, campCount, campTotal, PieceIcons.building(Building.LUMBER_CAMP))
                 .takeIf { campCount > 0 },
+            IncomeRow(R.string.building_port, portCount, portTotal, PieceIcons.building(Building.PORT))
+                .takeIf { portCount > 0 },
+            IncomeRow(R.string.building_fishery, fisheryCount, fisheryTotal, PieceIcons.building(Building.FISHERY))
+                .takeIf { fisheryCount > 0 },
         )
+        // Cargo riding a transport still pays its own upkeep — count it with its
+        // tier so the rows keep summing exactly to `upkeep`.
+        fun cargoCount(type: com.msa.fightandconquer.core.model.UnitType, tier: Int? = null) =
+            state.units.values.count { u ->
+                u.owner == me && u.cargo?.let { c ->
+                    c.type == type && (tier == null || c.tier == tier)
+                } == true
+            }
         val soldierRows = (1..rules.maxTier).mapNotNull { tier ->
             val count = state.units.values.count {
                 it.owner == me && it.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER && it.tier == tier
-            }
+            } + cargoCount(com.msa.fightandconquer.core.model.UnitType.SOLDIER, tier)
             if (count == 0) {
                 null
             } else {
@@ -676,8 +785,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val specialRows = listOf(
             Triple(com.msa.fightandconquer.core.model.UnitType.ARCHER, R.string.unit_archer, rules.archerUpkeep),
             Triple(com.msa.fightandconquer.core.model.UnitType.CATAPULT, R.string.unit_catapult, rules.catapultUpkeep),
+            Triple(com.msa.fightandconquer.core.model.UnitType.TRANSPORT, R.string.unit_transport, rules.transportUpkeep),
+            Triple(com.msa.fightandconquer.core.model.UnitType.WARSHIP, R.string.unit_warship, rules.warshipUpkeep),
         ).mapNotNull { (type, nameRes, each) ->
-            val count = state.units.values.count { it.owner == me && it.type == type }
+            val count = state.units.values.count { it.owner == me && it.type == type } +
+                if (type != com.msa.fightandconquer.core.model.UnitType.TRANSPORT &&
+                    type != com.msa.fightandconquer.core.model.UnitType.WARSHIP
+                ) {
+                    cargoCount(type)
+                } else {
+                    0
+                }
             if (count == 0) null else UpkeepRow(nameRes, count, each, count * each, PieceIcons.unit(type, 1))
         }
         val tiers = soldierRows + specialRows
@@ -888,6 +1006,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                             UiText.of(R.string.info_value_plain, rules.catapultMoveRange),
                         ),
                     )
+                    com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> {
+                        add(
+                            InfoStat(
+                                UiText.of(R.string.info_stat_range),
+                                UiText.of(R.string.info_value_plain, rules.transportMoveRange),
+                            ),
+                        )
+                        add(
+                            InfoStat(
+                                UiText.of(R.string.info_stat_cargo),
+                                unit.cargo?.let { UiText.of(unitNameRes(it.type, it.tier)) }
+                                    ?: UiText.of(R.string.info_value_cargo_empty),
+                            ),
+                        )
+                    }
+                    com.msa.fightandconquer.core.model.UnitType.WARSHIP -> add(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_range),
+                            UiText.of(R.string.info_value_plain, rules.warshipMoveRange),
+                        ),
+                    )
                     com.msa.fightandconquer.core.model.UnitType.SOLDIER -> {}
                 }
             }
@@ -896,6 +1035,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 subtitle = when {
                     unit.type == com.msa.fightandconquer.core.model.UnitType.ARCHER -> UiText.of(R.string.info_archer)
                     unit.type == com.msa.fightandconquer.core.model.UnitType.CATAPULT -> UiText.of(R.string.info_catapult)
+                    unit.type == com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> UiText.of(R.string.info_transport)
+                    unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP -> UiText.of(R.string.info_warship)
                     own -> UiText.of(R.string.info_unit_spent)
                     else -> UiText.of(R.string.info_unit_enemy, strength)
                 },
@@ -1012,6 +1153,39 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     ownerIndex,
                     iconRes = PieceIcons.building(building),
                 )
+                Building.PORT -> InfoCard(
+                    UiText.of(R.string.building_port),
+                    UiText.of(R.string.info_port),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(R.string.info_value_income, rules.portIncome),
+                        ),
+                    ),
+                    ownerIndex,
+                    iconRes = PieceIcons.building(building),
+                )
+                Building.FISHERY -> InfoCard(
+                    UiText.of(R.string.building_fishery),
+                    UiText.of(R.string.info_fishery),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(
+                                R.string.info_value_income_max,
+                                rules.fisheryShoalIncome * rules.fisheryShoalCap,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                    iconRes = PieceIcons.building(building),
+                )
+                Building.BRIDGE -> InfoCard(
+                    UiText.of(R.string.building_bridge),
+                    UiText.of(R.string.info_bridge),
+                    factionIndex = ownerIndex,
+                    iconRes = PieceIcons.building(building),
+                )
             }
         }
         when (tile.flora) {
@@ -1056,7 +1230,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 ),
                 iconRes = PieceIcons.fertile,
             )
+            com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL -> return InfoCard(
+                UiText.of(R.string.piece_fish_shoal),
+                UiText.of(R.string.info_fish_shoal),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_income),
+                        UiText.of(R.string.info_value_income, rules.fisheryShoalIncome),
+                    ),
+                ),
+                iconRes = PieceIcons.fishShoal,
+            )
             null -> {}
+        }
+        if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
+            return InfoCard(
+                UiText.of(R.string.tile_sea),
+                UiText.of(R.string.info_sea),
+            )
         }
         if (tile.owner == me && tile.starving) {
             return InfoCard(
@@ -1105,6 +1296,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
             withContext(Dispatchers.Main.immediate) {
                 aiThinking = false
+                // An AI can win mid-turn; the loop breaks before its turn-end
+                // autosave, so drop the stale resume file (autosave deletes
+                // when the game is finished).
+                if (engine.state.value.phase is GamePhase.Finished) autosave()
                 refreshHud()
             }
         }
@@ -1175,6 +1370,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 watchtowerVision = rules.watchtowerVisionRadius,
                 archerUpkeep = rules.archerUpkeep,
                 catapultUpkeep = rules.catapultUpkeep,
+                transportUpkeep = rules.transportUpkeep,
+                warshipUpkeep = rules.warshipUpkeep,
+                portIncome = rules.portIncome,
+                fisheryIncomeMax = rules.fisheryShoalIncome * rules.fisheryShoalCap,
             ),
         )
         // Live panels track every buy/move/undo.

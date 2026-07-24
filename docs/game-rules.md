@@ -31,6 +31,12 @@ per game without breaking old saves.
 | Watchtower | cost 8, defense 0, vision radius 6 | Fog-of-war games only (hard legality gate) |
 | Archer | cost 14, upkeep 4, strength 1 | Defense aura 2 over its hex + adjacent own hexes; never merges |
 | Catapult | cost 30, upkeep 10, strength 2, move range 2 | Ignores building defense entirely; never merges |
+| Transport boat | cost 15, upkeep 4, move range 3 | Carries 1 land unit (any type); bought at a Port onto adjacent sea |
+| Warship | cost 25, upkeep 8, strength 2, move range 3 | Sinks boats (naval ties go to the **attacker**); bombards the coast |
+| Port | cost 20, +2 income | Own coastal land; sells boats; supplies overseas regions (see Naval rules) |
+| Fishery | cost 18, +3 per adjacent fish shoal (cap 3) | Own coastal land next to fish shoals |
+| Bridge | cost 15 per hex | Built on sea touching own land/bridge; walkable ground, blocks boats |
+| Fish shoal (deposit) | 1 per player (band 2–6 from capital) + 1 neutral per 150 land hexes | Sea-only deposit; only a Fishery harvests it |
 | Pact duration | 2–10 rounds (proposals default to 6) | Unanswered proposals lapse after 1 full round |
 | Pact proposal cooldown | 6 rounds per pair | Anti-spam, enforced by Legality |
 | Pact break penalty | 25 % of the breaker's treasury, paid to the victim | Breaking = capturing a partner's hex (no explicit action) |
@@ -99,11 +105,53 @@ counter the AI reads as reputation). Pacts expire after their agreed duration;
 elimination prunes a player's pacts and proposals. Victory stays conquest-only —
 pacts are temporary tools, not alliances.
 
+**Sea & naval play.** Sea is first-class terrain (`Tile.terrain = SEA`): never
+owned, no flora, no gravestones, no income; its only deposit is the fish shoal.
+The one exception is a **bridge** — a sea hex carrying `Building.BRIDGE` *is*
+owned, walkable ground: region flood-fills join across it, land units stand on
+and storm it (capturing a bridge hex **preserves** the span), and boats cannot
+pass under it. Chains grow hex by hex from your land or an existing bridge.
+Warship bombardment collapses a bridge back into open neutral water; surrender
+and elimination leave bridges standing as neutral spans.
+
+**Boats.** Transports and warships are bought at a Port onto adjacent sea and
+move by BFS over open sea (range 3, blocked by bridges, other boats and sea
+buildings). They occupy sea hexes without owning them. **Embark:** moving a
+fresh land unit onto an adjacent own empty transport stows it (capacity 1; the
+boat can still sail this turn). **Disembark** onto adjacent land — onto an own
+empty hex, or an amphibious assault onto any hex the cargo's strength could
+capture normally; boat and landed unit end spent. A sunk boat drowns its cargo
+(no gravestone at sea). Cargo pays its normal upkeep while at sea.
+
+**Warships.** Strength 2 at sea; sinking an enemy boat needs strength ≥ defender
+(**ties to the attacker** — no naval stalemates) and moves in without capturing
+the hex. **Bombard** is a raid on an adjacent coastal hex: if warship strength
+**exceeds** the hex defense it kills the unit and destroys the building — but
+never captures ground, and Capitals are immune. Towers (defense 2) fully block
+it. Warships cannot be attacked from land.
+
+**Overseas supply.** A region disconnected from the capital normally starves;
+three rules make island conquest viable: (A) an own **Port** feeds its region —
+but only on a landmass *other than* the capital's, so slicing on the mainland
+still works; (B) units adjacent to an own boat never starve (beachhead
+lifeline); (C) a Port may be built *on* a starving overseas region, which then
+un-starves it.
+
+**Map types.** Setup offers Continent (one landmass in open water), Islands and
+Archipelago (real water-separated islands, ≥ 2-hex-wide navigable channels, one
+capital per island where possible). Every landmass is wrapped in a coastal sea
+band that scales with map size (Small 3 / Medium 4 / Large 5 hexes), and any
+basin enclosed by the land — the middle of an island ring — fills in as a
+sailable inland sea. Map size counts *land* hexes.
+
 **Fog of war (optional, off by default).** Classic fog: hexes outside a player's
 live vision render near-black; once-seen hexes persist as dimmed terrain-only
 "explored memory" (`PlayerState.discovered`, monotonic). Vision is derived —
-never stored — from owned hexes, own units, and vision buildings. No action can
-target an unseen hex (radius-2 guarantee), the AI honors fog symmetrically, and
+never stored — from owned hexes, own units, and vision buildings. Every sea hex
+starts pre-discovered, so the ocean's shape reads as explored terrain from turn
+one — but live vision stays pure radius, so enemy boats appear only when seen.
+No action can target an unseen hex (radius-2 guarantee on land; at sea every
+naval move range is ≤ `visionRadiusUnit`), the AI honors fog symmetrically, and
 the fog lifts when the game ends. Full spec: [fog-of-war.md](fog-of-war.md).
 
 ## Turn-start pipeline (exact order — `TurnPipeline.kt`)

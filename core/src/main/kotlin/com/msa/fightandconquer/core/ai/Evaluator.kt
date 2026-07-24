@@ -31,10 +31,14 @@ object Evaluator {
         var myVeinsWithMine = 0
         var myFertile = 0
         var myWatchtowers = 0
+        var myPorts = 0
         var enemyVeins = 0
         var enemyForts = 0
         var buildingScore = 0.0
         for ((hex, tile) in state.tiles) {
+            // Only land counts as territory — an owned bridge hex is a road, not a
+            // 14-point asset (else the AI would pave the sea with bridges).
+            if (tile.terrain != com.msa.fightandconquer.core.model.Terrain.LAND) continue
             when {
                 tile.owner == me -> {
                     if (!tile.starving) {
@@ -43,7 +47,7 @@ object Evaluator {
                             Deposit.GOLD_VEIN ->
                                 if (tile.building == Building.MINE) myVeinsWithMine++ else myVeins++
                             Deposit.FERTILE -> myFertile++
-                            null -> {}
+                            Deposit.FISH_SHOAL, null -> {} // shoals live at sea, valued via FISHERY
                         }
                         when (tile.building) {
                             Building.MARKET ->
@@ -51,6 +55,9 @@ object Evaluator {
                             Building.LUMBER_CAMP ->
                                 buildingScore += 3.0 + 1.5 * min(adjacentOwnTrees(state, hex, me), 4)
                             Building.WATCHTOWER -> myWatchtowers++
+                            Building.PORT -> myPorts++
+                            Building.FISHERY ->
+                                buildingScore += 2.0 + 1.5 * min(adjacentShoals(state, hex), 3)
                             else -> {}
                         }
                     }
@@ -106,6 +113,16 @@ object Evaluator {
             score += buildingScore
             if (state.config.rules.fogOfWar) score += 6.0 * myWatchtowers
             score -= 4.0 * enemyVeins
+            if (state.config.rules.navalEnabled) {
+                // Ports are gateway assets (supply + boat yard), but two is plenty.
+                score += 6.0 * min(myPorts, 2)
+                // Enemy boats are threats worth sinking (+4 per kill via this term).
+                val enemyBoats = state.units.values.count {
+                    it.owner != me && Rules.isNaval(it.type) &&
+                        (visible == null || it.hex in visible)
+                }
+                score -= 4.0 * enemyBoats
+            }
         }
         score -= 6.0 * myTrees
         score -= 2.0 * enemyHexes
@@ -156,6 +173,19 @@ object Evaluator {
         com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
             val t = state.tiles[n]
             if (t != null && t.owner == me && !t.starving && t.flora == null) count++
+        }
+        return count
+    }
+
+    private fun adjacentShoals(state: GameState, hex: com.msa.fightandconquer.core.hex.Hex): Int {
+        var count = 0
+        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
+            val t = state.tiles[n]
+            if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                t.deposit == Deposit.FISH_SHOAL
+            ) {
+                count++
+            }
         }
         return count
     }

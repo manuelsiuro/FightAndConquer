@@ -110,6 +110,8 @@ class GameEngine private constructor(
         for (special in listOf(
             com.msa.fightandconquer.core.model.UnitType.ARCHER,
             com.msa.fightandconquer.core.model.UnitType.CATAPULT,
+            com.msa.fightandconquer.core.model.UnitType.TRANSPORT,
+            com.msa.fightandconquer.core.model.UnitType.WARSHIP,
         )) {
             if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
                 options.add(PurchaseOption.Unit(1, Rules.unitCostOf(s.config.rules, 1, special), special))

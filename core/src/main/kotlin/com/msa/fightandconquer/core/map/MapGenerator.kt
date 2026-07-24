@@ -7,6 +7,7 @@ import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.RuleConstants
+import com.msa.fightandconquer.core.model.Terrain
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -42,19 +43,28 @@ object MapGenerator {
 
     private fun tryGenerate(params: MapParams, rules: RuleConstants, seed: Long): MapDefinition? {
         val rng = Chain(seed)
-        val land = when (params.shape) {
-            MapShape.CONTINENT -> growBlob(rng, Hex.of(0, 0), params.size.targetHexes)
+        val (land, seaCorridors) = when (params.shape) {
+            MapShape.CONTINENT ->
+                growBlob(rng, Hex.of(0, 0), params.size.targetHexes) to emptySet<Hex>()
             MapShape.ISLANDS -> islands(rng, params, blobCount = params.playerCount)
             MapShape.ARCHIPELAGO -> islands(rng, params, blobCount = params.playerCount + 2)
         }
 
-        val capitals = placeCapitals(rng, land, params.playerCount) ?: return null
+        val capitals = when (params.shape) {
+            MapShape.CONTINENT -> placeCapitals(rng, land, params.playerCount) ?: return null
+            // On island maps every player must start on their own island.
+            else -> placeIslandCapitals(land, params.playerCount) ?: return null
+        }
 
         // Start regions: capital + its full neighbor ring (constrained to land at selection).
         val regions = capitals.map { capital -> HexMath.range(capital, 1).toSet() }
 
         val tiles = HashMap<Hex, TileDef>()
         for (hex in land) tiles[hex] = TileDef(hex)
+        // Every landmass gets a navigable coastal sea. [MapSize.targetHexes] keeps
+        // meaning LAND hexes — sea rides on top.
+        val sea = seaSurface(land, seaCorridors, seaFringe(params.size))
+        for (hex in sea) tiles[hex] = TileDef(hex, terrain = Terrain.SEA)
         regions.forEachIndexed { player, region ->
             for (hex in region) tiles[hex] = TileDef(hex, owner = player)
         }
@@ -67,6 +77,10 @@ object MapGenerator {
         // Terrain deposits, fair by construction (see MapValidator tripwires).
         val deposits = placeDeposits(rng, land, capitals, protected, params, rules)
         for ((hex, deposit) in deposits) {
+            tiles[hex] = tiles.getValue(hex).copy(deposit = deposit)
+        }
+        // Fish shoals: the sea's own deposit, fair by the same construction.
+        for ((hex, deposit) in placeShoals(rng, sea, land.size, capitals, rules)) {
             tiles[hex] = tiles.getValue(hex).copy(deposit = deposit)
         }
 
@@ -184,21 +198,144 @@ object MapGenerator {
         return deposits
     }
 
+    /**
+     * Fish shoals on open water, mirroring the gold-vein fairness scheme: every
+     * capital gets its shoal(s) at a common target distance inside its Voronoi
+     * cell (or nobody does), plus contested neutral shoals far from any capital.
+     */
+    private fun placeShoals(
+        rng: Chain,
+        sea: Set<Hex>,
+        landSize: Int,
+        capitals: List<Hex>,
+        rules: RuleConstants,
+    ): Map<Hex, Deposit> {
+        val shoals = HashMap<Hex, Deposit>()
+        if (rules.fishShoalsPerPlayer <= 0 && rules.fishShoalsNeutralPer150Hexes <= 0) return shoals
+
+        fun inCellOf(hex: Hex, capital: Hex): Boolean {
+            val own = HexMath.distance(hex, capital)
+            return capitals.all { it == capital || HexMath.distance(hex, it) > own }
+        }
+
+        fun candidatesNear(capital: Hex, min: Int, max: Int): List<Hex> =
+            sea.filter { hex ->
+                hex !in shoals && HexMath.distance(hex, capital) in min..max && inCellOf(hex, capital)
+            }.sortedBy { it.packed }
+
+        if (rules.fishShoalsPerPlayer > 0) {
+            val band = rules.fishShoalBandMin..rules.fishShoalBandMax
+            val target = band.first + rng.roll(band.last - band.first + 1)
+            val min = maxOf(band.first, target - 1)
+            val max = minOf(band.last, target + 1)
+            if (capitals.all { candidatesNear(it, min, max).size >= rules.fishShoalsPerPlayer }) {
+                for (capital in capitals) {
+                    repeat(rules.fishShoalsPerPlayer) {
+                        val candidates = candidatesNear(capital, min, max)
+                        shoals[candidates[rng.roll(candidates.size)]] = Deposit.FISH_SHOAL
+                    }
+                }
+            }
+        }
+
+        val neutral = landSize / 150 * rules.fishShoalsNeutralPer150Hexes
+        if (neutral > 0) {
+            val floor = maxOf(
+                requiredCapitalDistance(landSize, capitals.size) / 2,
+                rules.fishShoalBandMax + 1,
+            )
+            val open = sea.filter { hex ->
+                hex !in shoals && capitals.minOf { HexMath.distance(hex, it) } >= floor
+            }.sortedBy { it.packed }.toMutableList()
+            repeat(minOf(neutral, open.size)) {
+                val hex = open.removeAt(rng.roll(open.size))
+                shoals[hex] = Deposit.FISH_SHOAL
+            }
+        }
+        return shoals
+    }
+
     /** Radius of the per-capital FERTILE fairness zone (also checked by MapValidator). */
     internal const val FERTILE_FAIR_RADIUS = 5
+
+    /** Width of the coastal sea band around every landmass — bigger maps get a bigger ocean. */
+    internal fun seaFringe(size: MapSize): Int = when (size) {
+        MapSize.SMALL -> 3
+        MapSize.MEDIUM -> 4
+        MapSize.LARGE -> 5
+    }
+
+    /** Islands keep at least this much open water between them (land gap = GAP + 1). */
+    internal const val ISLAND_GAP = 2
+
+    /**
+     * The map's water: every hex within [seaFringe] of land, the corridor hexes
+     * threading distant islands together, and every void pocket those bands
+     * enclose (the basin ringed by an island circle becomes a sailable inland
+     * sea instead of a hole in the map) — minus land. Landlocked puddles still
+     * stay void: growBlob's interior holes get pocket-filled too, but they are
+     * sealed off by land, so only the open ocean survives the final largest-
+     * component pick (ties broken by lowest packed hex for determinism).
+     */
+    private fun seaSurface(land: Set<Hex>, corridors: Set<Hex>, fringe: Int): Set<Hex> {
+        val sea = HashSet<Hex>()
+        for (hex in land) {
+            for (n in HexMath.range(hex, fringe)) if (n !in land) sea.add(n)
+        }
+        for (hex in corridors) if (hex !in land) sea.add(hex)
+
+        // Pocket fill: flood the void inward from a bounding rim; any void hex
+        // the outside can't reach is enclosed → water.
+        var minQ = Int.MAX_VALUE; var maxQ = Int.MIN_VALUE
+        var minR = Int.MAX_VALUE; var maxR = Int.MIN_VALUE
+        for (hex in land + sea) {
+            minQ = minOf(minQ, hex.q); maxQ = maxOf(maxQ, hex.q)
+            minR = minOf(minR, hex.r); maxR = maxOf(maxR, hex.r)
+        }
+        minQ--; maxQ++; minR--; maxR++
+        fun inBox(h: Hex) = h.q in minQ..maxQ && h.r in minR..maxR
+        val outside = HashSet<Hex>()
+        val queue = ArrayDeque<Hex>()
+        fun seed(h: Hex) {
+            if (h !in land && h !in sea && outside.add(h)) queue.add(h)
+        }
+        for (q in minQ..maxQ) { seed(Hex.of(q, minR)); seed(Hex.of(q, maxR)) }
+        for (r in minR..maxR) { seed(Hex.of(minQ, r)); seed(Hex.of(maxQ, r)) }
+        while (queue.isNotEmpty()) {
+            val hex = queue.removeFirst()
+            HexMath.forEachNeighbor(hex) { if (inBox(it)) seed(it) }
+        }
+        for (q in minQ..maxQ) {
+            for (r in minR..maxR) {
+                val hex = Hex.of(q, r)
+                if (hex !in land && hex !in sea && hex !in outside) sea.add(hex)
+            }
+        }
+
+        val components = HexMath.connectedComponents(sea)
+        return components.maxWith(compareBy({ it.size }, { -(it.minOf { h -> h.packed }) }))
+    }
 
     /**
      * Random-walk blob growth: repeatedly claim a frontier hex, weighted by
      * (1 + landNeighbors)^2 to favor compact but wiggly coastlines.
+     * [forbidden] hexes are never claimed (island keep-out zones).
      */
-    private fun growBlob(rng: Chain, start: Hex, target: Int): Set<Hex> {
+    private fun growBlob(
+        rng: Chain,
+        start: Hex,
+        target: Int,
+        forbidden: (Hex) -> Boolean = { false },
+    ): Set<Hex> {
         val land = HashSet<Hex>()
+        if (forbidden(start)) return land
         val frontier = HashSet<Hex>()
         land.add(start)
         HexMath.forEachNeighbor(start) { frontier.add(it) }
 
         while (land.size < target && frontier.isNotEmpty()) {
-            val sorted = frontier.sortedBy { it.packed }
+            val sorted = frontier.filterNot(forbidden).sortedBy { it.packed }
+            if (sorted.isEmpty()) break
             var totalWeight = 0
             val weights = IntArray(sorted.size)
             for (i in sorted.indices) {
@@ -224,11 +361,17 @@ object MapGenerator {
         return land
     }
 
-    /** Player islands on a circle, then land bridges so the map is one connected mass. */
-    private fun islands(rng: Chain, params: MapParams, blobCount: Int): Set<Hex> {
+    /**
+     * True water-separated islands on a circle: each blob grows inside a keep-out
+     * zone [ISLAND_GAP] wide around every earlier blob, so no two islands ever
+     * come closer than [ISLAND_GAP] + 1 (a guaranteed sailing channel). Sea
+     * corridors along the ring keep the ocean one navigable body even when
+     * islands drift far apart. Returns land + corridor hexes.
+     */
+    private fun islands(rng: Chain, params: MapParams, blobCount: Int): Pair<Set<Hex>, Set<Hex>> {
         val perBlob = params.size.targetHexes / blobCount
-        // Roughly space blob centers on a hex "circle" whose radius scales with blob size.
-        val radius = maxOf(6, (sqrt(perBlob.toDouble()) * 1.9).roundToInt())
+        // Space blob centers on a hex "circle" wide enough for blobs + channels.
+        val radius = maxOf(7, (sqrt(perBlob.toDouble()) * 2.1).roundToInt())
         val centers = (0 until blobCount).map { i ->
             val angle = 2.0 * Math.PI * i / blobCount
             val q = (radius * kotlin.math.cos(angle)).roundToInt()
@@ -236,14 +379,48 @@ object MapGenerator {
             Hex.of(q, r)
         }
         val land = HashSet<Hex>()
-        centers.forEach { land.addAll(growBlob(rng, it, perBlob)) }
-        // Bridge each island to the next (ring topology keeps it simple and connected).
+        val keepOut = HashSet<Hex>()
+        for (center in centers) {
+            val blob = growBlob(rng, center, perBlob) { it in keepOut }
+            land.addAll(blob)
+            for (hex in blob) {
+                for (n in HexMath.range(hex, ISLAND_GAP)) keepOut.add(n)
+            }
+        }
+        // Ring corridors (line + both shoulders) thread every fringe together.
+        val corridors = HashSet<Hex>()
         for (i in centers.indices) {
             val from = centers[i]
             val to = centers[(i + 1) % centers.size]
-            land.addAll(hexLine(from, to))
+            for (hex in hexLine(from, to)) {
+                corridors.add(hex)
+                HexMath.forEachNeighbor(hex) { corridors.add(it) }
+            }
         }
-        return land
+        return land to corridors
+    }
+
+    /**
+     * One capital per island, biggest islands first (deterministic ordering).
+     * Returns null (retry) when there are fewer islands than players or an
+     * island has no hex with a full land neighbor ring.
+     */
+    private fun placeIslandCapitals(land: Set<Hex>, count: Int): List<Hex>? {
+        val components = HexMath.connectedComponents(land)
+            .sortedWith(
+                compareByDescending<Set<Hex>> { it.size }.thenBy { it.minOf { h -> h.packed } },
+            )
+        if (components.size < count) return null
+        val capitals = ArrayList<Hex>(count)
+        for (component in components.take(count)) {
+            val viable = component.filter { hex -> HexMath.neighbors(hex).all { it in component } }
+            if (viable.isEmpty()) return null
+            val cq = component.sumOf { it.q } / component.size
+            val cr = component.sumOf { it.r } / component.size
+            val centroid = Hex.of(cq, cr)
+            capitals.add(viable.minWith(compareBy({ HexMath.distance(it, centroid) }, { it.packed })))
+        }
+        return capitals
     }
 
     /** All hexes on the straight line from a to b (cube lerp + rounding). */

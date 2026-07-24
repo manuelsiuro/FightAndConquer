@@ -35,9 +35,9 @@ class MapGeneratorTest {
     fun `land size is close to the target`() {
         val params = MapParams(seed = 5, size = MapSize.MEDIUM, playerCount = 2)
         val map = MapGenerator.generate(params)
-        val land = map.tiles.size
+        val land = map.tiles.count { it.terrain == com.msa.fightandconquer.core.model.Terrain.LAND }
         assertTrue(
-            "expected ~${MapSize.MEDIUM.targetHexes} hexes, got $land",
+            "expected ~${MapSize.MEDIUM.targetHexes} land hexes, got $land",
             land >= MapSize.MEDIUM.targetHexes && land <= MapSize.MEDIUM.targetHexes * 3 / 2,
         )
     }

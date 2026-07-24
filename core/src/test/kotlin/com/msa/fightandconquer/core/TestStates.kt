@@ -106,6 +106,29 @@ object TestStates {
     fun GameState.withDeposit(deposit: com.msa.fightandconquer.core.model.Deposit, at: Hex): GameState =
         copy(tiles = tiles + (at to tiles.getValue(at).copy(deposit = deposit)))
 
+    /** Adds (or converts) the given hexes as neutral open-sea tiles. */
+    fun GameState.withSea(at: List<Hex>): GameState =
+        copy(
+            tiles = tiles + at.map {
+                it to Tile(terrain = com.msa.fightandconquer.core.model.Terrain.SEA)
+            },
+        )
+
+    fun GameState.withSea(at: Hex): GameState = withSea(listOf(at))
+
+    /** Loads the transport standing at [at] with a cargo snapshot. */
+    fun GameState.withCargo(
+        at: Hex,
+        tier: Int,
+        type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    ): GameState {
+        val id = tiles.getValue(at).unit!!
+        val boat = units.getValue(id)
+        return copy(
+            units = units + (id to boat.copy(cargo = com.msa.fightandconquer.core.model.CargoUnit(tier, type))),
+        )
+    }
+
     fun GameState.withTreasury(player: Int, amount: Int): GameState =
         copy(players = players.map { if (it.id.value == player) it.copy(treasury = amount) else it })
 
@@ -115,16 +138,45 @@ object TestStates {
     fun assertInvariants(state: GameState) {
         for (unit in state.units.values) {
             assertEquals("tile back-pointer for $unit", unit.id, state.tiles[unit.hex]?.unit)
-            assertEquals("unit stands on own tile: $unit", unit.owner, state.tiles[unit.hex]?.owner)
+            if (com.msa.fightandconquer.core.engine.Rules.isNaval(unit.type)) {
+                // Boats float on neutral open water and only transports carry cargo.
+                assertEquals(
+                    "boat on sea: $unit",
+                    com.msa.fightandconquer.core.model.Terrain.SEA,
+                    state.tiles[unit.hex]?.terrain,
+                )
+                assertEquals("open sea under boat unowned: $unit", null, state.tiles[unit.hex]?.owner)
+            } else {
+                assertEquals("unit stands on own tile: $unit", unit.owner, state.tiles[unit.hex]?.owner)
+            }
             if (unit.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER) {
                 assertTrue("tier in range: $unit", unit.tier in 1..state.config.rules.maxTier)
             } else {
                 assertEquals("special units stay tier 1: $unit", 1, unit.tier)
             }
+            if (unit.type != com.msa.fightandconquer.core.model.UnitType.TRANSPORT) {
+                assertEquals("only transports carry cargo: $unit", null, unit.cargo)
+            }
         }
         for ((hex, tile) in state.tiles) {
             tile.unit?.let { id ->
                 assertEquals("units map entry for tile $hex", hex, state.units[id]?.hex)
+            }
+            if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
+                // Open sea stays neutral and bare; only a bridge makes a sea hex
+                // ownable (and, like any territory, cut-off-able).
+                if (tile.building == null) {
+                    assertEquals("open sea $hex is never owned", null, tile.owner)
+                    assertTrue("open sea $hex never starves", !tile.starving)
+                }
+                assertEquals("no flora at sea: $hex", null, tile.flora)
+                if (tile.deposit != null) {
+                    assertEquals(
+                        "only shoals at sea: $hex",
+                        com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL,
+                        tile.deposit,
+                    )
+                }
             }
         }
         for (player in state.players) {

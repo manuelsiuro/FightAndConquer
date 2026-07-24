@@ -54,6 +54,8 @@ fun unitNameRes(type: com.msa.fightandconquer.core.model.UnitType, tier: Int): I
     com.msa.fightandconquer.core.model.UnitType.SOLDIER -> unitNameRes(tier)
     com.msa.fightandconquer.core.model.UnitType.ARCHER -> R.string.unit_archer
     com.msa.fightandconquer.core.model.UnitType.CATAPULT -> R.string.unit_catapult
+    com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> R.string.unit_transport
+    com.msa.fightandconquer.core.model.UnitType.WARSHIP -> R.string.unit_warship
 }
 
 /** Engine rejection code -> player-facing explanation. */
@@ -94,4 +96,14 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.NO_SUCH_PROPOSAL -> UiText.of(R.string.reject_no_such_proposal)
     RejectionReason.INVALID_TRIBUTE_AMOUNT -> UiText.of(R.string.reject_invalid_tribute)
     RejectionReason.NO_GAME -> UiText.of(R.string.reject_no_game)
+    RejectionReason.SEA_IMPASSABLE -> UiText.of(R.string.reject_sea_impassable)
+    RejectionReason.NAVAL_DISABLED -> UiText.of(R.string.reject_naval_disabled)
+    RejectionReason.REQUIRES_COAST -> UiText.of(R.string.reject_requires_coast)
+    RejectionReason.REQUIRES_SEA -> UiText.of(R.string.reject_requires_sea)
+    RejectionReason.NO_ADJACENT_PORT -> UiText.of(R.string.reject_no_adjacent_port)
+    RejectionReason.NOT_A_TRANSPORT -> UiText.of(R.string.reject_not_a_transport)
+    RejectionReason.TRANSPORT_FULL -> UiText.of(R.string.reject_transport_full)
+    RejectionReason.TRANSPORT_EMPTY -> UiText.of(R.string.reject_transport_empty)
+    RejectionReason.NOT_A_WARSHIP -> UiText.of(R.string.reject_not_a_warship)
+    RejectionReason.INVALID_BOMBARD_TARGET -> UiText.of(R.string.reject_invalid_bombard)
 }

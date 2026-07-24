@@ -8,7 +8,7 @@ import com.msa.fightandconquer.core.model.UnitId
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class DeathCause { KILLED, STARVED, BANKRUPTCY }
+enum class DeathCause { KILLED, STARVED, BANKRUPTCY, SUNK }
 
 /**
  * Facts emitted by the reducer, in order. The renderer consumes them as animation
@@ -35,6 +35,14 @@ sealed interface GameEvent {
     @Serializable data class TurnStarted(val player: PlayerId, val income: Int, val upkeep: Int) : GameEvent
     @Serializable data class Bankruptcy(val player: PlayerId) : GameEvent
     @Serializable data class CapitalMoved(val player: PlayerId, val from: Hex, val to: Hex, val loot: Int) : GameEvent
+
+    // --- Naval ---
+    /** [unit] walked aboard [transport] (it left the units map; it now rides as cargo). */
+    @Serializable data class UnitEmbarked(val unit: UnitId, val transport: UnitId, val from: Hex, val at: Hex) : GameEvent
+    /** [transport]'s cargo came ashore as freshly-spawned [unit] at [to]. */
+    @Serializable data class UnitDisembarked(val transport: UnitId, val unit: GameUnit, val to: Hex) : GameEvent
+    /** Warship [by] raided [target] (kills/destruction arrive as their own events). */
+    @Serializable data class Bombarded(val by: UnitId, val target: Hex) : GameEvent
     @Serializable data class PlayerEliminated(val player: PlayerId) : GameEvent
     @Serializable data class GameOver(val winner: PlayerId) : GameEvent
 

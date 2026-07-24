@@ -68,21 +68,43 @@ class BoardScene(
 
     val rig = CameraRig()
     private val picker = HexPicker(
-        exists = { it in tiles },
-        isRaised = { tiles[it]?.raised == true },
+        topYOf = { hex -> tiles[hex]?.let { it.y + Primitives.HEX_HEIGHT } },
     )
 
     // ----- tiles -----
 
     private class TileEntity(
         val entity: Int,
-        val instance: MaterialInstance,
+        /** Per-tile hexTile instance for land; the SHARED water instance for sea. */
+        var instance: MaterialInstance,
         var color: Float3,
         var raised: Boolean,
         var y: Float,
+        val sea: Boolean = false,
     )
 
     private val tiles = HashMap<Hex, TileEntity>()
+
+    // ----- water (all sea tiles share one animated material instance per fog band) -----
+
+    private val waterVisible: MaterialInstance by lazy {
+        materials.material("water").createInstance().apply {
+            setParameter("shallowColor", Palette.SEA.x, Palette.SEA.y, Palette.SEA.z)
+            setParameter("deepColor", Palette.SEA_DEEP.x, Palette.SEA_DEEP.y, Palette.SEA_DEEP.z)
+            setParameter("time", 0f)
+        }
+    }
+    private val waterExplored: MaterialInstance by lazy {
+        materials.material("water").createInstance().apply {
+            val s = Palette.SEA * FOG_EXPLORED_FACTOR
+            val d = Palette.SEA_DEEP * FOG_EXPLORED_FACTOR
+            setParameter("shallowColor", s.x, s.y, s.z)
+            setParameter("deepColor", d.x, d.y, d.z)
+            setParameter("time", 0f)
+        }
+    }
+    private var hasSea = false
+    private var waterTime = 0f
 
     // ----- pieces -----
 
@@ -96,6 +118,8 @@ class BoardScene(
         var scale: Float = 1f,
         var yOffset: Float = 0f,
         var xz: Pair<Float, Float>? = null, // non-null while hopping between hexes
+        /** Y-rotation in radians (bridges orient toward their connected shores). */
+        var yaw: Float = 0f,
     ) {
         /** View-only mirror of GameUnit.spent: spent units render darker. */
         var dimmed = false
@@ -130,7 +154,7 @@ class BoardScene(
             for (entity in entities) {
                 var ti = tm.getInstance(entity)
                 if (ti == 0) ti = tm.create(entity)
-                tm.setTransform(ti, Transforms.trs(x, y, z, scale = scale))
+                tm.setTransform(ti, Transforms.trs(x, y, z, angleYRadians = yaw, scale = scale))
             }
         }
     }
@@ -234,6 +258,18 @@ class BoardScene(
     /** Writes the tile's rendered color: logical color when visible, dark neutral in fog. */
     private fun applyTileColor(hex: Hex, te: TileEntity) {
         val visible = fogVisible
+        if (te.sea) {
+            // Sea has no per-tile params — fog picks which SHARED instance renders it.
+            // (Sea is pre-discovered, so the never-seen band cannot occur.)
+            val chosen = if (visible == null || hex in visible) waterVisible else waterExplored
+            if (te.instance !== chosen) {
+                val rm = filament.renderableManager
+                val ri = rm.getInstance(te.entity)
+                if (ri != 0) rm.setMaterialInstanceAt(ri, 0, chosen)
+                te.instance = chosen
+            }
+            return
+        }
         val c = when {
             visible == null || hex in visible -> te.color
             hex in fogExplored -> Palette.NEUTRAL * FOG_EXPLORED_FACTOR
@@ -267,25 +303,39 @@ class BoardScene(
             minX = minOf(minX, cx); maxX = maxOf(maxX, cx)
             minZ = minOf(minZ, cz); maxZ = maxOf(maxZ, cz)
 
-            val color = tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
-            val raised = tile.owner != null
-            val instance = tileMaterial.createInstance().apply {
-                setParameter("colorFrom", color.x, color.y, color.z)
-                setParameter("colorTo", color.x, color.y, color.z)
-                setParameter("tileCenter", cx, 0f, cz)
-                setParameter("waveRadius", 0f)
-                setParameter("waveSoftness", 0.18f)
+            val sea = tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+            if (sea) hasSea = true
+            val color = when {
+                sea -> Palette.SEA
+                else -> tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
+            }
+            val raised = !sea && tile.owner != null
+            val instance = if (sea) {
+                waterVisible // shared: one animated instance for the whole ocean
+            } else {
+                tileMaterial.createInstance().apply {
+                    setParameter("colorFrom", color.x, color.y, color.z)
+                    setParameter("colorTo", color.x, color.y, color.z)
+                    setParameter("tileCenter", cx, 0f, cz)
+                    setParameter("waveRadius", 0f)
+                    setParameter("waveSoftness", 0.18f)
+                }
             }
             val entity = EntityManager.get().create()
             RenderableManager.Builder(1)
                 .boundingBox(hexMesh.aabb)
                 .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, hexMesh.vertexBuffer, hexMesh.indexBuffer)
                 .material(0, instance)
-                .castShadows(true)
+                .castShadows(!sea)
                 .receiveShadows(true)
                 .build(filament, entity)
             engine.scene.addEntity(entity)
-            val te = TileEntity(entity, instance, color, raised, if (raised) Primitives.CAPTURE_RAISE else 0f)
+            val y = when {
+                sea -> -Primitives.SEA_SINK
+                raised -> Primitives.CAPTURE_RAISE
+                else -> 0f
+            }
+            val te = TileEntity(entity, instance, color, raised, y, sea)
             tiles[hex] = te
             setTileTransform(hex, te)
         }
@@ -440,6 +490,28 @@ class BoardScene(
                     rig.shake = Float3(0f, 0f, 0f)
                 }
             }
+            // Water shimmer: one uniform write per fog band, regardless of sea size.
+            if (hasSea) {
+                waterTime += deltaSeconds
+                // Wrap on the bands' common period (20pi) — keeps the shader arg small
+                // for mediump sin() without a visible jump.
+                if (waterTime > WATER_PERIOD) waterTime -= WATER_PERIOD
+                waterVisible.setParameter("time", waterTime)
+                waterExplored.setParameter("time", waterTime)
+                // Idle boat bob: a view-only yOffset ripple (reconcile ignores
+                // yOffset, so the zero-correction gate is untouched). Skipped
+                // while a piece animates (xz set) or the queue is playing.
+                if (animator.isIdle) {
+                    for ((id, piece) in unitPieces) {
+                        if ((piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) &&
+                            piece.xz == null && !piece.hidden
+                        ) {
+                            piece.yOffset = 0.008f * sin(waterTime * 1.3f + (id.value % 7) * 0.9f)
+                            piece.updateTransform()
+                        }
+                    }
+                }
+            }
             // Capture-highlight pulse (a handful of uniform writes at most).
             highlightClock += deltaSeconds
             val pulseAlpha = 0.72f + 0.28f * sin(highlightClock * 7f)
@@ -507,6 +579,16 @@ class BoardScene(
 
             is GameEvent.UnitMoved -> {
                 val piece = unitPieces[event.unit] ?: return
+                if (piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) {
+                    // Boats SAIL: flat glide along open water, never a hop.
+                    val path = seaPath(event.from, event.to)
+                    if (path != null) {
+                        hopAlong(piece, event.unit, path, glide = true)
+                    } else {
+                        hop(piece, event.from, event.to, height = 0f, unitId = event.unit)
+                    }
+                    return
+                }
                 val owner = latestState.units[event.unit]?.owner ?: latestState.tiles[event.to]?.owner
                 val path = owner?.let { ownedPath(event.from, event.to, it) }
                 if (path != null) {
@@ -518,6 +600,9 @@ class BoardScene(
 
             is GameEvent.HexCaptured -> {
                 val te = tiles[event.hex] ?: return
+                // Sea stays water: a captured bridge hex shows ownership on the piece,
+                // never on the tile (no raise, no wave).
+                if (te.sea) return
                 val color = Palette.faction(event.newOwner.value)
                 if (isFogged(event.hex)) {
                     // Fogged capture: update logical state silently — no wave, no reveal.
@@ -546,8 +631,11 @@ class BoardScene(
 
             is GameEvent.UnitDied -> {
                 val piece = unitPieces.remove(event.unit) ?: return
-                sinkAway(piece) {
-                    if (event.cause != DeathCause.KILLED) {
+                val atSea = latestState.tiles[event.hex]?.terrain ==
+                    com.msa.fightandconquer.core.model.Terrain.SEA
+                // The drowned go deeper and slower — and leave no gravestone.
+                sinkAway(piece, duration = if (atSea) 0.4f else 0.25f, depth = if (atSea) 0.3f else 0.1f) {
+                    if (event.cause != DeathCause.KILLED && event.cause != DeathCause.SUNK && !atSea) {
                         val grave = createPiece(PieceKind.GRAVESTONE, event.hex, null)
                         floraPieces[event.hex] = grave
                         spawnBounce(grave, duration = 0.25f)
@@ -590,6 +678,7 @@ class BoardScene(
             is GameEvent.BuildingBuilt -> {
                 val owner = latestState.tiles[event.hex]?.owner?.value
                 val piece = createPiece(buildingKind(event.building), event.hex, owner)
+                if (piece.kind == PieceKind.BRIDGE) piece.yaw = bridgeYaw(event.hex)
                 buildingPieces[event.hex] = piece
                 spawnBounce(piece)
                 if (!isFogged(event.hex)) rumbleTime = 0f // no juice for unseen builds
@@ -624,6 +713,37 @@ class BoardScene(
                     buildingPieces[event.to] = piece
                     spawnBounce(piece)
                 }
+            }
+
+            is GameEvent.UnitEmbarked -> {
+                val piece = unitPieces.remove(event.unit) ?: return
+                // Walk aboard, shrink into the hold.
+                piece.hex = event.at
+                val from = event.from
+                animator.tween(0.25f, Easings::easeOutCubic, onEnd = { destroyPiece(piece) }) { t ->
+                    piece.xz = lerpHex(from, event.at, t)
+                    piece.yOffset = Easings.hop(t) * 0.25f
+                    piece.scale = 1f - 0.6f * t
+                    piece.updateTransform()
+                }
+            }
+
+            is GameEvent.UnitDisembarked -> {
+                val landed = createPiece(
+                    pieceMeshes.unitKind(event.unit),
+                    event.to,
+                    event.unit.owner.value,
+                )
+                unitPieces[event.unit.id] = landed
+                landed.setDimmed(latestState.units[event.unit.id]?.spent == true)
+                val boatHex = unitPieces[event.transport]?.hex ?: event.to
+                hop(landed, boatHex, event.to, unitId = event.unit.id)
+            }
+
+            is GameEvent.Bombarded -> {
+                // The broadside itself is camera juice; the kill/demolition each
+                // arrive as their own events right after.
+                if (!isFogged(event.target)) rumbleTime = 0f
             }
 
             is GameEvent.TurnStarted -> {
@@ -712,8 +832,11 @@ class BoardScene(
         return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain hop; too long = direct
     }
 
-    /** Chained per-hex hops: mid segments linear (continuous run), final segment eases out. */
-    private fun hopAlong(piece: Piece, unitId: UnitId, path: List<Hex>) {
+    /**
+     * Chained per-hex hops: mid segments linear (continuous run), final segment
+     * eases out. [glide] flattens the arc entirely — boats sail, they don't hop.
+     */
+    private fun hopAlong(piece: Piece, unitId: UnitId, path: List<Hex>, glide: Boolean = false) {
         val segments = path.size - 1
         val perHex = minOf(0.16f, 0.9f / segments)
         fun runSegment(index: Int) {
@@ -722,7 +845,7 @@ class BoardScene(
             val last = index == segments - 1
             piece.hex = b
             val yDelta = tileTopY(a) - tileTopY(b)
-            val height = if (last) 0.3f else 0.2f
+            val height = if (glide) 0f else if (last) 0.3f else 0.2f
             animator.tween(perHex, if (last) Easings::easeOutCubic else Easings::linear, onEnd = {
                 if (last) {
                     piece.xz = null
@@ -741,13 +864,50 @@ class BoardScene(
         runSegment(0)
     }
 
-    private fun sinkAway(piece: Piece, duration: Float = 0.25f, onDone: (() -> Unit)? = null) {
+    /** BFS shortest path over open water for the sail animation (null = direct glide). */
+    private fun seaPath(from: Hex, to: Hex): List<Hex>? {
+        if (from == to) return null
+        val canEnter: (Hex) -> Boolean = { h ->
+            h == from || h == to ||
+                latestState.tiles[h]?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+        }
+        val parent = HashMap<Hex, Hex>()
+        val queue = ArrayDeque<Hex>().apply { add(from) }
+        val visited = HashSet<Hex>().apply { add(from) }
+        var reached = false
+        while (queue.isNotEmpty() && visited.size < 512 && !reached) {
+            val current = queue.removeFirst()
+            com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(current) { n ->
+                if (!reached && n !in visited && canEnter(n)) {
+                    visited.add(n)
+                    parent[n] = current
+                    if (n == to) reached = true else queue.add(n)
+                }
+            }
+        }
+        if (!reached) return null
+        val path = ArrayList<Hex>()
+        var h = to
+        while (true) {
+            path.add(h)
+            h = parent[h] ?: break
+        }
+        path.reverse()
+        return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain glide
+    }
+
+    private fun sinkAway(
+        piece: Piece,
+        duration: Float = 0.25f,
+        depth: Float = 0.1f,
+        onDone: (() -> Unit)? = null,
+    ) {
         animator.tween(duration, Easings::easeInCubic, onEnd = {
             destroyPiece(piece)
             onDone?.invoke()
         }) { t ->
             piece.scale = 1f - t
-            piece.yOffset = -0.1f * t
+            piece.yOffset = -depth * t
             piece.updateTransform()
         }
     }
@@ -818,6 +978,35 @@ class BoardScene(
         Building.MARKET -> PieceKind.MARKET
         Building.LUMBER_CAMP -> PieceKind.LUMBER_CAMP
         Building.WATCHTOWER -> PieceKind.WATCHTOWER
+        Building.PORT -> PieceKind.PORT
+        Building.FISHERY -> PieceKind.FISHERY
+        Building.BRIDGE -> PieceKind.BRIDGE
+    }
+
+    /**
+     * A bridge deck (authored along Z) turns toward its first LAND or BRIDGE
+     * neighbor — a pure function of the board, so create and reconcile always
+     * agree and the yaw never counts as a correction.
+     */
+    private fun bridgeYaw(hex: Hex): Float {
+        var yaw = 0f
+        var found = false
+        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
+            if (!found) {
+                val t = latestState.tiles[n]
+                if (t != null && (
+                        t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND ||
+                            t.building == Building.BRIDGE
+                        )
+                ) {
+                    val dx = HexWorld.centerX(n) - HexWorld.centerX(hex)
+                    val dz = HexWorld.centerZ(n) - HexWorld.centerZ(hex)
+                    yaw = kotlin.math.atan2(dx, dz)
+                    found = true
+                }
+            }
+        }
+        return yaw
     }
 
     private fun tileTopY(hex: Hex): Float = (tiles[hex]?.y ?: 0f) + Primitives.HEX_HEIGHT
@@ -920,6 +1109,12 @@ class BoardScene(
 
         for ((hex, tile) in state.tiles) {
             val te = tiles[hex] ?: continue
+            if (te.sea) {
+                // Water is static geometry: fixed sink, never raised, shared material.
+                // Fog-band swaps are view-only and handled by setFog/applyTileColor.
+                applyTileColor(hex, te)
+                continue
+            }
             val color = tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
             val raised = tile.owner != null
             val y = if (raised) Primitives.CAPTURE_RAISE else 0f
@@ -992,6 +1187,7 @@ class BoardScene(
             when (tile.deposit) {
                 com.msa.fightandconquer.core.model.Deposit.GOLD_VEIN -> PieceKind.GOLD_VEIN
                 com.msa.fightandconquer.core.model.Deposit.FERTILE -> PieceKind.FERTILE
+                com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL -> PieceKind.FISH_SHOAL
                 null -> null
             }
         }
@@ -1025,7 +1221,12 @@ class BoardScene(
             val piece = pieces[hex]
             if (piece == null || piece.kind != kind) {
                 piece?.let { destroyPiece(it) }
-                pieces[hex] = createPiece(kind, hex, tile.owner?.value)
+                val fresh = createPiece(kind, hex, tile.owner?.value)
+                if (kind == PieceKind.BRIDGE) {
+                    fresh.yaw = bridgeYaw(hex)
+                    fresh.updateTransform()
+                }
+                pieces[hex] = fresh
                 if (piece != null) corrections++
             } else if (piece.scale != 1f) {
                 piece.scale = 1f
@@ -1062,7 +1263,12 @@ class BoardScene(
         for (te in tiles.values) {
             filament.destroyEntity(te.entity)
             EntityManager.get().destroy(te.entity)
-            filament.destroyMaterialInstance(te.instance)
+            // Sea tiles share the water instances — destroyed once, below.
+            if (!te.sea) filament.destroyMaterialInstance(te.instance)
+        }
+        if (hasSea) {
+            filament.destroyMaterialInstance(waterVisible)
+            filament.destroyMaterialInstance(waterExplored)
         }
         tiles.clear()
         pieceMeshes.destroy(filament)
@@ -1081,5 +1287,7 @@ class BoardScene(
         private const val MAX_PATH_LEN = 24
         /** Label anchor height: above the tallest piece (capital banner ~0.70). */
         private const val ANCHOR_LIFT = 0.8f
+        /** Water shimmer wrap: 20pi is a whole period of both sine bands (x0.9, x0.6). */
+        private const val WATER_PERIOD = (20.0 * Math.PI).toFloat()
     }
 }

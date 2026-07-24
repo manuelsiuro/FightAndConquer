@@ -64,4 +64,24 @@ enum class RejectionReason {
     INVALID_TRIBUTE_AMOUNT,
     /** No game is loaded (UI-level guard). */
     NO_GAME,
+    /** Land units and land buildings cannot be placed on open sea. */
+    SEA_IMPASSABLE,
+    /** Naval play is disabled by this game's rules snapshot. */
+    NAVAL_DISABLED,
+    /** The building must stand on an own land hex adjacent to sea (Port). */
+    REQUIRES_COAST,
+    /** Boats can only be placed on open sea. */
+    REQUIRES_SEA,
+    /** Boats are built on sea adjacent to an own working Port. */
+    NO_ADJACENT_PORT,
+    /** Only a transport can carry or land units. */
+    NOT_A_TRANSPORT,
+    /** The transport already carries a unit. */
+    TRANSPORT_FULL,
+    /** The transport has no cargo to land. */
+    TRANSPORT_EMPTY,
+    /** Only a warship can bombard. */
+    NOT_A_WARSHIP,
+    /** Nothing to bombard there (empty hex, open sea, or a capital — capitals are immune). */
+    INVALID_BOMBARD_TARGET,
 }
