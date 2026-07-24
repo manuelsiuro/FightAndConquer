@@ -137,9 +137,12 @@ still works; (B) units adjacent to an own boat never starve (beachhead
 lifeline); (C) a Port may be built *on* a starving overseas region, which then
 un-starves it.
 
-**Map types.** Setup offers Continent (one landmass with a coastal sea fringe),
-Islands and Archipelago (real water-separated islands, ≥ 2-hex-wide navigable
-channels, one capital per island where possible). Map size counts *land* hexes.
+**Map types.** Setup offers Continent (one landmass in open water), Islands and
+Archipelago (real water-separated islands, ≥ 2-hex-wide navigable channels, one
+capital per island where possible). Every landmass is wrapped in a coastal sea
+band that scales with map size (Small 3 / Medium 4 / Large 5 hexes), and any
+basin enclosed by the land — the middle of an island ring — fills in as a
+sailable inland sea. Map size counts *land* hexes.
 
 **Fog of war (optional, off by default).** Classic fog: hexes outside a player's
 live vision render near-black; once-seen hexes persist as dimmed terrain-only

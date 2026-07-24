@@ -63,7 +63,7 @@ object MapGenerator {
         for (hex in land) tiles[hex] = TileDef(hex)
         // Every landmass gets a navigable coastal sea. [MapSize.targetHexes] keeps
         // meaning LAND hexes — sea rides on top.
-        val sea = seaSurface(land, seaCorridors)
+        val sea = seaSurface(land, seaCorridors, seaFringe(params.size))
         for (hex in sea) tiles[hex] = TileDef(hex, terrain = Terrain.SEA)
         regions.forEachIndexed { player, region ->
             for (hex in region) tiles[hex] = TileDef(hex, owner = player)
@@ -258,25 +258,60 @@ object MapGenerator {
     /** Radius of the per-capital FERTILE fairness zone (also checked by MapValidator). */
     internal const val FERTILE_FAIR_RADIUS = 5
 
-    /** Width of the coastal sea band around every landmass. */
-    internal const val SEA_FRINGE = 2
+    /** Width of the coastal sea band around every landmass — bigger maps get a bigger ocean. */
+    internal fun seaFringe(size: MapSize): Int = when (size) {
+        MapSize.SMALL -> 3
+        MapSize.MEDIUM -> 4
+        MapSize.LARGE -> 5
+    }
 
     /** Islands keep at least this much open water between them (land gap = GAP + 1). */
     internal const val ISLAND_GAP = 2
 
     /**
-     * The map's water: every hex within [SEA_FRINGE] of land plus the corridor
-     * hexes threading distant islands together, minus land. growBlob can leave
-     * interior holes; their fringe would be a landlocked puddle no boat can reach,
-     * so only the open ocean survives (largest component — ties broken by lowest
-     * packed hex for determinism); holes stay void.
+     * The map's water: every hex within [seaFringe] of land, the corridor hexes
+     * threading distant islands together, and every void pocket those bands
+     * enclose (the basin ringed by an island circle becomes a sailable inland
+     * sea instead of a hole in the map) — minus land. Landlocked puddles still
+     * stay void: growBlob's interior holes get pocket-filled too, but they are
+     * sealed off by land, so only the open ocean survives the final largest-
+     * component pick (ties broken by lowest packed hex for determinism).
      */
-    private fun seaSurface(land: Set<Hex>, corridors: Set<Hex>): Set<Hex> {
+    private fun seaSurface(land: Set<Hex>, corridors: Set<Hex>, fringe: Int): Set<Hex> {
         val sea = HashSet<Hex>()
         for (hex in land) {
-            for (n in HexMath.range(hex, SEA_FRINGE)) if (n !in land) sea.add(n)
+            for (n in HexMath.range(hex, fringe)) if (n !in land) sea.add(n)
         }
         for (hex in corridors) if (hex !in land) sea.add(hex)
+
+        // Pocket fill: flood the void inward from a bounding rim; any void hex
+        // the outside can't reach is enclosed → water.
+        var minQ = Int.MAX_VALUE; var maxQ = Int.MIN_VALUE
+        var minR = Int.MAX_VALUE; var maxR = Int.MIN_VALUE
+        for (hex in land + sea) {
+            minQ = minOf(minQ, hex.q); maxQ = maxOf(maxQ, hex.q)
+            minR = minOf(minR, hex.r); maxR = maxOf(maxR, hex.r)
+        }
+        minQ--; maxQ++; minR--; maxR++
+        fun inBox(h: Hex) = h.q in minQ..maxQ && h.r in minR..maxR
+        val outside = HashSet<Hex>()
+        val queue = ArrayDeque<Hex>()
+        fun seed(h: Hex) {
+            if (h !in land && h !in sea && outside.add(h)) queue.add(h)
+        }
+        for (q in minQ..maxQ) { seed(Hex.of(q, minR)); seed(Hex.of(q, maxR)) }
+        for (r in minR..maxR) { seed(Hex.of(minQ, r)); seed(Hex.of(maxQ, r)) }
+        while (queue.isNotEmpty()) {
+            val hex = queue.removeFirst()
+            HexMath.forEachNeighbor(hex) { if (inBox(it)) seed(it) }
+        }
+        for (q in minQ..maxQ) {
+            for (r in minR..maxR) {
+                val hex = Hex.of(q, r)
+                if (hex !in land && hex !in sea && hex !in outside) sea.add(hex)
+            }
+        }
+
         val components = HexMath.connectedComponents(sea)
         return components.maxWith(compareBy({ it.size }, { -(it.minOf { h -> h.packed }) }))
     }

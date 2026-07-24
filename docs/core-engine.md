@@ -162,10 +162,15 @@ capitals)`; `newGame(gameSeed, kinds, rules)` instantiates a `GameState`.
 Authored campaign maps use the same format with `generatorParams = null`.
 
 Algorithm: seeded random-walk blob growth (frontier weighted `(1+landNeighbors)²`).
-CONTINENT is one landmass wrapped in a 2-hex sea fringe; ISLANDS/ARCHIPELAGO
+CONTINENT is one landmass; ISLANDS/ARCHIPELAGO
 grow per-blob with a keep-out predicate (no hex within distance 2 of another
-blob → every channel is ≥ 2 wide and navigable) and fill sea from per-island
-fringes plus corridors between ring-adjacent island centers (`targetHexes`
+blob → every channel is ≥ 2 wide and navigable). `seaSurface` wraps every
+landmass in a size-scaled fringe (`seaFringe`: SMALL 3 / MEDIUM 4 / LARGE 5),
+adds corridors between ring-adjacent island centers, pocket-fills any void the
+map encloses (an island ring's basin becomes an inland sea; flood-fill from a
+bounding rim finds what the outside can't reach), then keeps the largest sea
+component — which is also what keeps growBlob's land-sealed interior holes
+void instead of turning them into unreachable lakes (`targetHexes`
 still counts *land*). Capitals via farthest-point sampling seeded from the rim
 (viable = full neighbor ring on land), fairness floor
 `max(5, 0.9·√(land/players))`, one capital per island where the count allows.

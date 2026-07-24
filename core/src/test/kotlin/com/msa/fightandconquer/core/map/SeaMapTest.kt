@@ -1,5 +1,6 @@
 package com.msa.fightandconquer.core.map
 
+import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.PlayerKind
 import com.msa.fightandconquer.core.model.Terrain
@@ -39,18 +40,58 @@ class SeaMapTest {
             val land = map.tiles.filter { it.terrain == Terrain.LAND }.map { it.hex }.toSet()
             assertEquals("$shape sea components", 1, HexMath.connectedComponents(sea).size)
             assertEquals("$shape land+sea connected", 1, HexMath.connectedComponents(land + sea).size)
-            if (shape == MapShape.CONTINENT) {
-                // The continental band never drifts away from the coast (island
-                // shapes also carry open-water corridors between the islands).
-                sea.forEach { hex ->
-                    assertTrue(
-                        "$shape sea hex $hex further than ${MapGenerator.SEA_FRINGE} from land",
-                        HexMath.range(hex, MapGenerator.SEA_FRINGE).any { it in land },
-                    )
-                }
-            }
             // Wide enough to be worth sailing (roughly the outer perimeter x2).
             assertTrue("$shape sea too small: ${sea.size}", sea.size >= 30)
+        }
+    }
+
+    @Test
+    fun `the coastal band is complete and inland basins become sea`() {
+        for (shape in MapShape.entries) {
+            val map = generate(shape)
+            val land = map.tiles.filter { it.terrain == Terrain.LAND }.map { it.hex }.toSet()
+            val sea = map.tiles.filter { it.terrain == Terrain.SEA }.map { it.hex }.toSet()
+            val tiles = land + sea
+            val fringe = MapGenerator.seaFringe(MapSize.SMALL)
+
+            // Flood the void from a bounding rim: what it reaches is open tabletop,
+            // what it can't is enclosed by the map.
+            var minQ = Int.MAX_VALUE; var maxQ = Int.MIN_VALUE
+            var minR = Int.MAX_VALUE; var maxR = Int.MIN_VALUE
+            for (hex in tiles) {
+                minQ = minOf(minQ, hex.q); maxQ = maxOf(maxQ, hex.q)
+                minR = minOf(minR, hex.r); maxR = maxOf(maxR, hex.r)
+            }
+            minQ--; maxQ++; minR--; maxR++
+            val outside = HashSet<Hex>()
+            val queue = ArrayDeque<Hex>()
+            fun seed(h: Hex) {
+                if (h.q in minQ..maxQ && h.r in minR..maxR && h !in tiles && outside.add(h)) queue.add(h)
+            }
+            for (q in minQ..maxQ) { seed(Hex.of(q, minR)); seed(Hex.of(q, maxR)) }
+            for (r in minR..maxR) { seed(Hex.of(minQ, r)); seed(Hex.of(maxQ, r)) }
+            while (queue.isNotEmpty()) HexMath.forEachNeighbor(queue.removeFirst()) { seed(it) }
+
+            for (q in minQ..maxQ) {
+                for (r in minR..maxR) {
+                    val hex = Hex.of(q, r)
+                    if (hex in tiles) continue
+                    if (hex in outside) {
+                        // Band completeness: open void never comes within the fringe of land.
+                        assertTrue(
+                            "$shape open void $hex within $fringe of land",
+                            HexMath.range(hex, fringe).none { it in land },
+                        )
+                    } else {
+                        // Enclosed void may only be a land-sealed hole, never an
+                        // unfilled basin bordering the ocean.
+                        assertTrue(
+                            "$shape enclosed void $hex borders the sea",
+                            HexMath.neighbors(hex).none { it in sea },
+                        )
+                    }
+                }
+            }
         }
     }
 

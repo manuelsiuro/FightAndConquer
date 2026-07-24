@@ -113,7 +113,9 @@ HUD anchors line up with picking.
 
 ## Performance envelope
 
-~450 tiles + ~40 baked pieces (66–362 tris each) + pooled overlays ≈ well under
-100 k tris and ~700 draw calls incl. shadow pass — measured 119–120 fps on a
-Galaxy S24. Per-frame CPU extras are a handful of uniform writes (pulse/dim) and
+~450 land tiles + a size-scaled ocean (fringe 3/4/5 + filled inland basins —
+roughly 2 000+ tiles total on a LARGE archipelago) + ~40 baked pieces (66–362
+tris each) + pooled overlays — measured 119.4–120 fps on a Galaxy S24 (sea
+tiles share per-fog-band material instances, so the water adds no per-tile
+uniform traffic). Per-frame CPU extras are a handful of uniform writes (pulse/dim) and
 ≤ ~20 `project()` calls while labels are visible.
