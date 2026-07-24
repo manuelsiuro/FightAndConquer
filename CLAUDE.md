@@ -35,7 +35,9 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
 - **No hardcoded user-facing strings.** Composables use `stringResource`; the
   ViewModel emits `UiText` (resource id + args); engine refusals are
   `RejectionReason` codes mapped in `UiText.kt`. Colors come from `UiColors`
-  (Material scheme derives from it — light-only, no dynamic color).
+  (theme-aware light/dark via `LocalUiColors`, follows the system setting, no
+  dynamic color; faction pastels + `onFaction` + board chips are fixed across
+  themes — never put `ink` on a faction pastel, use `onFaction`).
 
 ## Gotchas
 

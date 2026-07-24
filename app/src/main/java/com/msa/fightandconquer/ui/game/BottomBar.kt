@@ -153,7 +153,7 @@ internal fun BottomBar(
                                 if (state.freshUnitCount == 0) viewModel.endTurn() else confirmEndTurn = true
                             },
                             containerColor = UiColors.faction(state.currentPlayer),
-                            contentColor = UiColors.ink,
+                            contentColor = UiColors.onFaction,
                         ) { Text(stringResource(R.string.hud_end_turn), fontWeight = FontWeight.Bold) }
                     } else {
                         val cancelDescription = stringResource(R.string.cd_cancel_end_turn)
