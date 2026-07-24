@@ -237,7 +237,7 @@
     <!-- Field guide (browsable reference for every unit, building and resource) -->
     <string name="guide_title">Field Guide</string>
     <string name="guide_subtitle">What each unit, building and resource does — and how to use it</string>
-    <string name="guide_menu_entry">Field Guide</string>
+    <string name="guide_menu_entry">Guide</string>
     <string name="guide_close">Close</string>
     <string name="cd_guide_close">Close the field guide</string>
     <string name="cd_guide_open">Open the field guide</string>
@@ -292,4 +292,47 @@
     <string name="guide_how_tree">Blocks the hex\'s income. Move a unit onto it to clear it for a coin bonus, or build a Lumber camp nearby to profit from it. Left alone, forests slowly spread.</string>
     <string name="guide_how_gravestone">Marks where a unit died. It blocks income and grows into a tree after one round.</string>
     <string name="guide_how_cut_off">Land an enemy has severed from your capital. It earns no income and any units on it will starve — reconnect it fast.</string>
+
+    <!-- About -->
+    <string name="about_tagline">A small hex-conquest game, built one turn at a time.</string>
+    <string name="about_version">Version %1$s (build %2$d)</string>
+
+    <string name="about_section_game">About the game</string>
+    <string name="about_game_body">Fight &amp; Conquer is a turn-based strategy game played on a hex map. You earn income from the land you hold, buy soldiers and merge them into stronger ones, wall your borders with towers, and take your neighbours\' territory — all while keeping your treasury out of the red.</string>
+    <string name="about_game_inspiration">It was inspired by Slay, by Sean O\'Connor, and by Antiyoy — two games whose quiet one-more-turn rhythm this one hopes to earn. Fight &amp; Conquer is an independent project, written from scratch, and is not affiliated with or endorsed by either.</string>
+
+    <string name="about_section_credits">Credits</string>
+    <string name="about_credits_author_label">Made by</string>
+    <string name="about_credits_author_name">Manuel Siuro</string>
+    <string name="about_credits_built_label">How it is built</string>
+    <string name="about_credits_built_body">The rules live in a pure-Kotlin engine with no Android dependencies, so a turn plays out identically everywhere. The board is drawn in 3D with Google Filament, the interface is Jetpack Compose, and every piece was modelled low-poly in Blender and baked into the app.</string>
+    <string name="about_credits_note">A one-person hobby project, still young and still growing. Bug reports and ideas are very welcome.</string>
+
+    <string name="about_section_links">Links</string>
+    <string name="about_link_source_label">Source code</string>
+    <string name="about_link_source_value">github.com/manuelsiuro/FightAndConquer</string>
+    <string name="about_link_source_url" translatable="false">https://github.com/manuelsiuro/FightAndConquer</string>
+    <string name="about_link_contact_label">Contact</string>
+    <string name="about_link_contact_value" translatable="false">manuel.siuro@gmail.com</string>
+    <string name="about_link_contact_uri" translatable="false">mailto:manuel.siuro@gmail.com</string>
+    <string name="about_link_unavailable">No app on this device can open that link</string>
+    <string name="cd_about_link_source">Open the project on GitHub</string>
+    <string name="cd_about_link_contact">Email the developer</string>
+    <string name="cd_about_link_license">Read the full Apache License 2.0</string>
+
+    <!-- About: bundled open-source libraries (versions mirror gradle/libs.versions.toml) -->
+    <string name="about_section_licenses">Open-source licenses</string>
+    <string name="about_licenses_intro">Fight &amp; Conquer is built on these open-source projects. Thank you to everyone who writes and maintains them.</string>
+    <string name="about_license_apache2">Apache License 2.0</string>
+    <string name="about_lib_filament">Google Filament 1.73.0</string>
+    <string name="about_lib_filament_use">The real-time 3D renderer that draws the hex board and every piece.</string>
+    <string name="about_lib_kotlin_math">dev.romainguy:kotlin-math 1.5.3</string>
+    <string name="about_lib_kotlin_math_use">Vector and matrix maths behind the camera and touch picking.</string>
+    <string name="about_lib_compose">Jetpack Compose &amp; Material 3</string>
+    <string name="about_lib_compose_use">Every menu, panel and heads-up display in the app.</string>
+    <string name="about_lib_kotlin">Kotlin, kotlinx.serialization &amp; kotlinx.coroutines</string>
+    <string name="about_lib_kotlin_use">The language itself, save-game serialization and off-main-thread work.</string>
+    <string name="about_license_full_text_label">Full license text</string>
+    <string name="about_license_full_text_value">apache.org/licenses/LICENSE-2.0</string>
+    <string name="about_license_url" translatable="false">https://www.apache.org/licenses/LICENSE-2.0</string>
 </resources>

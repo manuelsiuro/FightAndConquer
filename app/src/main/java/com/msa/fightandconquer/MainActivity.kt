@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.msa.fightandconquer.ui.AboutScreen
 import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.MenuScreen
 import com.msa.fightandconquer.ui.PlaceholderScreen
@@ -53,10 +54,7 @@ class MainActivity : ComponentActivity() {
                         title = stringResource(R.string.menu_settings),
                         onBack = viewModel::backToMenu,
                     )
-                    Screen.About -> PlaceholderScreen(
-                        title = stringResource(R.string.menu_about),
-                        onBack = viewModel::backToMenu,
-                    )
+                    Screen.About -> AboutScreen(onBack = viewModel::backToMenu)
                     Screen.Game -> GameScreen(viewModel)
                 }
             }
