@@ -341,6 +341,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         selectedUnit = null; selectedHex = null; banner = null; pendingPactBreak = null
         lastHumanSeat = null
         _visibility.value = null
+        // Synchronous backstop: the finished-game deletion above is async, and
+        // the menu must never offer to continue a game that is already over.
+        if (engine?.state?.value?.phase is GamePhase.Finished) autosaveFile.delete()
         _screen.value = Screen.Menu(autosaveFile.exists())
     }
 
@@ -584,6 +587,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun submit(action: GameAction): LegalityResult {
         val result = engine?.submit(action)
             ?: LegalityResult.Rejected(com.msa.fightandconquer.core.engine.RejectionReason.NO_GAME)
+        // A game can finish mid-turn (capturing the last capital) — the turn-
+        // boundary autosave sites never run then, so the stale resume file
+        // must be dropped here or the menu keeps offering Continue Game.
+        if (engine?.state?.value?.phase is GamePhase.Finished) autosave()
         refreshHud()
         return result
     }
@@ -1289,6 +1296,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
             withContext(Dispatchers.Main.immediate) {
                 aiThinking = false
+                // An AI can win mid-turn; the loop breaks before its turn-end
+                // autosave, so drop the stale resume file (autosave deletes
+                // when the game is finished).
+                if (engine.state.value.phase is GamePhase.Finished) autosave()
                 refreshHud()
             }
         }
