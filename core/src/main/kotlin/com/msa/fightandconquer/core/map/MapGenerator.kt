@@ -63,7 +63,8 @@ object MapGenerator {
         for (hex in land) tiles[hex] = TileDef(hex)
         // Every landmass gets a navigable coastal sea. [MapSize.targetHexes] keeps
         // meaning LAND hexes — sea rides on top.
-        for (hex in seaSurface(land, seaCorridors)) tiles[hex] = TileDef(hex, terrain = Terrain.SEA)
+        val sea = seaSurface(land, seaCorridors)
+        for (hex in sea) tiles[hex] = TileDef(hex, terrain = Terrain.SEA)
         regions.forEachIndexed { player, region ->
             for (hex in region) tiles[hex] = TileDef(hex, owner = player)
         }
@@ -76,6 +77,10 @@ object MapGenerator {
         // Terrain deposits, fair by construction (see MapValidator tripwires).
         val deposits = placeDeposits(rng, land, capitals, protected, params, rules)
         for ((hex, deposit) in deposits) {
+            tiles[hex] = tiles.getValue(hex).copy(deposit = deposit)
+        }
+        // Fish shoals: the sea's own deposit, fair by the same construction.
+        for ((hex, deposit) in placeShoals(rng, sea, land.size, capitals, rules)) {
             tiles[hex] = tiles.getValue(hex).copy(deposit = deposit)
         }
 
@@ -191,6 +196,63 @@ object MapGenerator {
             }
         }
         return deposits
+    }
+
+    /**
+     * Fish shoals on open water, mirroring the gold-vein fairness scheme: every
+     * capital gets its shoal(s) at a common target distance inside its Voronoi
+     * cell (or nobody does), plus contested neutral shoals far from any capital.
+     */
+    private fun placeShoals(
+        rng: Chain,
+        sea: Set<Hex>,
+        landSize: Int,
+        capitals: List<Hex>,
+        rules: RuleConstants,
+    ): Map<Hex, Deposit> {
+        val shoals = HashMap<Hex, Deposit>()
+        if (rules.fishShoalsPerPlayer <= 0 && rules.fishShoalsNeutralPer150Hexes <= 0) return shoals
+
+        fun inCellOf(hex: Hex, capital: Hex): Boolean {
+            val own = HexMath.distance(hex, capital)
+            return capitals.all { it == capital || HexMath.distance(hex, it) > own }
+        }
+
+        fun candidatesNear(capital: Hex, min: Int, max: Int): List<Hex> =
+            sea.filter { hex ->
+                hex !in shoals && HexMath.distance(hex, capital) in min..max && inCellOf(hex, capital)
+            }.sortedBy { it.packed }
+
+        if (rules.fishShoalsPerPlayer > 0) {
+            val band = rules.fishShoalBandMin..rules.fishShoalBandMax
+            val target = band.first + rng.roll(band.last - band.first + 1)
+            val min = maxOf(band.first, target - 1)
+            val max = minOf(band.last, target + 1)
+            if (capitals.all { candidatesNear(it, min, max).size >= rules.fishShoalsPerPlayer }) {
+                for (capital in capitals) {
+                    repeat(rules.fishShoalsPerPlayer) {
+                        val candidates = candidatesNear(capital, min, max)
+                        shoals[candidates[rng.roll(candidates.size)]] = Deposit.FISH_SHOAL
+                    }
+                }
+            }
+        }
+
+        val neutral = landSize / 150 * rules.fishShoalsNeutralPer150Hexes
+        if (neutral > 0) {
+            val floor = maxOf(
+                requiredCapitalDistance(landSize, capitals.size) / 2,
+                rules.fishShoalBandMax + 1,
+            )
+            val open = sea.filter { hex ->
+                hex !in shoals && capitals.minOf { HexMath.distance(hex, it) } >= floor
+            }.sortedBy { it.packed }.toMutableList()
+            repeat(minOf(neutral, open.size)) {
+                val hex = open.removeAt(rng.roll(open.size))
+                shoals[hex] = Deposit.FISH_SHOAL
+            }
+        }
+        return shoals
     }
 
     /** Radius of the per-capital FERTILE fairness zone (also checked by MapValidator). */

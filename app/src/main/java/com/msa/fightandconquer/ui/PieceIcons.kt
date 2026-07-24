@@ -36,10 +36,13 @@ object PieceIcons {
         Building.LUMBER_CAMP -> R.drawable.piece_lumber_camp
         Building.WATCHTOWER -> R.drawable.piece_watchtower
         Building.PORT -> R.drawable.piece_port
+        Building.FISHERY -> R.drawable.piece_fishery
+        Building.BRIDGE -> R.drawable.piece_bridge
     }
 
     val tree = R.drawable.piece_tree
     val gravestone = R.drawable.piece_gravestone
     val goldVein = R.drawable.piece_gold_vein
     val fertile = R.drawable.piece_fertile
+    val fishShoal = R.drawable.piece_fish_shoal
 }

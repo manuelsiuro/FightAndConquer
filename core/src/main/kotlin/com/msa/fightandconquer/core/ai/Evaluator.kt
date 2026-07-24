@@ -47,7 +47,7 @@ object Evaluator {
                             Deposit.GOLD_VEIN ->
                                 if (tile.building == Building.MINE) myVeinsWithMine++ else myVeins++
                             Deposit.FERTILE -> myFertile++
-                            null -> {}
+                            Deposit.FISH_SHOAL, null -> {} // shoals live at sea, valued via FISHERY
                         }
                         when (tile.building) {
                             Building.MARKET ->
@@ -56,6 +56,8 @@ object Evaluator {
                                 buildingScore += 3.0 + 1.5 * min(adjacentOwnTrees(state, hex, me), 4)
                             Building.WATCHTOWER -> myWatchtowers++
                             Building.PORT -> myPorts++
+                            Building.FISHERY ->
+                                buildingScore += 2.0 + 1.5 * min(adjacentShoals(state, hex), 3)
                             else -> {}
                         }
                     }
@@ -171,6 +173,19 @@ object Evaluator {
         com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
             val t = state.tiles[n]
             if (t != null && t.owner == me && !t.starving && t.flora == null) count++
+        }
+        return count
+    }
+
+    private fun adjacentShoals(state: GameState, hex: com.msa.fightandconquer.core.hex.Hex): Int {
+        var count = 0
+        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
+            val t = state.tiles[n]
+            if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                t.deposit == Deposit.FISH_SHOAL
+            ) {
+                count++
+            }
         }
         return count
     }

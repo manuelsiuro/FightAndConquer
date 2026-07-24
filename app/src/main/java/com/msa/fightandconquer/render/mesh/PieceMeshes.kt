@@ -14,9 +14,9 @@ enum class PieceKind {
     ARCHER, CATAPULT,
     BOAT, WARSHIP,
     CAPITAL, FARM, TOWER, STRONG_TOWER,
-    MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT,
+    MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT, FISHERY, BRIDGE,
     TREE, GRAVESTONE,
-    GOLD_VEIN, FERTILE,
+    GOLD_VEIN, FERTILE, FISH_SHOAL,
 }
 
 /**
@@ -356,6 +356,69 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
             Part(up(Primitives.boxAt(-0.08f, -0.11f, 0.006f, 0.12f, 0.006f, baseY = 0.20f)), ColorRole.PIP),
         )
 
+        // Fishery: stilt hut + faction roof + net rack + gold catch.
+        PieceKind.FISHERY -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, -0.02f, 0.14f, 0.025f, 0.11f, baseY = 0.07f) // platform
+                        boxInto(0.03f, 0.03f, 0.08f, 0.10f, 0.065f, baseY = 0.095f) // hut
+                        boxInto(-0.11f, -0.09f, 0.012f, 0.15f, 0.012f, baseY = 0.095f) // rack post
+                        boxInto(0.11f, -0.09f, 0.012f, 0.15f, 0.012f, baseY = 0.095f)
+                        boxInto(0f, -0.09f, 0.12f, 0.012f, 0.012f, baseY = 0.235f) // rack bar
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.wedgeAt(0.03f, 0.03f, 0.095f, 0.075f, 0.07f, baseY = 0.195f)), ColorRole.FACTION),
+            Part(up(Primitives.boxAt(0f, -0.09f, 0.11f, 0.045f, 0.003f, baseY = 0.14f)), ColorRole.PIP),
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.018f, 0.03f, 6, baseY = 0.185f, cx = -0.05f, cz = -0.095f)
+                        cylinderInto(0.018f, 0.03f, 6, baseY = 0.175f, cx = 0.04f, cz = -0.095f)
+                    }
+                },
+                ColorRole.GOLD,
+            ),
+        )
+
+        // Bridge: timber deck on stone pylons + railings + faction pennant.
+        // Authored along Z; runtime yaw points it at the connected shores.
+        PieceKind.BRIDGE -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0f, 0.08f, 0.035f, 0.42f, baseY = 0.085f) // deck
+                        boxInto(0f, 0f, 0.09f, 0.045f, 0.15f, baseY = 0.08f) // camber
+                        cylinderInto(0.008f, 0.14f, 6, baseY = 0.12f) // pennant mast
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        for (cz in floatArrayOf(-0.26f, 0.26f)) {
+                            boxInto(-0.07f, cz, 0.035f, 0.085f, 0.035f)
+                            boxInto(0.07f, cz, 0.035f, 0.085f, 0.035f)
+                        }
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.07f, 0f, 0.006f, 0.014f, 0.39f, baseY = 0.155f)
+                        boxInto(0.07f, 0f, 0.006f, 0.014f, 0.39f, baseY = 0.155f)
+                    }
+                },
+                ColorRole.PIP,
+            ),
+            Part(up(Primitives.pennant(attachX = 0.008f, topY = 0.26f, drop = 0.04f, length = 0.08f)), ColorRole.FACTION),
+        )
+
         // Tree + gravestone.
         PieceKind.TREE -> listOf(
             Part(up(Primitives.cylinder(0.05f, 0.16f, 7)), ColorRole.TRUNK),
@@ -402,6 +465,30 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
                 ColorRole.TREE_FOLIAGE,
             ),
             Part(up(Primitives.cylinder(0.045f, 0.035f, 6, cx = 0.05f, cz = -0.05f)), ColorRole.TRUNK),
+        )
+        // Fish shoal: leaping fins + ripple rings at the hex edge (sea deposit).
+        PieceKind.FISH_SHOAL -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.055f, 0.008f, 10, cx = 0.22f, cz = 0.10f)
+                        cylinderInto(0.045f, 0.008f, 10, cx = 0.06f, cz = -0.25f)
+                        cylinderInto(0.05f, 0.008f, 10, cx = -0.21f, cz = 0.13f)
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0.22f, 0.10f, 0.006f, 0.05f, 0.025f)
+                        boxInto(0.06f, -0.25f, 0.006f, 0.04f, 0.02f)
+                        boxInto(-0.21f, 0.13f, 0.006f, 0.045f, 0.022f)
+                    }
+                },
+                ColorRole.PIP,
+            ),
+            Part(up(Primitives.cylinder(0.02f, 0.03f, 6, cx = -0.04f, cz = 0.24f)), ColorRole.GOLD),
         )
     }
 }

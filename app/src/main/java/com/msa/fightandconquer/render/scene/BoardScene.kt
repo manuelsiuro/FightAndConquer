@@ -118,6 +118,8 @@ class BoardScene(
         var scale: Float = 1f,
         var yOffset: Float = 0f,
         var xz: Pair<Float, Float>? = null, // non-null while hopping between hexes
+        /** Y-rotation in radians (bridges orient toward their connected shores). */
+        var yaw: Float = 0f,
     ) {
         /** View-only mirror of GameUnit.spent: spent units render darker. */
         var dimmed = false
@@ -152,7 +154,7 @@ class BoardScene(
             for (entity in entities) {
                 var ti = tm.getInstance(entity)
                 if (ti == 0) ti = tm.create(entity)
-                tm.setTransform(ti, Transforms.trs(x, y, z, scale = scale))
+                tm.setTransform(ti, Transforms.trs(x, y, z, angleYRadians = yaw, scale = scale))
             }
         }
     }
@@ -676,6 +678,7 @@ class BoardScene(
             is GameEvent.BuildingBuilt -> {
                 val owner = latestState.tiles[event.hex]?.owner?.value
                 val piece = createPiece(buildingKind(event.building), event.hex, owner)
+                if (piece.kind == PieceKind.BRIDGE) piece.yaw = bridgeYaw(event.hex)
                 buildingPieces[event.hex] = piece
                 spawnBounce(piece)
                 if (!isFogged(event.hex)) rumbleTime = 0f // no juice for unseen builds
@@ -976,6 +979,34 @@ class BoardScene(
         Building.LUMBER_CAMP -> PieceKind.LUMBER_CAMP
         Building.WATCHTOWER -> PieceKind.WATCHTOWER
         Building.PORT -> PieceKind.PORT
+        Building.FISHERY -> PieceKind.FISHERY
+        Building.BRIDGE -> PieceKind.BRIDGE
+    }
+
+    /**
+     * A bridge deck (authored along Z) turns toward its first LAND or BRIDGE
+     * neighbor — a pure function of the board, so create and reconcile always
+     * agree and the yaw never counts as a correction.
+     */
+    private fun bridgeYaw(hex: Hex): Float {
+        var yaw = 0f
+        var found = false
+        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
+            if (!found) {
+                val t = latestState.tiles[n]
+                if (t != null && (
+                        t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND ||
+                            t.building == Building.BRIDGE
+                        )
+                ) {
+                    val dx = HexWorld.centerX(n) - HexWorld.centerX(hex)
+                    val dz = HexWorld.centerZ(n) - HexWorld.centerZ(hex)
+                    yaw = kotlin.math.atan2(dx, dz)
+                    found = true
+                }
+            }
+        }
+        return yaw
     }
 
     private fun tileTopY(hex: Hex): Float = (tiles[hex]?.y ?: 0f) + Primitives.HEX_HEIGHT
@@ -1156,6 +1187,7 @@ class BoardScene(
             when (tile.deposit) {
                 com.msa.fightandconquer.core.model.Deposit.GOLD_VEIN -> PieceKind.GOLD_VEIN
                 com.msa.fightandconquer.core.model.Deposit.FERTILE -> PieceKind.FERTILE
+                com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL -> PieceKind.FISH_SHOAL
                 null -> null
             }
         }
@@ -1189,7 +1221,12 @@ class BoardScene(
             val piece = pieces[hex]
             if (piece == null || piece.kind != kind) {
                 piece?.let { destroyPiece(it) }
-                pieces[hex] = createPiece(kind, hex, tile.owner?.value)
+                val fresh = createPiece(kind, hex, tile.owner?.value)
+                if (kind == PieceKind.BRIDGE) {
+                    fresh.yaw = bridgeYaw(hex)
+                    fresh.updateTransform()
+                }
+                pieces[hex] = fresh
                 if (piece != null) corrections++
             } else if (piece.scale != 1f) {
                 piece.scale = 1f

@@ -19,12 +19,14 @@ class SeaMapTest {
             val map = generate(shape)
             val sea = map.tiles.filter { it.terrain == Terrain.SEA }
             assertTrue("$shape should have sea", sea.isNotEmpty())
-            // Sea is bare: no owner, buildings, flora or deposits.
+            // Sea is bare: no owner, buildings or flora — fish shoals only.
             sea.forEach {
                 assertEquals(null, it.owner)
                 assertEquals(null, it.building)
                 assertEquals(null, it.flora)
-                assertEquals(null, it.deposit)
+                if (it.deposit != null) {
+                    assertEquals(com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL, it.deposit)
+                }
             }
         }
     }
@@ -61,7 +63,9 @@ class SeaMapTest {
                 assertEquals("$shape capital on land", Terrain.LAND, landByHex.getValue(it).terrain)
             }
             map.tiles.forEach {
-                if (it.deposit != null || it.flora != null || it.owner != null) {
+                val landFeature = it.flora != null || it.owner != null ||
+                    (it.deposit != null && it.deposit != com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL)
+                if (landFeature) {
                     assertEquals("$shape features on land only", Terrain.LAND, it.terrain)
                 }
             }

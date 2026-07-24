@@ -116,6 +116,18 @@ data class RuleConstants(
     val warshipMoveRange: Int = 3,
     val portCost: Int = 20,
     val portIncome: Int = 2,
+    val fisheryCost: Int = 18,
+    /** Fishery income per adjacent FISH_SHOAL sea hex. */
+    val fisheryShoalIncome: Int = 3,
+    val fisheryShoalCap: Int = 3,
+    /** Flat cost per bridge hex (chains grow hex by hex; no income, no upkeep). */
+    val bridgeCost: Int = 15,
+    /** Fair fish shoals near each capital's coast (0 disables). */
+    val fishShoalsPerPlayer: Int = 1,
+    val fishShoalBandMin: Int = 2,
+    val fishShoalBandMax: Int = 6,
+    /** Contested neutral shoals in open water, per 150 land hexes. */
+    val fishShoalsNeutralPer150Hexes: Int = 1,
 
     // --- Diplomacy (expansion) ---
     val diplomacyEnabled: Boolean = true,

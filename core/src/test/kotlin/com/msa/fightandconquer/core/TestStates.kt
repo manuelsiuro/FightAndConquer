@@ -163,12 +163,20 @@ object TestStates {
                 assertEquals("units map entry for tile $hex", hex, state.units[id]?.hex)
             }
             if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
-                // Open sea stays neutral and bare; only a bridge makes a sea hex ownable.
+                // Open sea stays neutral and bare; only a bridge makes a sea hex
+                // ownable (and, like any territory, cut-off-able).
                 if (tile.building == null) {
                     assertEquals("open sea $hex is never owned", null, tile.owner)
+                    assertTrue("open sea $hex never starves", !tile.starving)
                 }
                 assertEquals("no flora at sea: $hex", null, tile.flora)
-                assertTrue("sea $hex never starves", !tile.starving)
+                if (tile.deposit != null) {
+                    assertEquals(
+                        "only shoals at sea: $hex",
+                        com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL,
+                        tile.deposit,
+                    )
+                }
             }
         }
         for (player in state.players) {

@@ -151,6 +151,7 @@ data class ShopInfo(
     val transportUpkeep: Int = 4,
     val warshipUpkeep: Int = 8,
     val portIncome: Int = 2,
+    val fisheryIncomeMax: Int = 9,
 )
 
 data class HudState(
@@ -680,6 +681,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         var marketCount = 0; var marketTotal = 0
         var campCount = 0; var campTotal = 0
         var portCount = 0; var portTotal = 0
+        var fisheryCount = 0; var fisheryTotal = 0
         // Mirrors Rules.incomeFrom exactly so the panel rows always sum to `income`.
         for ((hex, tile) in state.tiles) {
             if (tile.owner != me) continue
@@ -714,6 +716,19 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     campTotal += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
                 }
                 Building.PORT -> { portCount++; portTotal += rules.portIncome }
+                Building.FISHERY -> {
+                    fisheryCount++
+                    var shoals = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = state.tiles[n]
+                        if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+                        ) {
+                            shoals++
+                        }
+                    }
+                    fisheryTotal += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
+                }
                 else -> {}
             }
         }
@@ -728,6 +743,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 .takeIf { campCount > 0 },
             IncomeRow(R.string.building_port, portCount, portTotal, PieceIcons.building(Building.PORT))
                 .takeIf { portCount > 0 },
+            IncomeRow(R.string.building_fishery, fisheryCount, fisheryTotal, PieceIcons.building(Building.FISHERY))
+                .takeIf { fisheryCount > 0 },
         )
         // Cargo riding a transport still pays its own upkeep — count it with its
         // tier so the rows keep summing exactly to `upkeep`.
@@ -1136,6 +1153,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     ownerIndex,
                     iconRes = PieceIcons.building(building),
                 )
+                Building.FISHERY -> InfoCard(
+                    UiText.of(R.string.building_fishery),
+                    UiText.of(R.string.info_fishery),
+                    listOf(
+                        InfoStat(
+                            UiText.of(R.string.info_stat_income),
+                            UiText.of(
+                                R.string.info_value_income_max,
+                                rules.fisheryShoalIncome * rules.fisheryShoalCap,
+                            ),
+                        ),
+                    ),
+                    ownerIndex,
+                    iconRes = PieceIcons.building(building),
+                )
+                Building.BRIDGE -> InfoCard(
+                    UiText.of(R.string.building_bridge),
+                    UiText.of(R.string.info_bridge),
+                    factionIndex = ownerIndex,
+                    iconRes = PieceIcons.building(building),
+                )
             }
         }
         when (tile.flora) {
@@ -1179,6 +1217,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                 ),
                 iconRes = PieceIcons.fertile,
+            )
+            com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL -> return InfoCard(
+                UiText.of(R.string.piece_fish_shoal),
+                UiText.of(R.string.info_fish_shoal),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_income),
+                        UiText.of(R.string.info_value_income, rules.fisheryShoalIncome),
+                    ),
+                ),
+                iconRes = PieceIcons.fishShoal,
             )
             null -> {}
         }
@@ -1308,6 +1357,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 transportUpkeep = rules.transportUpkeep,
                 warshipUpkeep = rules.warshipUpkeep,
                 portIncome = rules.portIncome,
+                fisheryIncomeMax = rules.fisheryShoalIncome * rules.fisheryShoalCap,
             ),
         )
         // Live panels track every buy/move/undo.

@@ -39,11 +39,17 @@ object MapValidator {
         }
 
         // Sea contract: neutral, empty and navigable as one body of water.
+        // FISH_SHOAL is the one deposit that belongs there.
         map.tiles.filter { it.terrain == Terrain.SEA }.forEach { tile ->
             if (tile.owner != null) violations.add("sea tile ${tile.hex} has an owner")
             if (tile.building != null) violations.add("sea tile ${tile.hex} has a building")
             if (tile.flora != null) violations.add("sea tile ${tile.hex} has flora")
-            if (tile.deposit != null) violations.add("sea tile ${tile.hex} has a land deposit")
+            if (tile.deposit != null && tile.deposit != Deposit.FISH_SHOAL) {
+                violations.add("sea tile ${tile.hex} has a land deposit")
+            }
+        }
+        if (map.tiles.any { it.terrain == Terrain.LAND && it.deposit == Deposit.FISH_SHOAL }) {
+            violations.add("fish shoal on land")
         }
         if (sea.isNotEmpty()) {
             val seaComponents = HexMath.connectedComponents(sea)
@@ -103,6 +109,13 @@ object MapValidator {
                 val nearest = map.capitals.map { c -> veins.minOf { HexMath.distance(c, it) } }
                 if (nearest.max() - nearest.min() > 2) {
                     violations.add("unfair gold veins: nearest distances $nearest")
+                }
+            }
+            val shoals = map.tiles.filter { it.deposit == Deposit.FISH_SHOAL }.map { it.hex }
+            if (shoals.isNotEmpty()) {
+                val nearest = map.capitals.map { c -> shoals.minOf { HexMath.distance(c, it) } }
+                if (nearest.max() - nearest.min() > 2) {
+                    violations.add("unfair fish shoals: nearest distances $nearest")
                 }
             }
             val fertile = map.tiles.filter { it.deposit == Deposit.FERTILE }.map { it.hex }

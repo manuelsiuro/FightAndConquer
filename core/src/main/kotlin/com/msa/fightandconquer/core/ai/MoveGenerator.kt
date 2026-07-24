@@ -274,6 +274,22 @@ object MoveGenerator {
                         .take(2)
                         .forEach { out.add(GameAction.BuyBuilding(BuildingType.PORT, it.key)) }
                 }
+                // Fisheries where shoals glitter off the coast.
+                if (treasury >= rules.fisheryCost + 10) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null && tile.deposit == null &&
+                                HexMath.neighbors(hex).any {
+                                    val t = state.tiles[it]
+                                    t?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                                        t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+                                }
+                        }
+                        .sortedBy { it.key.packed }
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.FISHERY, it.key)) }
+                }
                 // Warships answer visible enemy boats (the -4/boat evaluator term
                 // makes the hunt worthwhile once one is afloat).
                 if (treasury >= rules.warshipCost) {

@@ -206,6 +206,22 @@ object Legality {
         val cost = Rules.buildingCost(state, state.currentPlayer, action.type)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)
         val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)
+        // The BRIDGE is the one building placed ON open sea: unoccupied water
+        // adjacent to an own non-starving land or bridge hex (chains grow hex
+        // by hex from your shore).
+        if (action.type == BuildingType.BRIDGE) {
+            if (!state.config.rules.navalEnabled) return reject(RejectionReason.NAVAL_DISABLED)
+            if (tile.terrain != Terrain.SEA) return reject(RejectionReason.REQUIRES_SEA)
+            if (tile.building != null) return reject(RejectionReason.HEX_HAS_BUILDING)
+            if (tile.unit != null) return reject(RejectionReason.HEX_HAS_UNIT)
+            val anchored = HexMath.neighbors(action.at).any {
+                val t = state.tiles[it]
+                t?.owner == state.currentPlayer && !t.starving &&
+                    (t.terrain == Terrain.LAND || t.building == Building.BRIDGE)
+            }
+            if (!anchored) return reject(RejectionReason.NOT_ADJACENT_TO_TERRITORY)
+            return LegalityResult.Ok
+        }
         if (tile.terrain == Terrain.SEA) return reject(RejectionReason.SEA_IMPASSABLE)
         if (tile.owner != state.currentPlayer) return reject(RejectionReason.NOT_YOUR_HEX)
         // Expedition rule: a PORT may be founded on a cut-off (starving) OVERSEAS
@@ -230,6 +246,14 @@ object Legality {
                 state.tiles[it]?.terrain == Terrain.SEA
             }
             if (!coastal) return reject(RejectionReason.REQUIRES_COAST)
+        }
+        if (action.type == BuildingType.FISHERY) {
+            if (!state.config.rules.navalEnabled) return reject(RejectionReason.NAVAL_DISABLED)
+            val shoal = HexMath.neighbors(action.at).any {
+                val t = state.tiles[it]
+                t?.terrain == Terrain.SEA && t.deposit == Deposit.FISH_SHOAL
+            }
+            if (!shoal) return reject(RejectionReason.BUILDING_NEEDS_DEPOSIT)
         }
         if (action.type == BuildingType.MINE && tile.deposit != Deposit.GOLD_VEIN) {
             return reject(RejectionReason.BUILDING_NEEDS_DEPOSIT)

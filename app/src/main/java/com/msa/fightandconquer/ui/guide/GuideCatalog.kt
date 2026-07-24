@@ -227,6 +227,23 @@ object GuideCatalog {
         requirementRes = R.string.guide_req_port_coast,
         stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 2)),
     )
+    private val fishery = GuideEntry(
+        id = "building_fishery",
+        iconRes = PieceIcons.building(Building.FISHERY),
+        nameRes = R.string.building_fishery,
+        descRes = R.string.info_fishery,
+        howToRes = R.string.guide_how_fishery,
+        requirementRes = R.string.guide_req_fishery,
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income_max, 9)),
+    )
+    private val bridge = GuideEntry(
+        id = "building_bridge",
+        iconRes = PieceIcons.building(Building.BRIDGE),
+        nameRes = R.string.building_bridge,
+        descRes = R.string.info_bridge,
+        howToRes = R.string.guide_how_bridge,
+        requirementRes = R.string.guide_req_bridge,
+    )
     private val capital = GuideEntry(
         id = "building_capital",
         iconRes = PieceIcons.building(Building.CAPITAL),
@@ -238,7 +255,7 @@ object GuideCatalog {
 
     private val buildings = GuideSection(
         R.string.guide_section_buildings,
-        listOf(capital, farm, tower, castle, mine, market, lumberCamp, watchtower, port),
+        listOf(capital, farm, tower, castle, mine, market, lumberCamp, watchtower, port, fishery, bridge),
     )
 
     private val resources = GuideSection(
@@ -266,6 +283,14 @@ object GuideCatalog {
                 descRes = R.string.info_tree,
                 howToRes = R.string.guide_how_tree,
                 stats = listOf(GuideStat(R.string.info_stat_clear_bonus, R.string.info_value_coins, 3)),
+            ),
+            GuideEntry(
+                id = "res_fish_shoal",
+                iconRes = PieceIcons.fishShoal,
+                nameRes = R.string.piece_fish_shoal,
+                descRes = R.string.info_fish_shoal,
+                howToRes = R.string.guide_how_fish_shoal,
+                stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 3)),
             ),
             GuideEntry(
                 id = "res_gravestone",
@@ -296,6 +321,8 @@ object GuideCatalog {
         BuildingType.LUMBER_CAMP -> lumberCamp
         BuildingType.WATCHTOWER -> watchtower
         BuildingType.PORT -> port
+        BuildingType.FISHERY -> fishery
+        BuildingType.BRIDGE -> bridge
     }
 
     /** The guide entry for a purchasable unit (all soldier tiers share one entry). */

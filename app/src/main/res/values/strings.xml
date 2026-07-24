@@ -77,6 +77,7 @@
     <string name="shop_income_up_to">up to +%d/turn</string>
     <string name="shop_defense">Def %d</string>
     <string name="shop_vision">Sees %d</string>
+    <string name="shop_walkway">Troop walkway</string>
     <string name="cd_purchase_card">%1$s, costs %2$d coins</string>
     <string name="cd_purchase_unaffordable">%1$s, costs %2$d coins — not affordable</string>
 
@@ -98,10 +99,13 @@
     <string name="building_lumber_camp">Lumber camp</string>
     <string name="building_watchtower">Watchtower</string>
     <string name="building_port">Port</string>
+    <string name="building_fishery">Fishery</string>
+    <string name="building_bridge">Bridge</string>
     <string name="piece_tree">Tree</string>
     <string name="piece_gravestone">Gravestone</string>
     <string name="piece_gold_vein">Gold vein</string>
     <string name="piece_fertile">Fertile ground</string>
+    <string name="piece_fish_shoal">Fish shoal</string>
     <string name="tile_cut_off">Cut-off territory</string>
     <string name="tile_sea">Open sea</string>
 
@@ -129,6 +133,9 @@
     <string name="info_lumber_camp">Harvests nearby forest — its trees never spread</string>
     <string name="info_watchtower">Extends vision through the fog</string>
     <string name="info_port">Harbor — builds boats on adjacent sea and supplies overseas colonies</string>
+    <string name="info_fishery">Harvests the fish shoals in its neighboring waters</string>
+    <string name="info_bridge">A walkway over the sea — troops cross it, boats cannot pass under it</string>
+    <string name="info_fish_shoal">Teeming waters — a coastal Fishery next to it earns from every shoal</string>
     <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
     <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
     <string name="info_stat_vision">Vision</string>
@@ -312,6 +319,11 @@
     <string name="guide_req_watchtower">Fog of War games only</string>
     <string name="guide_how_port">Build it on your coast. It opens the shipyard (boats are bought on adjacent sea), pays a little trade income, and — built overseas — feeds a whole colony that has no path to your capital. Lose the port and the colony starves.</string>
     <string name="guide_req_port_coast">On your own coast, next to the sea</string>
+    <string name="guide_how_fishery">Build it on your coast beside fish shoals — it earns from every adjacent shoal (up to three). The shoals are permanent; guard the coast and the coins keep coming.</string>
+    <string name="guide_req_fishery">On your coast, next to fish shoals</string>
+    <string name="guide_how_bridge">Buy it on a sea hex touching your land, then keep going — each span extends the chain. Troops walk it like a road (regions connect across it!), boats are blocked by it, and enemies can storm and keep it. Warship bombardment drops it back into the sea.</string>
+    <string name="guide_req_bridge">On sea, touching your land or bridge</string>
+    <string name="guide_how_fish_shoal">The sea\'s gold vein. Capture the nearest coast and build a Fishery next to the shoal to harvest it.</string>
     <string name="guide_desc_capital">The heart of your empire.</string>
     <string name="guide_how_capital">It defends its own hex and neighbours. If an enemy captures it they loot half your treasury and it relocates to your largest region — losing your last territory loses the game.</string>
 

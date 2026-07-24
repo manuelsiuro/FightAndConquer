@@ -278,6 +278,8 @@ private fun PurchaseCard(
             BuildingType.LUMBER_CAMP -> R.string.building_lumber_camp
             BuildingType.WATCHTOWER -> R.string.building_watchtower
             BuildingType.PORT -> R.string.building_port
+            BuildingType.FISHERY -> R.string.building_fishery
+            BuildingType.BRIDGE -> R.string.building_bridge
         }
     }
     val iconRes = when (option) {
@@ -304,6 +306,8 @@ private fun PurchaseCard(
             BuildingType.LUMBER_CAMP -> stringResource(R.string.shop_income_up_to, shop.lumberCampIncomeMax)
             BuildingType.WATCHTOWER -> stringResource(R.string.shop_vision, shop.watchtowerVision)
             BuildingType.PORT -> stringResource(R.string.shop_income_per_turn, shop.portIncome)
+            BuildingType.FISHERY -> stringResource(R.string.shop_income_up_to, shop.fisheryIncomeMax)
+            BuildingType.BRIDGE -> stringResource(R.string.shop_walkway)
         }
     }
     val name = stringResource(nameRes)

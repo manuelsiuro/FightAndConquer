@@ -56,8 +56,11 @@ object Reducer {
         }
 
         val isCapture = action.to in reach.captureTargets
+        // Open water only: a BRIDGE hex is land-like — storming it is a capture.
+        val destTile = state.tiles.getValue(action.to)
         val navalStrike = isCapture &&
-            state.tiles.getValue(action.to).terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+            destTile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+            destTile.building != com.msa.fightandconquer.core.model.Building.BRIDGE
 
         // Leave the origin hex.
         b.updateTile(unit.hex) { it.copy(unit = null) }
@@ -110,7 +113,11 @@ object Reducer {
         target.unit?.let { b.killUnit(it, DeathCause.KILLED) }
         val building = target.building
         if (building != null && building != com.msa.fightandconquer.core.model.Building.CAPITAL) {
-            b.updateTile(action.target) { it.copy(building = null) }
+            // A bombarded bridge collapses back into open neutral water.
+            val bridge = building == com.msa.fightandconquer.core.model.Building.BRIDGE
+            b.updateTile(action.target) {
+                it.copy(building = null, owner = if (bridge) null else it.owner, starving = false)
+            }
             b.events.add(GameEvent.BuildingDestroyed(action.target, building))
         }
         b.units[ship.id] = ship.copy(spent = true)
@@ -162,6 +169,16 @@ object Reducer {
         val buyer = state.currentPlayer
         val cost = Rules.buildingCost(state, buyer, action.type)
         b.updatePlayer(buyer) { it.copy(treasury = it.treasury - cost) }
+        if (action.type == com.msa.fightandconquer.core.model.BuildingType.BRIDGE) {
+            // The span claims its water: the sea hex becomes owned, walkable
+            // ground — regions may just have joined across it.
+            b.updateTile(action.at) {
+                it.copy(owner = buyer, building = action.type.building, starving = false)
+            }
+            b.events.add(GameEvent.BuildingBuilt(action.at, action.type.building))
+            b.recomputeStarving()
+            return
+        }
         b.updateTile(action.at) { it.copy(building = action.type.building) }
         b.events.add(GameEvent.BuildingBuilt(action.at, action.type.building))
         // Expedition rule: a new PORT feeds its region the moment it opens.
@@ -240,7 +257,13 @@ object Reducer {
         }
         for ((hex, tile) in b.tiles.entries.toList()) {
             if (tile.owner == quitter) {
-                b.tiles[hex] = tile.copy(owner = null, building = null, starving = false)
+                // Bridges outlive their builder (neutral, walk-on capturable).
+                val bridge = tile.building == com.msa.fightandconquer.core.model.Building.BRIDGE
+                b.tiles[hex] = tile.copy(
+                    owner = null,
+                    building = if (bridge) tile.building else null,
+                    starving = false,
+                )
             }
         }
         b.updatePlayer(quitter) { it.copy(eliminated = true, capital = null) }

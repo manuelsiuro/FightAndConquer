@@ -122,7 +122,8 @@ object Rules {
         Building.STRONG_TOWER -> state.config.rules.strongTowerDefense
         Building.CAPITAL -> state.config.rules.capitalDefense
         Building.FARM, Building.MINE, Building.MARKET,
-        Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT, null,
+        Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT,
+        Building.FISHERY, Building.BRIDGE, null,
         -> 0
     }
 
@@ -151,7 +152,9 @@ object Rules {
         val embark = HashSet<Hex>()
         for (hex in region) {
             val tile = state.tiles.getValue(hex)
-            if (hex != unit.hex && tile.building == null && inRange(hex)) {
+            // A bridge is the one stand-able building: troops walk and hold it.
+            val standable = tile.building == null || tile.building == Building.BRIDGE
+            if (hex != unit.hex && standable && inRange(hex)) {
                 val occupant = state.unitAt(hex)
                 when {
                     occupant == null -> move.add(hex)
@@ -165,8 +168,10 @@ object Rules {
                     when {
                         neighborTile == null -> {}
                         // Open sea is never capturable by land units — but an own
-                        // empty transport floating there can be boarded.
-                        neighborTile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA -> {
+                        // empty transport floating there can be boarded, and an
+                        // enemy/neutral BRIDGE hex is dry ground to storm.
+                        neighborTile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                            neighborTile.building != Building.BRIDGE -> {
                             if (n !in embark && rules.navalEnabled) {
                                 val boat = state.unitAt(n)
                                 if (boat != null && boat.owner == unit.owner &&
@@ -261,6 +266,8 @@ object Rules {
             com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> state.config.rules.lumberCampCost
             com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> state.config.rules.watchtowerCost
             com.msa.fightandconquer.core.model.BuildingType.PORT -> state.config.rules.portCost
+            com.msa.fightandconquer.core.model.BuildingType.FISHERY -> state.config.rules.fisheryCost
+            com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> state.config.rules.bridgeCost
         }
 
     /** Income the player will collect at turn start: producing hexes, deposits, buildings. */
@@ -307,6 +314,18 @@ object Rules {
                     income += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
                 }
                 Building.PORT -> income += rules.portIncome
+                Building.FISHERY -> {
+                    var shoals = 0
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = tiles[n]
+                        if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+                        ) {
+                            shoals++
+                        }
+                    }
+                    income += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
+                }
                 else -> {}
             }
         }
@@ -346,7 +365,7 @@ object Rules {
                     addRange(hex, rules.visionRadiusBuilding)
                 Building.WATCHTOWER -> addRange(hex, rules.watchtowerVisionRadius)
                 Building.FARM, Building.MINE, Building.MARKET, Building.LUMBER_CAMP,
-                Building.PORT, null,
+                Building.PORT, Building.FISHERY, Building.BRIDGE, null,
                 -> {}
             }
         }

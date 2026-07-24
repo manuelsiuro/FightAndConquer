@@ -49,6 +49,11 @@ class LegacySaveTest {
         "transportCost", "transportUpkeep", "transportMoveRange",
         "warshipCost", "warshipUpkeep", "warshipStrength", "warshipMoveRange",
         "portCost", "portIncome",
+        // RuleConstants (naval expansion, phase 3)
+        "fisheryCost", "fisheryShoalIncome", "fisheryShoalCap",
+        "bridgeCost",
+        "fishShoalsPerPlayer", "fishShoalBandMin", "fishShoalBandMax",
+        "fishShoalsNeutralPer150Hexes",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

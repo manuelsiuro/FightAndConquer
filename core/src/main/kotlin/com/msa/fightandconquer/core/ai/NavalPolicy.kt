@@ -146,6 +146,29 @@ internal object NavalPolicy {
                 val action = GameAction.BuyUnit(target.second + 1, target.first)
                 if (Legality.check(state, action) is LegalityResult.Ok) return action
             }
+            // Bridge shortcut: a single span from our shore to foreign land turns
+            // the war chest into a permanent land route — cheaper than a ferry.
+            val strait = state.tiles.entries
+                .filter { (hex, tile) ->
+                    tile.terrain == Terrain.SEA && tile.building == null && tile.unit == null &&
+                        HexMath.neighbors(hex).any {
+                            val t = state.tiles[it]
+                            t?.owner == me && !t.starving && t.terrain == Terrain.LAND
+                        } &&
+                        HexMath.neighbors(hex).any {
+                            val t = state.tiles[it]
+                            t != null && t.terrain == Terrain.LAND && t.owner != me &&
+                                t.owner !in partners
+                        }
+                }
+                .minByOrNull { it.key.packed }?.key
+            if (strait != null) {
+                val action = GameAction.BuyBuilding(
+                    com.msa.fightandconquer.core.model.BuildingType.BRIDGE,
+                    strait,
+                )
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
             // No enemy in reach? Reclaim the overgrown economy instead: the greedy
             // loop refuses peasants-on-trees whenever net income is negative, and
             // a fully forested kingdom is exactly how it ends up idle and rich.
@@ -226,6 +249,37 @@ internal object NavalPolicy {
                     t != null && t.owner == me && t.unit == null && t.building == null
                 }
                 sailToward(state, boat, landable)?.let { return it }
+            }
+        }
+
+        // 2c. Sea control (HARD only): enemy ferries on the water are an
+        //     invasion in progress — the greedy loop never buys the warship
+        //     (upkeep repels its one-ply evaluator before any sink pays off),
+        //     so interdiction is a threshold decision. One hunter, kept on the
+        //     prey's wake; the greedy loop lands the actual kill (+4/boat term).
+        //     Kept off NORMAL: symmetric interdiction wars drag mirrors past
+        //     every termination bound — this is Hard's edge, not the default.
+        if (difficulty == com.msa.fightandconquer.core.model.Difficulty.HARD) {
+            val visibleNow = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
+            val prey = state.units.values.filter {
+                it.owner != me && it.owner !in partners && Rules.isNaval(it.type) &&
+                    (visibleNow == null || it.hex in visibleNow)
+            }
+            if (prey.isNotEmpty()) {
+                val myWarships = myUnits.filter { it.type == UnitType.WARSHIP }
+                if (myWarships.isEmpty() && sustainable(rules.warshipCost, rules.warshipUpkeep)) {
+                    launchSpot(state)?.let { return GameAction.BuyUnit(1, it, UnitType.WARSHIP) }
+                }
+                // Chase FERRIES only, and never pre-empt a kill the greedy loop
+                // can already take this turn — sailing spends the ship, and a
+                // hunter that parks spent beside an enemy warship just donates
+                // itself (both AIs did, trading hulls forever).
+                val ferries = prey.filter { it.type == UnitType.TRANSPORT }.map { it.hex }
+                for (ship in myWarships) {
+                    if (ship.spent) continue
+                    if (Rules.reachable(state, ship.id).captureTargets.isNotEmpty()) continue
+                    sailToward(state, ship, ferries)?.let { return it }
+                }
             }
         }
 

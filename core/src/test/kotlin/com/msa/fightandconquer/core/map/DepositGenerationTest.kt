@@ -48,6 +48,8 @@ class DepositGenerationTest {
             goldVeinsNeutralPer150Hexes = 0,
             fertilePerPlayer = 0,
             fertileNeutralPercent = 0,
+            fishShoalsPerPlayer = 0,
+            fishShoalsNeutralPer150Hexes = 0,
         )
         val map = MapGenerator.generate(MapParams(seed = 7, size = MapSize.MEDIUM, playerCount = 3), rules)
         assertEquals(0, map.tiles.count { it.deposit != null })

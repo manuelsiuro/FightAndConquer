@@ -112,11 +112,20 @@ internal class StateBuilder(private val base: GameState) {
             Building.CAPITAL -> captureCapital(attacker, victim!!, hex)
             Building.FARM, Building.TOWER, Building.STRONG_TOWER,
             Building.MINE, Building.MARKET, Building.LUMBER_CAMP, Building.WATCHTOWER,
-            Building.PORT,
+            Building.PORT, Building.FISHERY,
             -> events.add(GameEvent.BuildingDestroyed(hex, tile.building))
+            // A bridge outlives its conquerors — capturing the span keeps it.
+            Building.BRIDGE -> {}
             null -> {}
         }
-        updateTile(hex) { it.copy(owner = attacker, building = null, starving = false) }
+        val keepBridge = tile.building == Building.BRIDGE
+        updateTile(hex) {
+            it.copy(
+                owner = attacker,
+                building = if (keepBridge) Building.BRIDGE else null,
+                starving = false,
+            )
+        }
         events.add(GameEvent.HexCaptured(hex, attacker, victim))
         recomputeStarving()
         checkElimination()
