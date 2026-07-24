@@ -43,6 +43,12 @@ class LegacySaveTest {
         "pactProposalTtlRounds", "pactProposalCooldownRounds", "pactBreakPenaltyPercent",
         // Tile / TileDef (naval expansion, phase 1)
         "terrain",
+        // GameUnit / RuleConstants (naval expansion, phase 2)
+        "cargo",
+        "navalEnabled",
+        "transportCost", "transportUpkeep", "transportMoveRange",
+        "warshipCost", "warshipUpkeep", "warshipStrength", "warshipMoveRange",
+        "portCost", "portIncome",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

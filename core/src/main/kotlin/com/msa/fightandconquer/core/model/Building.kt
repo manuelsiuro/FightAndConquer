@@ -3,7 +3,7 @@ package com.msa.fightandconquer.core.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class Building { CAPITAL, FARM, TOWER, STRONG_TOWER, MINE, MARKET, LUMBER_CAMP, WATCHTOWER }
+enum class Building { CAPITAL, FARM, TOWER, STRONG_TOWER, MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT }
 
 /** Buildings a player can purchase (the Capital is never bought). */
 @Serializable
@@ -15,4 +15,6 @@ enum class BuildingType(val building: Building) {
     MARKET(Building.MARKET),
     LUMBER_CAMP(Building.LUMBER_CAMP),
     WATCHTOWER(Building.WATCHTOWER),
+    /** Coastal harbor: builds boats on adjacent sea, feeds its region (overseas supply). */
+    PORT(Building.PORT),
 }

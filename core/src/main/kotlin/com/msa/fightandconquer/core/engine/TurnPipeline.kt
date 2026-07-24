@@ -52,9 +52,13 @@ internal object TurnPipeline {
             }
         }
 
-        // Starvation on sliced-off hexes.
+        // Starvation on sliced-off hexes. Marine supply: a unit whose hex touches
+        // an own boat is fed by the fleet for as long as it stays alongside.
         b.recomputeStarving()
-        b.units.values.filter { it.owner == playerId && b.tiles.getValue(it.hex).starving }
+        b.units.values.filter {
+            it.owner == playerId && b.tiles.getValue(it.hex).starving &&
+                !suppliedBySea(b, it.hex, playerId)
+        }
             .map { it.id }
             .forEach { b.killUnit(it, DeathCause.STARVED) }
 
@@ -129,6 +133,20 @@ internal object TurnPipeline {
             b.updateTile(target) { it.copy(flora = Flora.Tree) }
             b.events.add(GameEvent.TreeSpread(tree, target))
         }
+    }
+
+    /** Marine supply (rule B): any adjacent own boat feeds a starving unit. */
+    private fun suppliedBySea(
+        b: StateBuilder,
+        hex: com.msa.fightandconquer.core.hex.Hex,
+        player: com.msa.fightandconquer.core.model.PlayerId,
+    ): Boolean {
+        var supplied = false
+        HexMath.forEachNeighbor(hex) { n ->
+            val u = b.tiles[n]?.unit?.let { b.units[it] }
+            if (u != null && u.owner == player && Rules.isNaval(u.type)) supplied = true
+        }
+        return supplied
     }
 
     private fun incomeIn(b: StateBuilder): Int =

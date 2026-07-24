@@ -37,14 +37,17 @@ class SeaMapTest {
             val land = map.tiles.filter { it.terrain == Terrain.LAND }.map { it.hex }.toSet()
             assertEquals("$shape sea components", 1, HexMath.connectedComponents(sea).size)
             assertEquals("$shape land+sea connected", 1, HexMath.connectedComponents(land + sea).size)
-            // The band never drifts away from the coast...
-            sea.forEach { hex ->
-                assertTrue(
-                    "$shape sea hex $hex further than ${MapGenerator.SEA_FRINGE} from land",
-                    HexMath.range(hex, MapGenerator.SEA_FRINGE).any { it in land },
-                )
+            if (shape == MapShape.CONTINENT) {
+                // The continental band never drifts away from the coast (island
+                // shapes also carry open-water corridors between the islands).
+                sea.forEach { hex ->
+                    assertTrue(
+                        "$shape sea hex $hex further than ${MapGenerator.SEA_FRINGE} from land",
+                        HexMath.range(hex, MapGenerator.SEA_FRINGE).any { it in land },
+                    )
+                }
             }
-            // ...and is wide enough to be worth sailing (roughly the outer perimeter x2).
+            // Wide enough to be worth sailing (roughly the outer perimeter x2).
             assertTrue("$shape sea too small: ${sea.size}", sea.size >= 30)
         }
     }

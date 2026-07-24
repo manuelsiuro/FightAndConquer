@@ -112,6 +112,7 @@ internal class StateBuilder(private val base: GameState) {
             Building.CAPITAL -> captureCapital(attacker, victim!!, hex)
             Building.FARM, Building.TOWER, Building.STRONG_TOWER,
             Building.MINE, Building.MARKET, Building.LUMBER_CAMP, Building.WATCHTOWER,
+            Building.PORT,
             -> events.add(GameEvent.BuildingDestroyed(hex, tile.building))
             null -> {}
         }
@@ -215,21 +216,40 @@ internal class StateBuilder(private val base: GameState) {
         }
     }
 
-    /** Re-derives the starving flag for every owned tile (disconnected from its owner's capital). */
+    /**
+     * Re-derives the starving flag for every owned tile. Fed territory is the
+     * capital's region PLUS any own region fed by an own OVERSEAS PORT — one on
+     * a different landmass than the capital. Overseas colonies live off their
+     * harbor (raze it and they starve); a port on the capital's own landmass
+     * deliberately feeds nothing extra, or slicing would stop working on land.
+     */
     fun recomputeStarving() {
-        val connectedByPlayer = players.associate { p ->
+        val fedByPlayer = players.associate { p ->
             p.id to run {
+                if (p.eliminated) return@run emptySet<Hex>()
+                val fed = HashSet<Hex>()
                 val capital = p.capital
-                if (p.eliminated || capital == null || tiles[capital]?.owner != p.id) {
-                    emptySet()
-                } else {
-                    HexMath.floodFill(capital) { tiles[it]?.owner == p.id }
+                if (capital != null && tiles[capital]?.owner == p.id) {
+                    fed += HexMath.floodFill(capital) { tiles[it]?.owner == p.id }
                 }
+                val homeland = capital?.let { c ->
+                    HexMath.floodFill(c) {
+                        tiles[it]?.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
+                    }
+                } ?: emptySet()
+                for ((hex, tile) in tiles) {
+                    if (tile.owner == p.id && tile.building == Building.PORT &&
+                        hex !in fed && hex !in homeland
+                    ) {
+                        fed += HexMath.floodFill(hex) { tiles[it]?.owner == p.id }
+                    }
+                }
+                fed
             }
         }
         for ((hex, tile) in tiles) {
             val owner = tile.owner ?: continue
-            val shouldStarve = hex !in connectedByPlayer.getValue(owner)
+            val shouldStarve = hex !in fedByPlayer.getValue(owner)
             if (tile.starving != shouldStarve) {
                 tiles[hex] = tile.copy(starving = shouldStarve)
             }

@@ -14,6 +14,8 @@ data class ReachResult(
     val moveTargets: Set<Hex>,
     val captureTargets: Set<Hex>,
     val mergeTargets: Set<Hex>,
+    /** Own empty transports this land unit can board (moves onto the boat's hex). */
+    val embarkTargets: Set<Hex> = emptySet(),
 ) {
     companion object {
         val EMPTY = ReachResult(emptySet(), emptySet(), emptySet())
@@ -29,6 +31,10 @@ object Rules {
         return HexMath.floodFill(start) { state.tiles[it]?.owner == owner }
     }
 
+    /** Boats: units that live on SEA hexes and move by sea BFS instead of region reach. */
+    fun isNaval(type: UnitType): Boolean =
+        type == UnitType.TRANSPORT || type == UnitType.WARSHIP
+
     /** Attack/capture power of a unit: tier for soldiers, per-type for specials. */
     fun strengthOf(unit: GameUnit, rules: RuleConstants): Int =
         buyStrength(rules, unit.tier, unit.type)
@@ -38,28 +44,51 @@ object Rules {
         UnitType.SOLDIER -> tier
         UnitType.ARCHER -> rules.archerStrength
         UnitType.CATAPULT -> rules.catapultStrength
+        UnitType.TRANSPORT -> 0
+        UnitType.WARSHIP -> rules.warshipStrength
     }
 
     fun unitCostOf(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
         UnitType.SOLDIER -> rules.unitCost[tier - 1]
         UnitType.ARCHER -> rules.archerCost
         UnitType.CATAPULT -> rules.catapultCost
+        UnitType.TRANSPORT -> rules.transportCost
+        UnitType.WARSHIP -> rules.warshipCost
     }
 
-    /** Per-turn upkeep of a unit — the single source shared with TurnPipeline. */
-    fun unitUpkeepOf(unit: GameUnit, rules: RuleConstants): Int = when (unit.type) {
-        UnitType.SOLDIER -> rules.unitUpkeep[unit.tier - 1]
-        UnitType.ARCHER -> rules.archerUpkeep
-        UnitType.CATAPULT -> rules.catapultUpkeep
+    /**
+     * Per-turn upkeep of a unit — the single source shared with TurnPipeline.
+     * A transport also pays its cargo's upkeep: no free army parking at sea.
+     */
+    fun unitUpkeepOf(unit: GameUnit, rules: RuleConstants): Int {
+        val own = when (unit.type) {
+            UnitType.SOLDIER -> rules.unitUpkeep[unit.tier - 1]
+            UnitType.ARCHER -> rules.archerUpkeep
+            UnitType.CATAPULT -> rules.catapultUpkeep
+            UnitType.TRANSPORT -> rules.transportUpkeep
+            UnitType.WARSHIP -> rules.warshipUpkeep
+        }
+        val cargo = unit.cargo?.let { cargoUpkeep(it, rules) } ?: 0
+        return own + cargo
     }
+
+    private fun cargoUpkeep(cargo: com.msa.fightandconquer.core.model.CargoUnit, rules: RuleConstants): Int =
+        when (cargo.type) {
+            UnitType.SOLDIER -> rules.unitUpkeep[cargo.tier - 1]
+            UnitType.ARCHER -> rules.archerUpkeep
+            UnitType.CATAPULT -> rules.catapultUpkeep
+            UnitType.TRANSPORT, UnitType.WARSHIP -> 0 // boats never carry boats
+        }
 
     /**
      * What a unit contributes to the defense of its hex and adjacent own hexes.
      * The archer's aura slots into the existing max-based model exactly like tower
-     * coverage — no additive special case.
+     * coverage — no additive special case. Boats are ships, not garrisons: they
+     * defend nothing (and being at sea, never neighbor an OWN hex anyway).
      */
     internal fun defenseContribution(unit: GameUnit, rules: RuleConstants): Int = when (unit.type) {
         UnitType.ARCHER -> rules.archerAuraDefense
+        UnitType.TRANSPORT, UnitType.WARSHIP -> 0
         else -> strengthOf(unit, rules)
     }
 
@@ -93,7 +122,7 @@ object Rules {
         Building.STRONG_TOWER -> state.config.rules.strongTowerDefense
         Building.CAPITAL -> state.config.rules.capitalDefense
         Building.FARM, Building.MINE, Building.MARKET,
-        Building.LUMBER_CAMP, Building.WATCHTOWER, null,
+        Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT, null,
         -> 0
     }
 
@@ -110,6 +139,7 @@ object Rules {
     fun reachable(state: GameState, unitId: UnitId): ReachResult {
         val unit = state.units[unitId] ?: return ReachResult.EMPTY
         if (unit.spent || state.phase !is com.msa.fightandconquer.core.model.GamePhase.Playing) return ReachResult.EMPTY
+        if (isNaval(unit.type)) return seaReachable(state, unit)
         val rules = state.config.rules
         val strength = strengthOf(unit, rules)
         val maxRange = if (unit.type == UnitType.CATAPULT) rules.catapultMoveRange else Int.MAX_VALUE
@@ -118,6 +148,7 @@ object Rules {
         val move = HashSet<Hex>()
         val capture = HashSet<Hex>()
         val merge = HashSet<Hex>()
+        val embark = HashSet<Hex>()
         for (hex in region) {
             val tile = state.tiles.getValue(hex)
             if (hex != unit.hex && tile.building == null && inRange(hex)) {
@@ -129,20 +160,84 @@ object Rules {
                 }
             }
             HexMath.forEachNeighbor(hex) { n ->
-                if (n !in capture && inRange(n)) {
+                if (inRange(n)) {
                     val neighborTile = state.tiles[n]
-                    // Open sea is never capturable by land units (a bridge makes the
-                    // hex land-like and is handled by its own rules).
-                    if (neighborTile != null && neighborTile.owner != unit.owner &&
-                        neighborTile.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
-                        strength > defenseOf(state, n, unit.type)
-                    ) {
-                        capture.add(n)
+                    when {
+                        neighborTile == null -> {}
+                        // Open sea is never capturable by land units — but an own
+                        // empty transport floating there can be boarded.
+                        neighborTile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA -> {
+                            if (n !in embark && rules.navalEnabled) {
+                                val boat = state.unitAt(n)
+                                if (boat != null && boat.owner == unit.owner &&
+                                    boat.type == UnitType.TRANSPORT && boat.cargo == null
+                                ) {
+                                    embark.add(n)
+                                }
+                            }
+                        }
+                        n !in capture && neighborTile.owner != unit.owner &&
+                            strength > defenseOf(state, n, unit.type) -> capture.add(n)
                     }
                 }
             }
         }
-        return ReachResult(move, capture, merge)
+        return ReachResult(move, capture, merge, embark)
+    }
+
+    /**
+     * Naval reachability: BFS over open sea (empty of units and buildings) up to
+     * the boat's move range. A WARSHIP additionally targets enemy boats on sea
+     * hexes adjacent to its reachable water when its strength is >= the
+     * defender's — naval ties go to the ATTACKER, or equal warships could never
+     * sink each other and island games would stalemate. Boats never merge.
+     */
+    private fun seaReachable(state: GameState, unit: GameUnit): ReachResult {
+        val rules = state.config.rules
+        if (!rules.navalEnabled) return ReachResult.EMPTY
+        val maxRange = when (unit.type) {
+            UnitType.TRANSPORT -> rules.transportMoveRange
+            else -> rules.warshipMoveRange
+        }
+        fun openSea(hex: Hex): Boolean {
+            val t = state.tiles[hex] ?: return false
+            return t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                t.building == null && t.unit == null
+        }
+
+        val move = HashSet<Hex>()
+        val capture = HashSet<Hex>()
+        val visited = HashSet<Hex>().apply { add(unit.hex) }
+        var frontier = listOf(unit.hex)
+        var depth = 0
+        val strength = strengthOf(unit, rules)
+        while (depth < maxRange && frontier.isNotEmpty()) {
+            val next = ArrayList<Hex>()
+            for (hex in frontier) {
+                HexMath.forEachNeighbor(hex) { n ->
+                    if (n !in visited) {
+                        if (openSea(n)) {
+                            visited.add(n)
+                            move.add(n)
+                            next.add(n)
+                        } else if (unit.type == UnitType.WARSHIP && n !in capture) {
+                            // Attack: an enemy boat blocks the water it sits on.
+                            val defender = state.unitAt(n)
+                            if (defender != null && defender.owner != unit.owner &&
+                                isNaval(defender.type) &&
+                                state.tiles[n]?.building == null &&
+                                strength >= strengthOf(defender, rules)
+                            ) {
+                                capture.add(n)
+                            }
+                        }
+                    }
+                }
+            }
+            frontier = next
+            depth++
+        }
+        return ReachResult(move, capture, mergeTargets = emptySet())
     }
 
     /** Owned hexes connected to the player's capital (the funded "main" territory). */
@@ -165,6 +260,7 @@ object Rules {
             com.msa.fightandconquer.core.model.BuildingType.MARKET -> state.config.rules.marketCost
             com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> state.config.rules.lumberCampCost
             com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> state.config.rules.watchtowerCost
+            com.msa.fightandconquer.core.model.BuildingType.PORT -> state.config.rules.portCost
         }
 
     /** Income the player will collect at turn start: producing hexes, deposits, buildings. */
@@ -210,6 +306,7 @@ object Rules {
                     }
                     income += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
                 }
+                Building.PORT -> income += rules.portIncome
                 else -> {}
             }
         }
@@ -248,7 +345,9 @@ object Rules {
                 Building.CAPITAL, Building.TOWER, Building.STRONG_TOWER ->
                     addRange(hex, rules.visionRadiusBuilding)
                 Building.WATCHTOWER -> addRange(hex, rules.watchtowerVisionRadius)
-                Building.FARM, Building.MINE, Building.MARKET, Building.LUMBER_CAMP, null -> {}
+                Building.FARM, Building.MINE, Building.MARKET, Building.LUMBER_CAMP,
+                Building.PORT, null,
+                -> {}
             }
         }
         for (unit in units) {

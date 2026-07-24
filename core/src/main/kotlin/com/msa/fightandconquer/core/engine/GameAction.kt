@@ -50,6 +50,24 @@ sealed interface GameAction {
     @SerialName("merge")
     data class MergeUnits(val a: UnitId, val b: UnitId) : GameAction
 
+    /**
+     * Land [boat]'s cargo on adjacent land hex [to]: an own hex, or an amphibious
+     * capture when the cargo's strength beats the defense. Boat and landed unit
+     * both end spent. (Embarking is a plain [MoveUnit] onto the transport.)
+     */
+    @Serializable
+    @SerialName("disembark")
+    data class Disembark(val boat: UnitId, val to: Hex) : GameAction
+
+    /**
+     * Warship raid on adjacent hex [target]: kills the unit and destroys a
+     * non-capital building when the warship's strength beats the defense.
+     * Never captures ground.
+     */
+    @Serializable
+    @SerialName("bombard")
+    data class Bombard(val unit: UnitId, val target: Hex) : GameAction
+
     /** Offer [to] a non-aggression pact lasting [durationRounds] full rounds. */
     @Serializable
     @SerialName("proposePact")

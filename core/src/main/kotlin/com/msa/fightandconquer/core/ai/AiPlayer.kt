@@ -34,6 +34,14 @@ class AiPlayer(private val difficulty: Difficulty) {
             }
         }
 
+        // Naval invasion is a threshold policy too: a single-action greedy search
+        // can never justify the intermediate ferry steps (see NavalPolicy).
+        if (state.config.rules.navalEnabled) {
+            NavalPolicy.action(state, difficulty)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
+        }
+
         val baseline = Evaluator.score(state, me, difficulty)
         var best: GameAction = GameAction.EndTurn
         var bestScore = baseline

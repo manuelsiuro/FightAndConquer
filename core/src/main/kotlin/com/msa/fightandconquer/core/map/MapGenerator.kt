@@ -43,13 +43,18 @@ object MapGenerator {
 
     private fun tryGenerate(params: MapParams, rules: RuleConstants, seed: Long): MapDefinition? {
         val rng = Chain(seed)
-        val land = when (params.shape) {
-            MapShape.CONTINENT -> growBlob(rng, Hex.of(0, 0), params.size.targetHexes)
+        val (land, seaCorridors) = when (params.shape) {
+            MapShape.CONTINENT ->
+                growBlob(rng, Hex.of(0, 0), params.size.targetHexes) to emptySet<Hex>()
             MapShape.ISLANDS -> islands(rng, params, blobCount = params.playerCount)
             MapShape.ARCHIPELAGO -> islands(rng, params, blobCount = params.playerCount + 2)
         }
 
-        val capitals = placeCapitals(rng, land, params.playerCount) ?: return null
+        val capitals = when (params.shape) {
+            MapShape.CONTINENT -> placeCapitals(rng, land, params.playerCount) ?: return null
+            // On island maps every player must start on their own island.
+            else -> placeIslandCapitals(land, params.playerCount) ?: return null
+        }
 
         // Start regions: capital + its full neighbor ring (constrained to land at selection).
         val regions = capitals.map { capital -> HexMath.range(capital, 1).toSet() }
@@ -58,7 +63,7 @@ object MapGenerator {
         for (hex in land) tiles[hex] = TileDef(hex)
         // Every landmass gets a navigable coastal sea. [MapSize.targetHexes] keeps
         // meaning LAND hexes — sea rides on top.
-        for (hex in seaFringe(land)) tiles[hex] = TileDef(hex, terrain = Terrain.SEA)
+        for (hex in seaSurface(land, seaCorridors)) tiles[hex] = TileDef(hex, terrain = Terrain.SEA)
         regions.forEachIndexed { player, region ->
             for (hex in region) tiles[hex] = TileDef(hex, owner = player)
         }
@@ -194,19 +199,22 @@ object MapGenerator {
     /** Width of the coastal sea band around every landmass. */
     internal const val SEA_FRINGE = 2
 
+    /** Islands keep at least this much open water between them (land gap = GAP + 1). */
+    internal const val ISLAND_GAP = 2
+
     /**
-     * All hexes within [SEA_FRINGE] of land that are not land. A band around a
-     * connected mass is itself connected, and any two blobs closer than
-     * 2×[SEA_FRINGE] share sea — MapValidator still verifies both.
+     * The map's water: every hex within [SEA_FRINGE] of land plus the corridor
+     * hexes threading distant islands together, minus land. growBlob can leave
+     * interior holes; their fringe would be a landlocked puddle no boat can reach,
+     * so only the open ocean survives (largest component — ties broken by lowest
+     * packed hex for determinism); holes stay void.
      */
-    private fun seaFringe(land: Set<Hex>): Set<Hex> {
+    private fun seaSurface(land: Set<Hex>, corridors: Set<Hex>): Set<Hex> {
         val sea = HashSet<Hex>()
         for (hex in land) {
             for (n in HexMath.range(hex, SEA_FRINGE)) if (n !in land) sea.add(n)
         }
-        // growBlob can leave interior holes; their fringe would be a landlocked
-        // puddle no boat can reach. Keep only the open ocean (largest component —
-        // ties broken by lowest packed hex for determinism), holes stay void.
+        for (hex in corridors) if (hex !in land) sea.add(hex)
         val components = HexMath.connectedComponents(sea)
         return components.maxWith(compareBy({ it.size }, { -(it.minOf { h -> h.packed }) }))
     }
@@ -214,15 +222,23 @@ object MapGenerator {
     /**
      * Random-walk blob growth: repeatedly claim a frontier hex, weighted by
      * (1 + landNeighbors)^2 to favor compact but wiggly coastlines.
+     * [forbidden] hexes are never claimed (island keep-out zones).
      */
-    private fun growBlob(rng: Chain, start: Hex, target: Int): Set<Hex> {
+    private fun growBlob(
+        rng: Chain,
+        start: Hex,
+        target: Int,
+        forbidden: (Hex) -> Boolean = { false },
+    ): Set<Hex> {
         val land = HashSet<Hex>()
+        if (forbidden(start)) return land
         val frontier = HashSet<Hex>()
         land.add(start)
         HexMath.forEachNeighbor(start) { frontier.add(it) }
 
         while (land.size < target && frontier.isNotEmpty()) {
-            val sorted = frontier.sortedBy { it.packed }
+            val sorted = frontier.filterNot(forbidden).sortedBy { it.packed }
+            if (sorted.isEmpty()) break
             var totalWeight = 0
             val weights = IntArray(sorted.size)
             for (i in sorted.indices) {
@@ -248,11 +264,17 @@ object MapGenerator {
         return land
     }
 
-    /** Player islands on a circle, then land bridges so the map is one connected mass. */
-    private fun islands(rng: Chain, params: MapParams, blobCount: Int): Set<Hex> {
+    /**
+     * True water-separated islands on a circle: each blob grows inside a keep-out
+     * zone [ISLAND_GAP] wide around every earlier blob, so no two islands ever
+     * come closer than [ISLAND_GAP] + 1 (a guaranteed sailing channel). Sea
+     * corridors along the ring keep the ocean one navigable body even when
+     * islands drift far apart. Returns land + corridor hexes.
+     */
+    private fun islands(rng: Chain, params: MapParams, blobCount: Int): Pair<Set<Hex>, Set<Hex>> {
         val perBlob = params.size.targetHexes / blobCount
-        // Roughly space blob centers on a hex "circle" whose radius scales with blob size.
-        val radius = maxOf(6, (sqrt(perBlob.toDouble()) * 1.9).roundToInt())
+        // Space blob centers on a hex "circle" wide enough for blobs + channels.
+        val radius = maxOf(7, (sqrt(perBlob.toDouble()) * 2.1).roundToInt())
         val centers = (0 until blobCount).map { i ->
             val angle = 2.0 * Math.PI * i / blobCount
             val q = (radius * kotlin.math.cos(angle)).roundToInt()
@@ -260,14 +282,48 @@ object MapGenerator {
             Hex.of(q, r)
         }
         val land = HashSet<Hex>()
-        centers.forEach { land.addAll(growBlob(rng, it, perBlob)) }
-        // Bridge each island to the next (ring topology keeps it simple and connected).
+        val keepOut = HashSet<Hex>()
+        for (center in centers) {
+            val blob = growBlob(rng, center, perBlob) { it in keepOut }
+            land.addAll(blob)
+            for (hex in blob) {
+                for (n in HexMath.range(hex, ISLAND_GAP)) keepOut.add(n)
+            }
+        }
+        // Ring corridors (line + both shoulders) thread every fringe together.
+        val corridors = HashSet<Hex>()
         for (i in centers.indices) {
             val from = centers[i]
             val to = centers[(i + 1) % centers.size]
-            land.addAll(hexLine(from, to))
+            for (hex in hexLine(from, to)) {
+                corridors.add(hex)
+                HexMath.forEachNeighbor(hex) { corridors.add(it) }
+            }
         }
-        return land
+        return land to corridors
+    }
+
+    /**
+     * One capital per island, biggest islands first (deterministic ordering).
+     * Returns null (retry) when there are fewer islands than players or an
+     * island has no hex with a full land neighbor ring.
+     */
+    private fun placeIslandCapitals(land: Set<Hex>, count: Int): List<Hex>? {
+        val components = HexMath.connectedComponents(land)
+            .sortedWith(
+                compareByDescending<Set<Hex>> { it.size }.thenBy { it.minOf { h -> h.packed } },
+            )
+        if (components.size < count) return null
+        val capitals = ArrayList<Hex>(count)
+        for (component in components.take(count)) {
+            val viable = component.filter { hex -> HexMath.neighbors(hex).all { it in component } }
+            if (viable.isEmpty()) return null
+            val cq = component.sumOf { it.q } / component.size
+            val cr = component.sumOf { it.r } / component.size
+            val centroid = Hex.of(cq, cr)
+            capitals.add(viable.minWith(compareBy({ HexMath.distance(it, centroid) }, { it.packed })))
+        }
+        return capitals
     }
 
     /** All hexes on the straight line from a to b (cube lerp + rounding). */

@@ -31,6 +31,7 @@ object Evaluator {
         var myVeinsWithMine = 0
         var myFertile = 0
         var myWatchtowers = 0
+        var myPorts = 0
         var enemyVeins = 0
         var enemyForts = 0
         var buildingScore = 0.0
@@ -54,6 +55,7 @@ object Evaluator {
                             Building.LUMBER_CAMP ->
                                 buildingScore += 3.0 + 1.5 * min(adjacentOwnTrees(state, hex, me), 4)
                             Building.WATCHTOWER -> myWatchtowers++
+                            Building.PORT -> myPorts++
                             else -> {}
                         }
                     }
@@ -109,6 +111,16 @@ object Evaluator {
             score += buildingScore
             if (state.config.rules.fogOfWar) score += 6.0 * myWatchtowers
             score -= 4.0 * enemyVeins
+            if (state.config.rules.navalEnabled) {
+                // Ports are gateway assets (supply + boat yard), but two is plenty.
+                score += 6.0 * min(myPorts, 2)
+                // Enemy boats are threats worth sinking (+4 per kill via this term).
+                val enemyBoats = state.units.values.count {
+                    it.owner != me && Rules.isNaval(it.type) &&
+                        (visible == null || it.hex in visible)
+                }
+                score -= 4.0 * enemyBoats
+            }
         }
         score -= 6.0 * myTrees
         score -= 2.0 * enemyHexes

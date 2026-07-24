@@ -14,7 +14,19 @@ import kotlinx.serialization.Serializable
  *   attacking, but moves at most [RuleConstants.catapultMoveRange] hexes per
  *   action, so it can be intercepted. Loses to defense from enemy units.
  *
- * Specials never merge (not with each other, not with soldiers).
+ * Naval types live on SEA hexes only, are bought at sea next to an own PORT,
+ * move by range-limited sea BFS (never region reach), and keep [GameUnit.tier]
+ * fixed at 1:
+ *
+ * - [TRANSPORT]: carries one land unit as [GameUnit.cargo] (embark by moving
+ *   the unit onto it, [com.msa.fightandconquer.core.engine.GameAction.Disembark]
+ *   to land it, amphibious capture included). Strength 0 — warship bait.
+ * - [WARSHIP]: sinks enemy boats by moving onto them (ties go to the attacker)
+ *   and can Bombard an adjacent land hex — a raid that kills the unit and
+ *   destroys a non-capital building, but never captures ground. Towers with
+ *   defense >= its strength block bombardment entirely.
+ *
+ * Specials and naval units never merge (not with each other, not with soldiers).
  */
 @Serializable
-enum class UnitType { SOLDIER, ARCHER, CATAPULT }
+enum class UnitType { SOLDIER, ARCHER, CATAPULT, TRANSPORT, WARSHIP }

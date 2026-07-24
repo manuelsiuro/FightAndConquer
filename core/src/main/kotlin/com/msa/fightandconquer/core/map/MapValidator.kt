@@ -19,9 +19,24 @@ object MapValidator {
         }
         if (map.tiles.size != land.size + sea.size) violations.add("duplicate tile definitions")
 
-        // Single connected landmass (Slay movement makes disconnected land unreachable).
+        // Land connectivity is shape-dependent: a CONTINENT (and authored maps)
+        // must be one walkable mass; island shapes REQUIRE water-separated starts
+        // — with every island reachable by boat and every player on their own.
         val components = HexMath.connectedComponents(land)
-        if (components.size != 1) violations.add("landmass split into ${components.size} components")
+        val islandShape = params?.shape == MapShape.ISLANDS || params?.shape == MapShape.ARCHIPELAGO
+        if (!islandShape && components.size != 1) {
+            violations.add("landmass split into ${components.size} components")
+        }
+        if (islandShape) {
+            val capitalIslands = map.capitals.map { cap -> components.indexOfFirst { cap in it } }
+            if (capitalIslands.toSet().size != map.capitals.size) {
+                violations.add("capitals share an island: $capitalIslands")
+            }
+            components.forEachIndexed { index, component ->
+                val coastal = component.any { hex -> HexMath.neighbors(hex).any { it in sea } }
+                if (!coastal) violations.add("island $index is landlocked (no adjacent sea)")
+            }
+        }
 
         // Sea contract: neutral, empty and navigable as one body of water.
         map.tiles.filter { it.terrain == Terrain.SEA }.forEach { tile ->

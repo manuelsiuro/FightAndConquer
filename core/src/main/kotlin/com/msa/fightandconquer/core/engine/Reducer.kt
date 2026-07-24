@@ -23,6 +23,8 @@ object Reducer {
             is GameAction.BuyUnit -> applyBuyUnit(state, b, action)
             is GameAction.BuyBuilding -> applyBuyBuilding(state, b, action)
             is GameAction.MergeUnits -> applyMerge(state, b, action)
+            is GameAction.Disembark -> applyDisembark(state, b, action)
+            is GameAction.Bombard -> applyBombard(state, b, action)
             is GameAction.ProposePact -> applyProposePact(b, action)
             is GameAction.RespondPact -> applyRespondPact(b, action)
             is GameAction.SendTribute -> applySendTribute(b, action)
@@ -38,23 +40,73 @@ object Reducer {
     private fun applyMove(state: GameState, b: StateBuilder, action: GameAction.MoveUnit) {
         val unit = state.units.getValue(action.unit)
         val reach = Rules.reachable(state, action.unit)
+
+        if (action.to in reach.embarkTargets) {
+            // Board the transport: the land unit leaves the units map entirely and
+            // rides as cargo (state, not identity, is authoritative — disembarking
+            // spawns a fresh id). The boat keeps its own action.
+            val transport = state.unitAt(action.to)!!
+            b.updateTile(unit.hex) { it.copy(unit = null) }
+            b.units.remove(unit.id)
+            b.units[transport.id] = transport.copy(
+                cargo = com.msa.fightandconquer.core.model.CargoUnit(unit.tier, unit.type),
+            )
+            b.events.add(GameEvent.UnitEmbarked(unit.id, transport.id, unit.hex, action.to))
+            return
+        }
+
         val isCapture = action.to in reach.captureTargets
+        val navalStrike = isCapture &&
+            state.tiles.getValue(action.to).terrain == com.msa.fightandconquer.core.model.Terrain.SEA
 
         // Leave the origin hex.
         b.updateTile(unit.hex) { it.copy(unit = null) }
 
-        if (isCapture) {
+        if (navalStrike) {
+            // Naval combat: sink the defender and take its water. Open sea has no
+            // ownership, so nothing is captured — the loser just goes under.
+            state.tiles.getValue(action.to).unit?.let { b.killUnit(it, DeathCause.SUNK) }
+        } else if (isCapture) {
             b.captureHex(unit.owner, action.to)
         }
         // Arrive (tile ownership already transferred if capturing).
         b.updateTile(action.to) { it.copy(unit = unit.id) }
-        b.units[unit.id] = unit.copy(hex = action.to, spent = true)
+        b.units[unit.id] = b.units.getValue(unit.id).copy(hex = action.to, spent = true)
         b.events.add(GameEvent.UnitMoved(unit.id, unit.hex, action.to))
         b.clearFloraAt(action.to, unit.owner)
-        if (isCapture) {
+        if (isCapture && !navalStrike) {
             // captureHex already recomputed; arriving may reconnect regions for the attacker.
             b.recomputeStarving()
         }
+    }
+
+    private fun applyDisembark(state: GameState, b: StateBuilder, action: GameAction.Disembark) {
+        val boat = state.units.getValue(action.boat)
+        val cargo = boat.cargo!!
+        val destTile = state.tiles.getValue(action.to)
+        val isCapture = destTile.owner != boat.owner
+        if (isCapture) b.captureHex(boat.owner, action.to)
+        b.units[boat.id] = boat.copy(cargo = null, spent = true)
+        val landed = b.spawnUnit(boat.owner, cargo.tier, action.to, spent = true, type = cargo.type)
+        b.events.add(GameEvent.UnitDisembarked(boat.id, landed, action.to))
+        b.clearFloraAt(action.to, boat.owner)
+        if (isCapture) b.recomputeStarving()
+    }
+
+    private fun applyBombard(state: GameState, b: StateBuilder, action: GameAction.Bombard) {
+        val ship = state.units.getValue(action.unit)
+        val target = state.tiles.getValue(action.target)
+        // A raid, not a conquest: ownership never changes and capitals are immune.
+        b.events.add(GameEvent.Bombarded(ship.id, action.target))
+        target.unit?.let { b.killUnit(it, DeathCause.KILLED) }
+        val building = target.building
+        if (building != null && building != com.msa.fightandconquer.core.model.Building.CAPITAL) {
+            b.updateTile(action.target) { it.copy(building = null) }
+            b.events.add(GameEvent.BuildingDestroyed(action.target, building))
+        }
+        b.units[ship.id] = ship.copy(spent = true)
+        // Destroying a PORT can starve an overseas colony on the spot.
+        b.recomputeStarving()
     }
 
     private fun applyBuyUnit(state: GameState, b: StateBuilder, action: GameAction.BuyUnit) {
@@ -64,6 +116,11 @@ object Reducer {
 
         val tile = state.tiles.getValue(action.at)
         when {
+            Rules.isNaval(action.type) -> {
+                // Launch a fresh boat on open sea next to an own port.
+                val unit = b.spawnUnit(buyer, 1, action.at, spent = false, type = action.type)
+                b.events.add(GameEvent.UnitSpawned(unit))
+            }
             tile.owner == buyer && tile.unit != null -> {
                 // Buy-merge into the same-tier occupant (Legality guarantees SOLDIERs).
                 val occupant = state.units.getValue(tile.unit)
@@ -98,6 +155,10 @@ object Reducer {
         b.updatePlayer(buyer) { it.copy(treasury = it.treasury - cost) }
         b.updateTile(action.at) { it.copy(building = action.type.building) }
         b.events.add(GameEvent.BuildingBuilt(action.at, action.type.building))
+        // Expedition rule: a new PORT feeds its region the moment it opens.
+        if (action.type == com.msa.fightandconquer.core.model.BuildingType.PORT) {
+            b.recomputeStarving()
+        }
     }
 
     private fun applyMerge(state: GameState, b: StateBuilder, action: GameAction.MergeUnits) {

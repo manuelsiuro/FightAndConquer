@@ -116,6 +116,19 @@ object TestStates {
 
     fun GameState.withSea(at: Hex): GameState = withSea(listOf(at))
 
+    /** Loads the transport standing at [at] with a cargo snapshot. */
+    fun GameState.withCargo(
+        at: Hex,
+        tier: Int,
+        type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    ): GameState {
+        val id = tiles.getValue(at).unit!!
+        val boat = units.getValue(id)
+        return copy(
+            units = units + (id to boat.copy(cargo = com.msa.fightandconquer.core.model.CargoUnit(tier, type))),
+        )
+    }
+
     fun GameState.withTreasury(player: Int, amount: Int): GameState =
         copy(players = players.map { if (it.id.value == player) it.copy(treasury = amount) else it })
 
@@ -125,11 +138,24 @@ object TestStates {
     fun assertInvariants(state: GameState) {
         for (unit in state.units.values) {
             assertEquals("tile back-pointer for $unit", unit.id, state.tiles[unit.hex]?.unit)
-            assertEquals("unit stands on own tile: $unit", unit.owner, state.tiles[unit.hex]?.owner)
+            if (com.msa.fightandconquer.core.engine.Rules.isNaval(unit.type)) {
+                // Boats float on neutral open water and only transports carry cargo.
+                assertEquals(
+                    "boat on sea: $unit",
+                    com.msa.fightandconquer.core.model.Terrain.SEA,
+                    state.tiles[unit.hex]?.terrain,
+                )
+                assertEquals("open sea under boat unowned: $unit", null, state.tiles[unit.hex]?.owner)
+            } else {
+                assertEquals("unit stands on own tile: $unit", unit.owner, state.tiles[unit.hex]?.owner)
+            }
             if (unit.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER) {
                 assertTrue("tier in range: $unit", unit.tier in 1..state.config.rules.maxTier)
             } else {
                 assertEquals("special units stay tier 1: $unit", 1, unit.tier)
+            }
+            if (unit.type != com.msa.fightandconquer.core.model.UnitType.TRANSPORT) {
+                assertEquals("only transports carry cargo: $unit", null, unit.cargo)
             }
         }
         for ((hex, tile) in state.tiles) {
