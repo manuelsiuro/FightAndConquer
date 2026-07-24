@@ -277,6 +277,7 @@ private fun PurchaseCard(
             BuildingType.MARKET -> R.string.building_market
             BuildingType.LUMBER_CAMP -> R.string.building_lumber_camp
             BuildingType.WATCHTOWER -> R.string.building_watchtower
+            BuildingType.PORT -> R.string.building_port
         }
     }
     val iconRes = when (option) {
@@ -289,6 +290,8 @@ private fun PurchaseCard(
             when (option.type) {
                 UnitType.ARCHER -> shop.archerUpkeep
                 UnitType.CATAPULT -> shop.catapultUpkeep
+                UnitType.TRANSPORT -> shop.transportUpkeep
+                UnitType.WARSHIP -> shop.warshipUpkeep
                 UnitType.SOLDIER -> shop.unitUpkeep[option.tier - 1]
             },
         )
@@ -300,6 +303,7 @@ private fun PurchaseCard(
             BuildingType.MARKET -> stringResource(R.string.shop_income_up_to, shop.marketIncomeMax)
             BuildingType.LUMBER_CAMP -> stringResource(R.string.shop_income_up_to, shop.lumberCampIncomeMax)
             BuildingType.WATCHTOWER -> stringResource(R.string.shop_vision, shop.watchtowerVision)
+            BuildingType.PORT -> stringResource(R.string.shop_income_per_turn, shop.portIncome)
         }
     }
     val name = stringResource(nameRes)

@@ -139,7 +139,10 @@ class RenderEngine(private val surfaceView: SurfaceView) {
                     FOV_DEGREES,
                     width.toDouble() / height.toDouble(),
                     0.1,
-                    200.0,
+                    // Island maps spread far apart; the portrait fit can push the
+                    // camera past 300 units out (Filament's reversed-Z keeps depth
+                    // precision fine at this range).
+                    800.0,
                     Camera.Fov.VERTICAL,
                 )
             }

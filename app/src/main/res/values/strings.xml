@@ -87,6 +87,8 @@
     <string name="unit_knight">Knight</string>
     <string name="unit_archer">Archer</string>
     <string name="unit_catapult">Catapult</string>
+    <string name="unit_transport">Longboat</string>
+    <string name="unit_warship">Warship</string>
     <string name="building_capital">Capital</string>
     <string name="building_farm">Farm</string>
     <string name="building_tower">Tower</string>
@@ -95,6 +97,7 @@
     <string name="building_market">Market</string>
     <string name="building_lumber_camp">Lumber camp</string>
     <string name="building_watchtower">Watchtower</string>
+    <string name="building_port">Port</string>
     <string name="piece_tree">Tree</string>
     <string name="piece_gravestone">Gravestone</string>
     <string name="piece_gold_vein">Gold vein</string>
@@ -125,13 +128,18 @@
     <string name="info_market">Trade income for every producing neighbor hex</string>
     <string name="info_lumber_camp">Harvests nearby forest — its trees never spread</string>
     <string name="info_watchtower">Extends vision through the fog</string>
+    <string name="info_port">Harbor — builds boats on adjacent sea and supplies overseas colonies</string>
     <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
     <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
     <string name="info_stat_vision">Vision</string>
     <string name="info_stat_range">Range</string>
+    <string name="info_stat_cargo">Cargo</string>
+    <string name="info_value_cargo_empty">empty</string>
     <string name="info_value_income_max">up to +%d/turn</string>
     <string name="info_archer">Guards its hex and neighbors from a distance</string>
     <string name="info_catapult">Slow siege engine — building defenses mean nothing to it</string>
+    <string name="info_transport">Ferries one land unit across the sea</string>
+    <string name="info_warship">Sinks boats and bombards the coast — never takes ground</string>
     <string name="info_tree">Blocks this hex\'s income — move a unit onto it to clear</string>
     <string name="info_gravestone">A unit died here — a tree will sprout soon</string>
     <string name="info_cut_off">Disconnected from your capital — no income, units here will starve</string>
@@ -240,6 +248,15 @@
     <string name="reject_not_same_region">Those units are not in the same territory</string>
     <string name="reject_no_game">No game in progress</string>
     <string name="reject_sea_impassable">Cannot place that on open sea</string>
+    <string name="reject_naval_disabled">Naval play is disabled in this game</string>
+    <string name="reject_requires_coast">Needs your own coast, next to the sea</string>
+    <string name="reject_requires_sea">Boats can only be built on open sea</string>
+    <string name="reject_no_adjacent_port">Needs an adjacent working port of yours</string>
+    <string name="reject_not_a_transport">Only a longboat can carry or land troops</string>
+    <string name="reject_transport_full">That longboat is already loaded</string>
+    <string name="reject_transport_empty">That longboat has nothing aboard</string>
+    <string name="reject_not_a_warship">Only a warship can bombard</string>
+    <string name="reject_invalid_bombard">Nothing to bombard there — capitals are immune</string>
 
     <!-- Field guide (browsable reference for every unit, building and resource) -->
     <string name="guide_title">Field Guide</string>
@@ -277,6 +294,9 @@
     <string name="guide_how_archer">Park it on ground you want to hold — it guards its own hex and every neighbour like a tower, but keeps pace with your army. It only attacks at strength 1, so don\'t rely on it to capture.</string>
     <string name="guide_how_catapult">Send it at towers and castles — it ignores building defense completely. It moves only 2 hexes per turn and can be intercepted, and it still loses to defending enemy units.</string>
     <string name="guide_req_special">Special units must be enabled</string>
+    <string name="guide_how_transport">Buy it on the sea beside your port, then walk a unit onto it to embark. Sail up to 3 hexes per turn, park beside a beach and tap the shore to land — the passenger can even capture the beach with its own strength. A boat alongside also feeds troops cut off from supply.</string>
+    <string name="guide_how_warship">The navy\'s sword: move onto an enemy boat to sink it (ties go to you), or tap an adjacent enemy coastal hex to bombard it — the raid kills the garrison and razes any building except a capital. Towers shrug the bombardment off.</string>
+    <string name="guide_req_port">Built at sea beside your port</string>
 
     <!-- Field guide: Buildings -->
     <string name="guide_how_farm">Grows your income. Place it next to your capital or an existing farm. Each farm costs a little more than the last, and one built on fertile ground earns extra.</string>
@@ -290,8 +310,15 @@
     <string name="guide_req_lumber">Next to your own trees</string>
     <string name="guide_how_watchtower">A pure scout — no defense, but sees far through the fog. Only useful when Fog of War is switched on.</string>
     <string name="guide_req_watchtower">Fog of War games only</string>
+    <string name="guide_how_port">Build it on your coast. It opens the shipyard (boats are bought on adjacent sea), pays a little trade income, and — built overseas — feeds a whole colony that has no path to your capital. Lose the port and the colony starves.</string>
+    <string name="guide_req_port_coast">On your own coast, next to the sea</string>
     <string name="guide_desc_capital">The heart of your empire.</string>
     <string name="guide_how_capital">It defends its own hex and neighbours. If an enemy captures it they loot half your treasury and it relocates to your largest region — losing your last territory loses the game.</string>
+
+    <!-- Field guide: Naval basics -->
+    <string name="guide_basic_naval_title">Crossing the sea</string>
+    <string name="guide_basic_naval_desc">Water divides the world — land units can never enter it. Ports, longboats and warships turn it into a highway.</string>
+    <string name="guide_basic_naval_how">Build a Port on your coast, buy a Longboat on the sea beside it, and walk a soldier aboard. Sail to a foreign shore and tap the beach to land — a strong passenger can storm defended ground. Keep the colony alive with a port of its own, and watch for enemy warships on the way.</string>
 
     <!-- Field guide: Resources &amp; terrain -->
     <string name="guide_how_gold_vein">A resource in the ground — worthless until you build a Mine on top of it, which turns it into steady gold.</string>

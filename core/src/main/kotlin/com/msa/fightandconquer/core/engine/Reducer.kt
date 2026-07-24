@@ -65,7 +65,12 @@ object Reducer {
         if (navalStrike) {
             // Naval combat: sink the defender and take its water. Open sea has no
             // ownership, so nothing is captured — the loser just goes under.
-            state.tiles.getValue(action.to).unit?.let { b.killUnit(it, DeathCause.SUNK) }
+            // Sinking a pact partner's boat is aggression like any other.
+            state.tiles.getValue(action.to).unit?.let { victimId ->
+                val victim = state.units.getValue(victimId).owner
+                if (victim != unit.owner) b.breakPact(unit.owner, victim)
+                b.killUnit(victimId, DeathCause.SUNK)
+            }
         } else if (isCapture) {
             b.captureHex(unit.owner, action.to)
         }
@@ -97,6 +102,10 @@ object Reducer {
         val ship = state.units.getValue(action.unit)
         val target = state.tiles.getValue(action.target)
         // A raid, not a conquest: ownership never changes and capitals are immune.
+        // Raiding a pact partner breaks the pact first, like any aggression.
+        target.owner?.let { victim ->
+            if (victim != ship.owner) b.breakPact(ship.owner, victim)
+        }
         b.events.add(GameEvent.Bombarded(ship.id, action.target))
         target.unit?.let { b.killUnit(it, DeathCause.KILLED) }
         val building = target.building

@@ -15,6 +15,8 @@ object PieceIcons {
     fun unit(type: UnitType, tier: Int): Int = when (type) {
         UnitType.ARCHER -> R.drawable.piece_archer
         UnitType.CATAPULT -> R.drawable.piece_catapult
+        UnitType.TRANSPORT -> R.drawable.piece_boat
+        UnitType.WARSHIP -> R.drawable.piece_warship
         UnitType.SOLDIER -> when (tier) {
             1 -> R.drawable.piece_unit_t1
             2 -> R.drawable.piece_unit_t2
@@ -33,6 +35,7 @@ object PieceIcons {
         Building.MARKET -> R.drawable.piece_market
         Building.LUMBER_CAMP -> R.drawable.piece_lumber_camp
         Building.WATCHTOWER -> R.drawable.piece_watchtower
+        Building.PORT -> R.drawable.piece_port
     }
 
     val tree = R.drawable.piece_tree

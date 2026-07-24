@@ -78,6 +78,13 @@ object GuideCatalog {
                 descRes = R.string.guide_basic_territory_desc,
                 howToRes = R.string.guide_basic_territory_how,
             ),
+            GuideEntry(
+                id = "basic_naval",
+                iconRes = null,
+                nameRes = R.string.guide_basic_naval_title,
+                descRes = R.string.guide_basic_naval_desc,
+                howToRes = R.string.guide_basic_naval_how,
+            ),
         ),
     )
 
@@ -118,9 +125,37 @@ object GuideCatalog {
         ),
     )
 
+    private val transport = GuideEntry(
+        id = "unit_transport",
+        iconRes = PieceIcons.unit(UnitType.TRANSPORT, tier = 1),
+        nameRes = R.string.unit_transport,
+        descRes = R.string.info_transport,
+        howToRes = R.string.guide_how_transport,
+        requirementRes = R.string.guide_req_port,
+        stats = listOf(
+            GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
+            GuideStat(R.string.info_stat_cargo, R.string.info_value_plain, 1),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 4),
+        ),
+    )
+
+    private val warship = GuideEntry(
+        id = "unit_warship",
+        iconRes = PieceIcons.unit(UnitType.WARSHIP, tier = 1),
+        nameRes = R.string.unit_warship,
+        descRes = R.string.info_warship,
+        howToRes = R.string.guide_how_warship,
+        requirementRes = R.string.guide_req_port,
+        stats = listOf(
+            GuideStat(R.string.info_stat_strength, R.string.info_value_plain, 2),
+            GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 8),
+        ),
+    )
+
     private val units = GuideSection(
         R.string.guide_section_units,
-        listOf(soldiers, archer, catapult),
+        listOf(soldiers, archer, catapult, transport, warship),
     )
 
     private val farm = GuideEntry(
@@ -183,6 +218,15 @@ object GuideCatalog {
         requirementRes = R.string.guide_req_watchtower,
         stats = listOf(GuideStat(R.string.info_stat_vision, R.string.info_value_plain, 6)),
     )
+    private val port = GuideEntry(
+        id = "building_port",
+        iconRes = PieceIcons.building(Building.PORT),
+        nameRes = R.string.building_port,
+        descRes = R.string.info_port,
+        howToRes = R.string.guide_how_port,
+        requirementRes = R.string.guide_req_port_coast,
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 2)),
+    )
     private val capital = GuideEntry(
         id = "building_capital",
         iconRes = PieceIcons.building(Building.CAPITAL),
@@ -194,7 +238,7 @@ object GuideCatalog {
 
     private val buildings = GuideSection(
         R.string.guide_section_buildings,
-        listOf(capital, farm, tower, castle, mine, market, lumberCamp, watchtower),
+        listOf(capital, farm, tower, castle, mine, market, lumberCamp, watchtower, port),
     )
 
     private val resources = GuideSection(
@@ -251,6 +295,7 @@ object GuideCatalog {
         BuildingType.MARKET -> market
         BuildingType.LUMBER_CAMP -> lumberCamp
         BuildingType.WATCHTOWER -> watchtower
+        BuildingType.PORT -> port
     }
 
     /** The guide entry for a purchasable unit (all soldier tiers share one entry). */
@@ -258,5 +303,7 @@ object GuideCatalog {
         UnitType.SOLDIER -> soldiers
         UnitType.ARCHER -> archer
         UnitType.CATAPULT -> catapult
+        UnitType.TRANSPORT -> transport
+        UnitType.WARSHIP -> warship
     }
 }

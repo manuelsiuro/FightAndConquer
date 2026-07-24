@@ -496,6 +496,19 @@ class BoardScene(
                 if (waterTime > WATER_PERIOD) waterTime -= WATER_PERIOD
                 waterVisible.setParameter("time", waterTime)
                 waterExplored.setParameter("time", waterTime)
+                // Idle boat bob: a view-only yOffset ripple (reconcile ignores
+                // yOffset, so the zero-correction gate is untouched). Skipped
+                // while a piece animates (xz set) or the queue is playing.
+                if (animator.isIdle) {
+                    for ((id, piece) in unitPieces) {
+                        if ((piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) &&
+                            piece.xz == null && !piece.hidden
+                        ) {
+                            piece.yOffset = 0.008f * sin(waterTime * 1.3f + (id.value % 7) * 0.9f)
+                            piece.updateTransform()
+                        }
+                    }
+                }
             }
             // Capture-highlight pulse (a handful of uniform writes at most).
             highlightClock += deltaSeconds
@@ -564,6 +577,16 @@ class BoardScene(
 
             is GameEvent.UnitMoved -> {
                 val piece = unitPieces[event.unit] ?: return
+                if (piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) {
+                    // Boats SAIL: flat glide along open water, never a hop.
+                    val path = seaPath(event.from, event.to)
+                    if (path != null) {
+                        hopAlong(piece, event.unit, path, glide = true)
+                    } else {
+                        hop(piece, event.from, event.to, height = 0f, unitId = event.unit)
+                    }
+                    return
+                }
                 val owner = latestState.units[event.unit]?.owner ?: latestState.tiles[event.to]?.owner
                 val path = owner?.let { ownedPath(event.from, event.to, it) }
                 if (path != null) {
@@ -606,8 +629,11 @@ class BoardScene(
 
             is GameEvent.UnitDied -> {
                 val piece = unitPieces.remove(event.unit) ?: return
-                sinkAway(piece) {
-                    if (event.cause != DeathCause.KILLED) {
+                val atSea = latestState.tiles[event.hex]?.terrain ==
+                    com.msa.fightandconquer.core.model.Terrain.SEA
+                // The drowned go deeper and slower — and leave no gravestone.
+                sinkAway(piece, duration = if (atSea) 0.4f else 0.25f, depth = if (atSea) 0.3f else 0.1f) {
+                    if (event.cause != DeathCause.KILLED && event.cause != DeathCause.SUNK && !atSea) {
                         val grave = createPiece(PieceKind.GRAVESTONE, event.hex, null)
                         floraPieces[event.hex] = grave
                         spawnBounce(grave, duration = 0.25f)
@@ -684,6 +710,37 @@ class BoardScene(
                     buildingPieces[event.to] = piece
                     spawnBounce(piece)
                 }
+            }
+
+            is GameEvent.UnitEmbarked -> {
+                val piece = unitPieces.remove(event.unit) ?: return
+                // Walk aboard, shrink into the hold.
+                piece.hex = event.at
+                val from = event.from
+                animator.tween(0.25f, Easings::easeOutCubic, onEnd = { destroyPiece(piece) }) { t ->
+                    piece.xz = lerpHex(from, event.at, t)
+                    piece.yOffset = Easings.hop(t) * 0.25f
+                    piece.scale = 1f - 0.6f * t
+                    piece.updateTransform()
+                }
+            }
+
+            is GameEvent.UnitDisembarked -> {
+                val landed = createPiece(
+                    pieceMeshes.unitKind(event.unit),
+                    event.to,
+                    event.unit.owner.value,
+                )
+                unitPieces[event.unit.id] = landed
+                landed.setDimmed(latestState.units[event.unit.id]?.spent == true)
+                val boatHex = unitPieces[event.transport]?.hex ?: event.to
+                hop(landed, boatHex, event.to, unitId = event.unit.id)
+            }
+
+            is GameEvent.Bombarded -> {
+                // The broadside itself is camera juice; the kill/demolition each
+                // arrive as their own events right after.
+                if (!isFogged(event.target)) rumbleTime = 0f
             }
 
             is GameEvent.TurnStarted -> {
@@ -772,8 +829,11 @@ class BoardScene(
         return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain hop; too long = direct
     }
 
-    /** Chained per-hex hops: mid segments linear (continuous run), final segment eases out. */
-    private fun hopAlong(piece: Piece, unitId: UnitId, path: List<Hex>) {
+    /**
+     * Chained per-hex hops: mid segments linear (continuous run), final segment
+     * eases out. [glide] flattens the arc entirely — boats sail, they don't hop.
+     */
+    private fun hopAlong(piece: Piece, unitId: UnitId, path: List<Hex>, glide: Boolean = false) {
         val segments = path.size - 1
         val perHex = minOf(0.16f, 0.9f / segments)
         fun runSegment(index: Int) {
@@ -782,7 +842,7 @@ class BoardScene(
             val last = index == segments - 1
             piece.hex = b
             val yDelta = tileTopY(a) - tileTopY(b)
-            val height = if (last) 0.3f else 0.2f
+            val height = if (glide) 0f else if (last) 0.3f else 0.2f
             animator.tween(perHex, if (last) Easings::easeOutCubic else Easings::linear, onEnd = {
                 if (last) {
                     piece.xz = null
@@ -801,13 +861,50 @@ class BoardScene(
         runSegment(0)
     }
 
-    private fun sinkAway(piece: Piece, duration: Float = 0.25f, onDone: (() -> Unit)? = null) {
+    /** BFS shortest path over open water for the sail animation (null = direct glide). */
+    private fun seaPath(from: Hex, to: Hex): List<Hex>? {
+        if (from == to) return null
+        val canEnter: (Hex) -> Boolean = { h ->
+            h == from || h == to ||
+                latestState.tiles[h]?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+        }
+        val parent = HashMap<Hex, Hex>()
+        val queue = ArrayDeque<Hex>().apply { add(from) }
+        val visited = HashSet<Hex>().apply { add(from) }
+        var reached = false
+        while (queue.isNotEmpty() && visited.size < 512 && !reached) {
+            val current = queue.removeFirst()
+            com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(current) { n ->
+                if (!reached && n !in visited && canEnter(n)) {
+                    visited.add(n)
+                    parent[n] = current
+                    if (n == to) reached = true else queue.add(n)
+                }
+            }
+        }
+        if (!reached) return null
+        val path = ArrayList<Hex>()
+        var h = to
+        while (true) {
+            path.add(h)
+            h = parent[h] ?: break
+        }
+        path.reverse()
+        return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain glide
+    }
+
+    private fun sinkAway(
+        piece: Piece,
+        duration: Float = 0.25f,
+        depth: Float = 0.1f,
+        onDone: (() -> Unit)? = null,
+    ) {
         animator.tween(duration, Easings::easeInCubic, onEnd = {
             destroyPiece(piece)
             onDone?.invoke()
         }) { t ->
             piece.scale = 1f - t
-            piece.yOffset = -0.1f * t
+            piece.yOffset = -depth * t
             piece.updateTransform()
         }
     }
@@ -878,6 +975,7 @@ class BoardScene(
         Building.MARKET -> PieceKind.MARKET
         Building.LUMBER_CAMP -> PieceKind.LUMBER_CAMP
         Building.WATCHTOWER -> PieceKind.WATCHTOWER
+        Building.PORT -> PieceKind.PORT
     }
 
     private fun tileTopY(hex: Hex): Float = (tiles[hex]?.y ?: 0f) + Primitives.HEX_HEIGHT

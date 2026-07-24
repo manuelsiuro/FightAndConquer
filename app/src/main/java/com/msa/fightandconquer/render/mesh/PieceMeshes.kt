@@ -12,8 +12,9 @@ class Part(val mesh: GpuMesh, val role: ColorRole)
 enum class PieceKind {
     UNIT_T1, UNIT_T2, UNIT_T3, UNIT_T4,
     ARCHER, CATAPULT,
+    BOAT, WARSHIP,
     CAPITAL, FARM, TOWER, STRONG_TOWER,
-    MINE, MARKET, LUMBER_CAMP, WATCHTOWER,
+    MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT,
     TREE, GRAVESTONE,
     GOLD_VEIN, FERTILE,
 }
@@ -39,6 +40,8 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
     fun unitKind(unit: com.msa.fightandconquer.core.model.GameUnit): PieceKind = when (unit.type) {
         com.msa.fightandconquer.core.model.UnitType.ARCHER -> PieceKind.ARCHER
         com.msa.fightandconquer.core.model.UnitType.CATAPULT -> PieceKind.CATAPULT
+        com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> PieceKind.BOAT
+        com.msa.fightandconquer.core.model.UnitType.WARSHIP -> PieceKind.WARSHIP
         com.msa.fightandconquer.core.model.UnitType.SOLDIER -> when (unit.tier) {
             1 -> PieceKind.UNIT_T1
             2 -> PieceKind.UNIT_T2
@@ -264,6 +267,93 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
             Part(up(Primitives.sphere(0.03f, 3, 8, centerY = 0.52f)), ColorRole.GOLD),
             Part(up(Primitives.boxAt(0f, 0f, 0.006f, 0.12f, 0.006f, baseY = 0.46f)), ColorRole.PIP),
             Part(up(Primitives.pennant(attachX = 0.006f, topY = 0.58f, drop = 0.05f, length = 0.10f)), ColorRole.FACTION),
+        )
+
+        // Naval (expansion). Boats float on sea tops; front faces -Z like all pieces.
+        // Transport: wide flat-bottomed longboat — hull planks, raised bow/stern
+        // posts, short mast with a square faction sail, two cargo crates. H ~0.40.
+        PieceKind.BOAT -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0f, 0.10f, 0.05f, 0.20f) // hull slab
+                        boxInto(0f, 0f, 0.12f, 0.035f, 0.23f, baseY = 0.05f) // gunwale flare
+                        boxInto(0f, -0.235f, 0.035f, 0.12f, 0.035f) // bow post
+                        boxInto(0f, 0.235f, 0.035f, 0.10f, 0.035f) // stern post
+                        cylinderInto(0.014f, 0.30f, 6, baseY = 0.085f) // mast
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0f, 0.02f, 0.10f, 0.16f, 0.008f, baseY = 0.20f)), ColorRole.FACTION), // sail
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, -0.12f, 0.05f, 0.05f, 0.05f, baseY = 0.085f)
+                        boxInto(0.04f, 0.13f, 0.04f, 0.04f, 0.04f, baseY = 0.085f)
+                    }
+                },
+                ColorRole.STONE, // crates
+            ),
+            Part(up(Primitives.boxAt(0f, 0f, 0.125f, 0.012f, 0.24f, baseY = 0.073f)), ColorRole.PIP), // trim
+        )
+        // Warship: sleeker hull with a wedge ram, taller mast + crow's nest,
+        // round faction shields along the gunwale, gold pennant. H ~0.52.
+        PieceKind.WARSHIP -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0f, 0.09f, 0.05f, 0.24f) // hull slab
+                        boxInto(0f, 0f, 0.105f, 0.035f, 0.26f, baseY = 0.05f) // gunwale flare
+                        boxInto(0f, 0.26f, 0.03f, 0.10f, 0.03f) // stern post
+                        cylinderInto(0.014f, 0.40f, 6, baseY = 0.085f) // mast
+                        boxInto(0f, 0f, 0.035f, 0.02f, 0.035f, baseY = 0.40f) // crow's nest
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.wedgeAt(0f, -0.27f, 0.06f, 0.06f, 0.09f)), ColorRole.PIP), // ram
+            Part(
+                build {
+                    with(Primitives) {
+                        // Shield row along both gunwales.
+                        for (sx in intArrayOf(-1, 1)) {
+                            for (cz in floatArrayOf(-0.12f, 0f, 0.12f)) {
+                                boxInto(sx * 0.105f, cz, 0.012f, 0.05f, 0.05f, baseY = 0.055f)
+                            }
+                        }
+                    }
+                },
+                ColorRole.FACTION,
+            ),
+            Part(up(Primitives.boxAt(0f, 0.02f, 0.115f, 0.20f, 0.008f, baseY = 0.16f)), ColorRole.FACTION), // sail
+            Part(up(Primitives.pennant(attachX = 0.014f, topY = 0.52f, drop = 0.045f, length = 0.09f)), ColorRole.GOLD),
+        )
+
+        // Port: stone quay + timber crane + faction-roof warehouse + gold barrel.
+        PieceKind.PORT -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0.01f, 0.17f, 0.05f, 0.12f)
+                        boxInto(0f, -0.07f, 0.10f, 0.03f, 0.025f)
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0.06f, 0.045f, 0.075f, 0.11f, 0.065f, baseY = 0.05f) // warehouse
+                        cylinderInto(0.018f, 0.30f, 6, baseY = 0.05f, cx = -0.08f, cz = 0.01f) // crane post
+                        boxInto(-0.08f, -0.045f, 0.018f, 0.16f, 0.018f, baseY = 0.32f) // jib
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.wedgeAt(0.06f, 0.045f, 0.085f, 0.055f, 0.075f, baseY = 0.16f)), ColorRole.FACTION),
+            Part(up(Primitives.cylinder(0.03f, 0.05f, 8, baseY = 0.05f, cx = 0.01f, cz = -0.03f)), ColorRole.GOLD),
+            Part(up(Primitives.boxAt(-0.08f, -0.11f, 0.006f, 0.12f, 0.006f, baseY = 0.20f)), ColorRole.PIP),
         )
 
         // Tree + gravestone.
