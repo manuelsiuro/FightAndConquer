@@ -173,7 +173,12 @@ data class HudState(
 )
 
 sealed interface Screen {
-    data class Menu(val hasAutosave: Boolean, val generating: Boolean = false) : Screen
+    data class Menu(val hasAutosave: Boolean) : Screen
+    data class Setup(val generating: Boolean = false) : Screen
+    data object Campaign : Screen
+    data object MapEditor : Screen
+    data object Settings : Screen
+    data object About : Screen
     data object Game : Screen
 }
 
@@ -235,6 +240,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var lastHumanSeat: Int? = null
     private var aiJob: Job? = null
     private var eventsJob: Job? = null
+    private var mapGenJob: Job? = null
     private var aiThinking = false
     private var nextToastId = 0L
     private var freshUnitCursor = 0
@@ -247,8 +253,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // ----- menu -----
 
     fun newGame(setup: GameSetup) {
-        _screen.value = Screen.Menu(autosaveFile.exists(), generating = true)
-        viewModelScope.launch(Dispatchers.Default) {
+        _screen.value = Screen.Setup(generating = true)
+        mapGenJob = viewModelScope.launch(Dispatchers.Default) {
             val map = MapGenerator.generate(
                 MapParams(seed = setup.seed, size = setup.size, playerCount = setup.playerCount),
             )
@@ -287,7 +293,28 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun openSetup() {
+        _screen.value = Screen.Setup()
+    }
+
+    fun openCampaign() {
+        _screen.value = Screen.Campaign
+    }
+
+    fun openMapEditor() {
+        _screen.value = Screen.MapEditor
+    }
+
+    fun openSettings() {
+        _screen.value = Screen.Settings
+    }
+
+    fun openAbout() {
+        _screen.value = Screen.About
+    }
+
     fun backToMenu() {
+        mapGenJob?.cancel()
         aiJob?.cancel()
         eventsJob?.cancel()
         engine = null
