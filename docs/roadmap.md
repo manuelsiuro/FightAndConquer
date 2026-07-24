@@ -23,10 +23,13 @@ Feature gates for A/B and classic play: `specialUnitsEnabled`,
 
 ### Campaign / authored maps
 `MapDefinition` already supports authored maps (`generatorParams = null`) with the
-same serialization as skirmish maps. To build: author JSON (or a small editor that
-emits `MapDefinition`), ship under assets, add a campaign list to `MenuScreen`, pass
-scripted `RuleConstants`/`PlayerKind`s per level. `MapValidator` should run on every
-authored map in a unit test.
+same serialization as skirmish maps. The menu already has **Campaign** and **Map
+Editor** entries wired to `Screen.Campaign`/`Screen.MapEditor`, both currently
+rendering `PlaceholderScreen` — building either means swapping one `when` branch in
+`MainActivity`. To build: author JSON (or a small editor that emits
+`MapDefinition`), ship under assets, add a campaign list behind `Screen.Campaign`,
+pass scripted `RuleConstants`/`PlayerKind`s per level. `MapValidator` should run on
+every authored map in a unit test.
 
 ### Online multiplayer
 The groundwork is deliberate: deterministic reducer, RNG inside `GameState`,
@@ -37,8 +40,11 @@ Keep any new randomness inside the state RNG or determinism breaks silently —
 the determinism tests in `:core` are the tripwire.
 
 ### Obvious next features
+- Settings screen — the menu entry and `Screen.Settings` exist but render
+  `PlaceholderScreen`. Nothing is persisted yet; a preferences store would be the
+  first piece (sound, haptics, default setup choices).
 - Sound/haptics (hook `GameEvent`s in a ViewModel collector — same pattern as toasts).
-- Map seed sharing / seed entry in `MenuScreen` (`GameSetup.seed` is already there).
+- Map seed sharing / seed entry in `SetupScreen` (`GameSetup.seed` is already there).
 - Multiple autosave slots (`SaveGame` is self-contained; only the repository file
   naming needs work).
 - Difficulty per AI seat (plumb a list through `GameSetup` instead of one value).
@@ -88,8 +94,11 @@ precisely for this — tested), so tuning defaults never alters an in-progress g
   Continue-resume skips it (`showOpeningBanner = false` in `continueGame`) — a
   minor privacy gap for resumed hot-seat games. vs-AI has no banner.
 - **Camera pose is not saved across Activity recreation**: rotating mid-game
-  re-runs `fitCameraOnce` and re-frames the board (menu setup state *is* saved via
-  `rememberSaveable`). Hoisting the rig pose into the ViewModel would fix it.
+  re-runs `fitCameraOnce` and re-frames the board (`SetupScreen` choices *are* saved
+  via `rememberSaveable`). Hoisting the rig pose into the ViewModel would fix it.
+- **`SetupScreen` choices reset when you back out to the menu** — they survive
+  rotation, but not leaving the screen, since the composable leaves composition.
+  Hoisting the last-used setup into the ViewModel (or preferences) would fix it.
 - **The 3D board is not screen-reader navigable** — it exposes a single summary
   content description (turn/player); individual hexes have no semantics.
 - **Undo** is per-seat, in-turn only (cleared at `EndTurn`) — by design for

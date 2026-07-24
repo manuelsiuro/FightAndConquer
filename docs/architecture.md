@@ -37,6 +37,12 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+Navigation is deliberately hand-rolled: `GameViewModel.screen` is a sealed `Screen`
+StateFlow (`Menu`, `Setup`, `Campaign`, `MapEditor`, `Settings`, `About`, `Game`)
+that `MainActivity` switches in a single `when`. No Navigation Compose, no back
+stack — every non-game screen backs out through `backToMenu()`. See
+[ui-hud.md](ui-hud.md#screens--navigation).
+
 ## Data flow (one player action)
 
 1. Compose gesture → `BoardScene.tap()` → CPU ray-pick → `GameViewModel.onHexTapped(hex)`.
