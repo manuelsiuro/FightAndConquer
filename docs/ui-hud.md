@@ -4,10 +4,16 @@ Single-ViewModel pattern: `GameViewModel` owns all UI state and is the only
 **mutator** of `GameEngine` (`GameScreen` reads `engine.state`/`engine.events`
 directly to wire the renderer, but never submits); `GameScreen` renders and wires
 the board; `MenuScreen` is the front door and `SetupScreen` configures new games.
-Colors: `UiColors` (sRGB mirror of
-the render palette); the Material scheme in `theme/Theme.kt` is derived from it
-(light-only, no dynamic color — wallpaper-derived schemes clashed with the fixed
-board palette).
+Colors: `UiColors` — a `@Composable` accessor for `LocalUiColors`, resolving to
+the light or dark `UiColorScheme` per the system setting (`UiColors.kt`); the
+Material scheme in `theme/Theme.kt` is derived from the same instance. Faction
+pastels, `onFaction` and the board-overlay chips are fixed across themes because
+they mirror the render palette; only the chrome tokens (paper, ink, panels,
+toasts) flip. No dynamic color — wallpaper-derived schemes clashed with the fixed
+board palette. System bars are transparent edge-to-edge (`MainActivity` sets
+`SystemBarStyle.auto(TRANSPARENT, TRANSPARENT)` + disables nav-bar contrast
+enforcement); the Game screen hides them entirely (immersive, edge-swipe reveals
+transiently) via `ImmersiveDuringGame`.
 
 ## Strings
 

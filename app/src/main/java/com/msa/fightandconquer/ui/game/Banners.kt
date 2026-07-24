@@ -16,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -32,7 +31,7 @@ internal fun TurnBanner(seat: Int, onBegin: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color(0xE6FFFFFF))
+            .background(UiColors.bannerScrim)
             .pointerInput(Unit) { detectTapGestures { onBegin() } },
         contentAlignment = Alignment.Center,
     ) {
@@ -55,7 +54,7 @@ internal fun GameOverOverlay(winner: Int, onBackToMenu: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color(0xE6FFFFFF))
+            .background(UiColors.bannerScrim)
             .pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.Center,
     ) {
@@ -81,7 +80,7 @@ internal fun GameOverOverlay(winner: Int, onBackToMenu: () -> Unit) {
                 onClick = onBackToMenu,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = UiColors.faction(winner),
-                    contentColor = UiColors.ink,
+                    contentColor = UiColors.onFaction,
                 ),
             ) { Text(stringResource(R.string.game_over_back_to_menu)) }
         }

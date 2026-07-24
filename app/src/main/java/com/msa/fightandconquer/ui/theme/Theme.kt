@@ -1,49 +1,63 @@
 package com.msa.fightandconquer.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import com.msa.fightandconquer.ui.UiColors
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import com.msa.fightandconquer.ui.DarkUiColors
+import com.msa.fightandconquer.ui.LightUiColors
+import com.msa.fightandconquer.ui.LocalUiColors
+import com.msa.fightandconquer.ui.UiColorScheme
 
 /**
- * The game paints from the hand-authored neo-pastel [UiColors] palette (docs/game-idea.md
- * section 7), so the Material scheme is derived from it rather than from the template
- * purples.
- *
- * Deliberately light-only and NOT dynamic-color: the board, HUD panels and faction
- * colors are fixed, so wallpaper-derived or dark schemes would only affect the
- * Material components that don't set explicit colors (chips, buttons, cards) and
- * make them clash with everything around them.
+ * The game paints from the hand-authored neo-pastel palette (docs/game-idea.md
+ * section 7), so the Material scheme is derived from it rather than from the
+ * template purples. Light and dark instances follow the system setting; there is
+ * deliberately NO dynamic color — the board and faction pastels are fixed art,
+ * and wallpaper-derived schemes would clash with them.
  */
-private val GameColorScheme = lightColorScheme(
-    primary = UiColors.faction(0),
-    onPrimary = UiColors.ink,
-    primaryContainer = UiColors.faction(0).copy(alpha = 0.30f),
-    onPrimaryContainer = UiColors.ink,
-    secondary = UiColors.faction(3),
-    onSecondary = UiColors.ink,
-    secondaryContainer = UiColors.faction(0).copy(alpha = 0.30f),
-    onSecondaryContainer = UiColors.ink,
-    tertiary = UiColors.faction(2),
-    onTertiary = UiColors.ink,
-    background = UiColors.background,
-    onBackground = UiColors.ink,
-    surface = Color(0xFFFFFDFB),
-    onSurface = UiColors.ink,
-    surfaceVariant = UiColors.background,
-    onSurfaceVariant = UiColors.inkSecondary,
-    outline = UiColors.inkFaint,
-    outlineVariant = UiColors.inkFaint.copy(alpha = 0.3f),
-    error = UiColors.alert,
-    onError = Color.White,
-)
+private fun gameColorScheme(c: UiColorScheme, darkTheme: Boolean): ColorScheme {
+    val base = if (darkTheme) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = c.faction(0),
+        onPrimary = c.onFaction,
+        primaryContainer = c.faction(0).copy(alpha = 0.30f),
+        onPrimaryContainer = c.ink,
+        secondary = c.faction(3),
+        onSecondary = c.onFaction,
+        secondaryContainer = c.faction(0).copy(alpha = 0.30f),
+        onSecondaryContainer = c.ink,
+        tertiary = c.faction(2),
+        onTertiary = c.onFaction,
+        background = c.background,
+        onBackground = c.ink,
+        surface = c.surface,
+        onSurface = c.ink,
+        surfaceVariant = c.background,
+        onSurfaceVariant = c.inkSecondary,
+        outline = c.inkFaint,
+        outlineVariant = c.inkFaint.copy(alpha = 0.3f),
+        error = c.alert,
+        onError = c.onAlert,
+    )
+}
 
 @Composable
-fun FightAndConquerTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = GameColorScheme,
-        typography = Typography,
-        content = content,
-    )
+fun FightAndConquerTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val uiColors = if (darkTheme) DarkUiColors else LightUiColors
+    val scheme = remember(darkTheme) { gameColorScheme(uiColors, darkTheme) }
+    CompositionLocalProvider(LocalUiColors provides uiColors) {
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = Typography,
+            content = content,
+        )
+    }
 }

@@ -9,4 +9,6 @@
     <color name="white">#FFFFFFFF</color>
     <!-- Launcher icon background: the navy of the icon artwork. -->
     <color name="ic_launcher_background">#20252D</color>
+    <!-- Window background (cold-start frame): UiColors.background, per theme. -->
+    <color name="paper">#F4F2EF</color>
 </resources>

@@ -18,7 +18,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -46,7 +45,7 @@ internal fun ToastStack(toasts: List<HudToast>) {
                 val (bg, fg, size) = when (toast.kind) {
                     ToastKind.INFO -> Triple(UiColors.panel, UiColors.ink, 13.sp)
                     ToastKind.WARNING -> Triple(UiColors.toastWarning, UiColors.ink, 13.sp)
-                    ToastKind.ALERT -> Triple(UiColors.alert, Color.White, 15.sp)
+                    ToastKind.ALERT -> Triple(UiColors.alert, UiColors.onAlert, 15.sp)
                 }
                 val urgency = if (toast.kind == ToastKind.ALERT) {
                     LiveRegionMode.Assertive

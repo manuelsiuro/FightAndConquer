@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window background (cold-start frame): DarkUiColors.background. -->
+    <color name="paper">#201E1B</color>
+</resources>

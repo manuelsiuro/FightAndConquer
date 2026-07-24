@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark parent gives light bar icons and dark decor defaults for the first
+         frame, before Compose takes over. -->
+    <style name="Theme.FightAndConquer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+    </style>
+</resources>
