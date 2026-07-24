@@ -7,6 +7,7 @@ import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.RuleConstants
+import com.msa.fightandconquer.core.model.Terrain
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -55,6 +56,9 @@ object MapGenerator {
 
         val tiles = HashMap<Hex, TileDef>()
         for (hex in land) tiles[hex] = TileDef(hex)
+        // Every landmass gets a navigable coastal sea. [MapSize.targetHexes] keeps
+        // meaning LAND hexes — sea rides on top.
+        for (hex in seaFringe(land)) tiles[hex] = TileDef(hex, terrain = Terrain.SEA)
         regions.forEachIndexed { player, region ->
             for (hex in region) tiles[hex] = TileDef(hex, owner = player)
         }
@@ -186,6 +190,26 @@ object MapGenerator {
 
     /** Radius of the per-capital FERTILE fairness zone (also checked by MapValidator). */
     internal const val FERTILE_FAIR_RADIUS = 5
+
+    /** Width of the coastal sea band around every landmass. */
+    internal const val SEA_FRINGE = 2
+
+    /**
+     * All hexes within [SEA_FRINGE] of land that are not land. A band around a
+     * connected mass is itself connected, and any two blobs closer than
+     * 2×[SEA_FRINGE] share sea — MapValidator still verifies both.
+     */
+    private fun seaFringe(land: Set<Hex>): Set<Hex> {
+        val sea = HashSet<Hex>()
+        for (hex in land) {
+            for (n in HexMath.range(hex, SEA_FRINGE)) if (n !in land) sea.add(n)
+        }
+        // growBlob can leave interior holes; their fringe would be a landlocked
+        // puddle no boat can reach. Keep only the open ocean (largest component —
+        // ties broken by lowest packed hex for determinism), holes stay void.
+        val components = HexMath.connectedComponents(sea)
+        return components.maxWith(compareBy({ it.size }, { -(it.minOf { h -> h.packed }) }))
+    }
 
     /**
      * Random-walk blob growth: repeatedly claim a frontier hex, weighted by

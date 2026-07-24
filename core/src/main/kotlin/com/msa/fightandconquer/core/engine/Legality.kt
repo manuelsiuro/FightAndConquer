@@ -6,6 +6,7 @@ import com.msa.fightandconquer.core.model.BuildingType
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
+import com.msa.fightandconquer.core.model.Terrain
 import com.msa.fightandconquer.core.model.UnitType
 
 sealed interface LegalityResult {
@@ -118,6 +119,7 @@ object Legality {
             }
         }
         // Not owned: must be a capture placement adjacent to funded (non-starving) territory.
+        if (tile.terrain == Terrain.SEA) return reject(RejectionReason.SEA_IMPASSABLE)
         val adjacentToFunded = HexMath.neighbors(action.at).any {
             val t = state.tiles[it]
             t?.owner == state.currentPlayer && !t.starving
@@ -135,6 +137,7 @@ object Legality {
         val cost = Rules.buildingCost(state, state.currentPlayer, action.type)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)
         val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)
+        if (tile.terrain == Terrain.SEA) return reject(RejectionReason.SEA_IMPASSABLE)
         if (tile.owner != state.currentPlayer) return reject(RejectionReason.NOT_YOUR_HEX)
         if (tile.starving) return reject(RejectionReason.HEX_CUT_OFF)
         if (tile.building != null) return reject(RejectionReason.HEX_HAS_BUILDING)

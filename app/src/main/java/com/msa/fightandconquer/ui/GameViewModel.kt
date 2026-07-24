@@ -49,6 +49,7 @@ data class GameSetup(
     val mode: GameMode = GameMode.VS_AI,
     val difficulty: Difficulty = Difficulty.NORMAL,
     val size: MapSize = MapSize.MEDIUM,
+    val shape: com.msa.fightandconquer.core.map.MapShape = com.msa.fightandconquer.core.map.MapShape.CONTINENT,
     val seed: Long = System.currentTimeMillis(),
     val fogOfWar: Boolean = false,
     val specialUnits: Boolean = true,
@@ -256,7 +257,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _screen.value = Screen.Setup(generating = true)
         mapGenJob = viewModelScope.launch(Dispatchers.Default) {
             val map = MapGenerator.generate(
-                MapParams(seed = setup.seed, size = setup.size, playerCount = setup.playerCount),
+                MapParams(
+                    seed = setup.seed,
+                    size = setup.size,
+                    playerCount = setup.playerCount,
+                    shape = setup.shape,
+                ),
             )
             val kinds = List(setup.playerCount) { index ->
                 when {
@@ -1057,6 +1063,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 iconRes = PieceIcons.fertile,
             )
             null -> {}
+        }
+        if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
+            return InfoCard(
+                UiText.of(R.string.tile_sea),
+                UiText.of(R.string.info_sea),
+            )
         }
         if (tile.owner == me && tile.starving) {
             return InfoCard(

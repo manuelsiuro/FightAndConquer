@@ -106,6 +106,16 @@ object TestStates {
     fun GameState.withDeposit(deposit: com.msa.fightandconquer.core.model.Deposit, at: Hex): GameState =
         copy(tiles = tiles + (at to tiles.getValue(at).copy(deposit = deposit)))
 
+    /** Adds (or converts) the given hexes as neutral open-sea tiles. */
+    fun GameState.withSea(at: List<Hex>): GameState =
+        copy(
+            tiles = tiles + at.map {
+                it to Tile(terrain = com.msa.fightandconquer.core.model.Terrain.SEA)
+            },
+        )
+
+    fun GameState.withSea(at: Hex): GameState = withSea(listOf(at))
+
     fun GameState.withTreasury(player: Int, amount: Int): GameState =
         copy(players = players.map { if (it.id.value == player) it.copy(treasury = amount) else it })
 
@@ -125,6 +135,14 @@ object TestStates {
         for ((hex, tile) in state.tiles) {
             tile.unit?.let { id ->
                 assertEquals("units map entry for tile $hex", hex, state.units[id]?.hex)
+            }
+            if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
+                // Open sea stays neutral and bare; only a bridge makes a sea hex ownable.
+                if (tile.building == null) {
+                    assertEquals("open sea $hex is never owned", null, tile.owner)
+                }
+                assertEquals("no flora at sea: $hex", null, tile.flora)
+                assertTrue("sea $hex never starves", !tile.starving)
             }
         }
         for (player in state.players) {

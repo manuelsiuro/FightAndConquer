@@ -68,21 +68,43 @@ class BoardScene(
 
     val rig = CameraRig()
     private val picker = HexPicker(
-        exists = { it in tiles },
-        isRaised = { tiles[it]?.raised == true },
+        topYOf = { hex -> tiles[hex]?.let { it.y + Primitives.HEX_HEIGHT } },
     )
 
     // ----- tiles -----
 
     private class TileEntity(
         val entity: Int,
-        val instance: MaterialInstance,
+        /** Per-tile hexTile instance for land; the SHARED water instance for sea. */
+        var instance: MaterialInstance,
         var color: Float3,
         var raised: Boolean,
         var y: Float,
+        val sea: Boolean = false,
     )
 
     private val tiles = HashMap<Hex, TileEntity>()
+
+    // ----- water (all sea tiles share one animated material instance per fog band) -----
+
+    private val waterVisible: MaterialInstance by lazy {
+        materials.material("water").createInstance().apply {
+            setParameter("shallowColor", Palette.SEA.x, Palette.SEA.y, Palette.SEA.z)
+            setParameter("deepColor", Palette.SEA_DEEP.x, Palette.SEA_DEEP.y, Palette.SEA_DEEP.z)
+            setParameter("time", 0f)
+        }
+    }
+    private val waterExplored: MaterialInstance by lazy {
+        materials.material("water").createInstance().apply {
+            val s = Palette.SEA * FOG_EXPLORED_FACTOR
+            val d = Palette.SEA_DEEP * FOG_EXPLORED_FACTOR
+            setParameter("shallowColor", s.x, s.y, s.z)
+            setParameter("deepColor", d.x, d.y, d.z)
+            setParameter("time", 0f)
+        }
+    }
+    private var hasSea = false
+    private var waterTime = 0f
 
     // ----- pieces -----
 
@@ -234,6 +256,18 @@ class BoardScene(
     /** Writes the tile's rendered color: logical color when visible, dark neutral in fog. */
     private fun applyTileColor(hex: Hex, te: TileEntity) {
         val visible = fogVisible
+        if (te.sea) {
+            // Sea has no per-tile params — fog picks which SHARED instance renders it.
+            // (Sea is pre-discovered, so the never-seen band cannot occur.)
+            val chosen = if (visible == null || hex in visible) waterVisible else waterExplored
+            if (te.instance !== chosen) {
+                val rm = filament.renderableManager
+                val ri = rm.getInstance(te.entity)
+                if (ri != 0) rm.setMaterialInstanceAt(ri, 0, chosen)
+                te.instance = chosen
+            }
+            return
+        }
         val c = when {
             visible == null || hex in visible -> te.color
             hex in fogExplored -> Palette.NEUTRAL * FOG_EXPLORED_FACTOR
@@ -267,25 +301,39 @@ class BoardScene(
             minX = minOf(minX, cx); maxX = maxOf(maxX, cx)
             minZ = minOf(minZ, cz); maxZ = maxOf(maxZ, cz)
 
-            val color = tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
-            val raised = tile.owner != null
-            val instance = tileMaterial.createInstance().apply {
-                setParameter("colorFrom", color.x, color.y, color.z)
-                setParameter("colorTo", color.x, color.y, color.z)
-                setParameter("tileCenter", cx, 0f, cz)
-                setParameter("waveRadius", 0f)
-                setParameter("waveSoftness", 0.18f)
+            val sea = tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+            if (sea) hasSea = true
+            val color = when {
+                sea -> Palette.SEA
+                else -> tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
+            }
+            val raised = !sea && tile.owner != null
+            val instance = if (sea) {
+                waterVisible // shared: one animated instance for the whole ocean
+            } else {
+                tileMaterial.createInstance().apply {
+                    setParameter("colorFrom", color.x, color.y, color.z)
+                    setParameter("colorTo", color.x, color.y, color.z)
+                    setParameter("tileCenter", cx, 0f, cz)
+                    setParameter("waveRadius", 0f)
+                    setParameter("waveSoftness", 0.18f)
+                }
             }
             val entity = EntityManager.get().create()
             RenderableManager.Builder(1)
                 .boundingBox(hexMesh.aabb)
                 .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, hexMesh.vertexBuffer, hexMesh.indexBuffer)
                 .material(0, instance)
-                .castShadows(true)
+                .castShadows(!sea)
                 .receiveShadows(true)
                 .build(filament, entity)
             engine.scene.addEntity(entity)
-            val te = TileEntity(entity, instance, color, raised, if (raised) Primitives.CAPTURE_RAISE else 0f)
+            val y = when {
+                sea -> -Primitives.SEA_SINK
+                raised -> Primitives.CAPTURE_RAISE
+                else -> 0f
+            }
+            val te = TileEntity(entity, instance, color, raised, y, sea)
             tiles[hex] = te
             setTileTransform(hex, te)
         }
@@ -440,6 +488,15 @@ class BoardScene(
                     rig.shake = Float3(0f, 0f, 0f)
                 }
             }
+            // Water shimmer: one uniform write per fog band, regardless of sea size.
+            if (hasSea) {
+                waterTime += deltaSeconds
+                // Wrap on the bands' common period (20pi) — keeps the shader arg small
+                // for mediump sin() without a visible jump.
+                if (waterTime > WATER_PERIOD) waterTime -= WATER_PERIOD
+                waterVisible.setParameter("time", waterTime)
+                waterExplored.setParameter("time", waterTime)
+            }
             // Capture-highlight pulse (a handful of uniform writes at most).
             highlightClock += deltaSeconds
             val pulseAlpha = 0.72f + 0.28f * sin(highlightClock * 7f)
@@ -518,6 +575,9 @@ class BoardScene(
 
             is GameEvent.HexCaptured -> {
                 val te = tiles[event.hex] ?: return
+                // Sea stays water: a captured bridge hex shows ownership on the piece,
+                // never on the tile (no raise, no wave).
+                if (te.sea) return
                 val color = Palette.faction(event.newOwner.value)
                 if (isFogged(event.hex)) {
                     // Fogged capture: update logical state silently — no wave, no reveal.
@@ -920,6 +980,12 @@ class BoardScene(
 
         for ((hex, tile) in state.tiles) {
             val te = tiles[hex] ?: continue
+            if (te.sea) {
+                // Water is static geometry: fixed sink, never raised, shared material.
+                // Fog-band swaps are view-only and handled by setFog/applyTileColor.
+                applyTileColor(hex, te)
+                continue
+            }
             val color = tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
             val raised = tile.owner != null
             val y = if (raised) Primitives.CAPTURE_RAISE else 0f
@@ -1062,7 +1128,12 @@ class BoardScene(
         for (te in tiles.values) {
             filament.destroyEntity(te.entity)
             EntityManager.get().destroy(te.entity)
-            filament.destroyMaterialInstance(te.instance)
+            // Sea tiles share the water instances — destroyed once, below.
+            if (!te.sea) filament.destroyMaterialInstance(te.instance)
+        }
+        if (hasSea) {
+            filament.destroyMaterialInstance(waterVisible)
+            filament.destroyMaterialInstance(waterExplored)
         }
         tiles.clear()
         pieceMeshes.destroy(filament)
@@ -1081,5 +1152,7 @@ class BoardScene(
         private const val MAX_PATH_LEN = 24
         /** Label anchor height: above the tallest piece (capital banner ~0.70). */
         private const val ANCHOR_LIFT = 0.8f
+        /** Water shimmer wrap: 20pi is a whole period of both sine bands (x0.9, x0.6). */
+        private const val WATER_PERIOD = (20.0 * Math.PI).toFloat()
     }
 }

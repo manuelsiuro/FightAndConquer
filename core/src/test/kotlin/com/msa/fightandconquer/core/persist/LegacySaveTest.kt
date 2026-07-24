@@ -41,6 +41,8 @@ class LegacySaveTest {
         // RuleConstants (Phase C)
         "diplomacyEnabled", "pactMinDurationRounds", "pactMaxDurationRounds",
         "pactProposalTtlRounds", "pactProposalCooldownRounds", "pactBreakPenaltyPercent",
+        // Tile / TileDef (naval expansion, phase 1)
+        "terrain",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

@@ -52,7 +52,10 @@ object MoveGenerator {
             HexMath.forEachNeighbor(hex) { n ->
                 if (n !in frontier) {
                     val t = state.tiles[n]
-                    if (t != null && t.owner != me && t.owner !in partners) {
+                    // Open sea is not conquerable land — it never joins the frontier.
+                    if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                        t.owner != me && t.owner !in partners
+                    ) {
                         frontier[n] = Rules.defenseOf(state, n)
                     }
                 }

@@ -121,7 +121,8 @@ internal object TurnPipeline {
             if (b.rollPercent() >= b.rules.treeSpreadPercent) continue
             val candidates = HexMath.neighbors(tree).filter {
                 val t = b.tiles[it]
-                t != null && t.unit == null && t.building == null && t.flora == null
+                t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                    t.unit == null && t.building == null && t.flora == null
             }.sortedBy { it.packed }
             if (candidates.isEmpty()) continue
             val target = candidates[b.rollIndex(candidates.size)]

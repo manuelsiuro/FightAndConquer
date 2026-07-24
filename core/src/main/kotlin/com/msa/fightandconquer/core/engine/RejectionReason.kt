@@ -64,4 +64,6 @@ enum class RejectionReason {
     INVALID_TRIBUTE_AMOUNT,
     /** No game is loaded (UI-level guard). */
     NO_GAME,
+    /** Land units and land buildings cannot be placed on open sea. */
+    SEA_IMPASSABLE,
 }

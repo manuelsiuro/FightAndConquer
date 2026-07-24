@@ -131,7 +131,10 @@ object Rules {
             HexMath.forEachNeighbor(hex) { n ->
                 if (n !in capture && inRange(n)) {
                     val neighborTile = state.tiles[n]
+                    // Open sea is never capturable by land units (a bridge makes the
+                    // hex land-like and is handled by its own rules).
                     if (neighborTile != null && neighborTile.owner != unit.owner &&
+                        neighborTile.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
                         strength > defenseOf(state, n, unit.type)
                     ) {
                         capture.add(n)
@@ -181,6 +184,8 @@ object Rules {
         var income = 0
         for ((hex, tile) in tiles) {
             if (tile.owner != player || tile.starving || tile.flora != null) continue
+            // Sea produces nothing, owned or not (a bridge hex is owned but incomeless).
+            if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) continue
             income += rules.hexIncome
             if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) income += rules.fertileHexBonus
             when (tile.building) {

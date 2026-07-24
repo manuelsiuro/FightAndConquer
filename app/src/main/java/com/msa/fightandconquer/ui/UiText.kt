@@ -94,4 +94,5 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.NO_SUCH_PROPOSAL -> UiText.of(R.string.reject_no_such_proposal)
     RejectionReason.INVALID_TRIBUTE_AMOUNT -> UiText.of(R.string.reject_invalid_tribute)
     RejectionReason.NO_GAME -> UiText.of(R.string.reject_no_game)
+    RejectionReason.SEA_IMPASSABLE -> UiText.of(R.string.reject_sea_impassable)
 }

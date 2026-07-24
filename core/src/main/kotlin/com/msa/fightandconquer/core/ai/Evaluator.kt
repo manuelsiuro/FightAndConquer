@@ -35,6 +35,9 @@ object Evaluator {
         var enemyForts = 0
         var buildingScore = 0.0
         for ((hex, tile) in state.tiles) {
+            // Only land counts as territory — an owned bridge hex is a road, not a
+            // 14-point asset (else the AI would pave the sea with bridges).
+            if (tile.terrain != com.msa.fightandconquer.core.model.Terrain.LAND) continue
             when {
                 tile.owner == me -> {
                     if (!tile.starving) {

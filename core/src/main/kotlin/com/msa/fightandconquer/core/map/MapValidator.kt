@@ -3,23 +3,42 @@ package com.msa.fightandconquer.core.map
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Deposit
+import com.msa.fightandconquer.core.model.Terrain
 
 /** Hard requirements every playable map must satisfy. Returns human-readable violations. */
 object MapValidator {
 
     fun validate(map: MapDefinition, params: MapParams? = map.generatorParams): List<String> {
         val violations = ArrayList<String>()
-        val land = map.tiles.map { it.hex }.toSet()
+        val land = map.tiles.filter { it.terrain == Terrain.LAND }.map { it.hex }.toSet()
+        val sea = map.tiles.filter { it.terrain == Terrain.SEA }.map { it.hex }.toSet()
 
         if (land.isEmpty()) {
             violations.add("map has no land")
             return violations
         }
-        if (map.tiles.size != land.size) violations.add("duplicate tile definitions")
+        if (map.tiles.size != land.size + sea.size) violations.add("duplicate tile definitions")
 
         // Single connected landmass (Slay movement makes disconnected land unreachable).
         val components = HexMath.connectedComponents(land)
         if (components.size != 1) violations.add("landmass split into ${components.size} components")
+
+        // Sea contract: neutral, empty and navigable as one body of water.
+        map.tiles.filter { it.terrain == Terrain.SEA }.forEach { tile ->
+            if (tile.owner != null) violations.add("sea tile ${tile.hex} has an owner")
+            if (tile.building != null) violations.add("sea tile ${tile.hex} has a building")
+            if (tile.flora != null) violations.add("sea tile ${tile.hex} has flora")
+            if (tile.deposit != null) violations.add("sea tile ${tile.hex} has a land deposit")
+        }
+        if (sea.isNotEmpty()) {
+            val seaComponents = HexMath.connectedComponents(sea)
+            if (seaComponents.size != 1) {
+                violations.add("sea split into ${seaComponents.size} components")
+            }
+            if (HexMath.connectedComponents(land + sea).size != 1) {
+                violations.add("map is not one connected land+sea surface")
+            }
+        }
 
         // Capitals: present, marked, on owned tiles, spaced fairly.
         if (map.capitals.isEmpty()) violations.add("no capitals")

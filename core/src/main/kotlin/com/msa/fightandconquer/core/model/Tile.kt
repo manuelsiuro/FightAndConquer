@@ -3,7 +3,10 @@ package com.msa.fightandconquer.core.model
 import kotlinx.serialization.Serializable
 
 /**
- * One land hex. Water hexes are simply absent from [GameState.tiles].
+ * One hex of the map. Hexes absent from [GameState.tiles] are off-map void.
+ *
+ * [terrain] distinguishes ownable land from open sea (see [Terrain] for the sea
+ * tile contract). Defaulted to LAND so pre-naval saves decode unchanged.
  *
  * [unit] mirrors [GameUnit.hex] — the reducer keeps both indexes consistent
  * (verified by invariant checks in tests).
@@ -21,4 +24,5 @@ data class Tile(
     val flora: Flora? = null,
     val starving: Boolean = false,
     val deposit: Deposit? = null,
+    val terrain: Terrain = Terrain.LAND,
 )

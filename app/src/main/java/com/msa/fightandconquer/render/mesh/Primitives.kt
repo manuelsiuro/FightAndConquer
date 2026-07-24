@@ -20,6 +20,12 @@ object Primitives {
     const val HEX_TOP_Y = HEX_HEIGHT
     const val CAPTURE_RAISE = 0.1f
 
+    /**
+     * Sea tiles sink by this much: the exposed land skirt (down to -[HEX_SKIRT])
+     * reads as a coastline cliff, and boats ride at sea level via tileTopY.
+     */
+    const val SEA_SINK = 0.12f
+
     private val UP = Float3(0f, 1f, 0f)
 
     /** Pointy-top hex corner k (k=0 points toward -Z). */
