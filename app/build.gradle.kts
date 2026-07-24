@@ -32,6 +32,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // VERSION_NAME / VERSION_CODE for the About screen.
+        buildConfig = true
     }
 }
 

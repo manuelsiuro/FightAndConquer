@@ -73,7 +73,7 @@ slightly; cosmetic, and invisible in the near-black unexplored zone.
 
 ### Toggle plumbing
 
-`RuleConstants.fogOfWar: Boolean = false` → menu FilterChip in `MenuScreen` →
+`RuleConstants.fogOfWar: Boolean = false` → FilterChip in `SetupScreen` →
 `GameSetup.fogOfWar` → `GameViewModel.newGame` passes
 `RuleConstants(fogOfWar = …)` to `MapDefinition.newGame`. Because the rules
 are snapshotted per game, fog cannot be toggled mid-game and saves are

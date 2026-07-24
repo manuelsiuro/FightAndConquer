@@ -3,7 +3,8 @@
 Single-ViewModel pattern: `GameViewModel` owns all UI state and is the only
 **mutator** of `GameEngine` (`GameScreen` reads `engine.state`/`engine.events`
 directly to wire the renderer, but never submits); `GameScreen` renders and wires
-the board; `MenuScreen` configures new games. Colors: `UiColors` (sRGB mirror of
+the board; `MenuScreen` is the front door and `SetupScreen` configures new games.
+Colors: `UiColors` (sRGB mirror of
 the render palette); the Material scheme in `theme/Theme.kt` is derived from it
 (light-only, no dynamic color — wallpaper-derived schemes clashed with the fixed
 board palette).
@@ -22,7 +23,7 @@ Unit/building names come from `unitNameRes(tier)`.
 
 | Flow | Type | Drives |
 |---|---|---|
-| `screen` | `Menu(hasAutosave, generating) \| Game` | Top-level navigation |
+| `screen` | `Menu(hasAutosave) \| Setup(generating) \| Campaign \| MapEditor \| Settings \| About \| Game` | Top-level navigation |
 | `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection tier, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`) |
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, text, CAPTURABLE\|BLOCKED)>` | Defense chips on frontier hexes while a unit is selected (defense-0 capturable hexes omitted — the disc already says it) |
@@ -73,7 +74,8 @@ alert, and `ActionRejected` reasons as info toasts.
    (`Float2` → `IntOffset`; placement-phase only).
 3. HUD column (safeDrawingPadding): `TopBar` (player chip, clickable coin-icon/net
    area → economy panel, turn, fresh badge `N`+flag icon, pending-proposal badge
-   pact-icon+`N` → diplomacy panel, "thinking…", ⋯ menu with Diplomacy/Resign/Exit)
+   pact-icon+`N` → diplomacy panel, "thinking…", ⋯ menu with Field Guide/Diplomacy/
+   Resign/Exit)
    + `ProposalStrip` (persistent accept/decline rows for incoming pact offers —
    StateFlow-driven, only for the acting human, never behind the banner) +
    `BottomBar` (InfoCard with a 60 dp baked piece render on a plinth (`iconRes`
@@ -102,15 +104,43 @@ alert, and `ActionRejected` reasons as info toasts.
 Compose children above the AndroidView naturally consume their own touches; only
 unhandled ones reach the board — no interop hit-test code exists or should be added.
 
-## Menu & modes
+## Screens & navigation
+
+Navigation is a hand-rolled sealed `Screen` on `GameViewModel` switched in a `when`
+in `MainActivity` — no Navigation Compose, no back stack. `backToMenu()` is the
+single "back" target for every non-game screen; it recomputes `hasAutosave` and
+cancels any in-flight map generation, so backing out mid-generation returns to the
+menu instead of racing into the game.
 
 `MenuScreen`: a decorative piece tableau (knight/capital/tower renders on a panel
-plinth) under the title, then opponents 2–4 seats, mode vs-AI / pass-and-play,
-difficulty (Easy/Normal/Hard), map size, fog, and On/Off rows for special units
-and diplomacy (wired through `GameSetup` into `RuleConstants`), Continue when an
-autosave exists (New Game is a filled button only when Continue is absent). New
-games generate maps off-main (`generating` spinner). Note the layout shifts when
-Continue is visible — scripted UI tests must not hardcode chip coordinates.
+plinth) under the title, then a button list — Continue Game (only when an autosave
+exists), New game, Campaign, Map Editor, Guide, Settings, About. Whichever of
+Continue/New game comes first is the filled button; the rest are outlined. Guide
+opens the `FieldGuide` overlay in place rather than navigating. **Note the layout
+shifts when Continue is visible — scripted UI tests must not hardcode coordinates;
+derive them from `uiautomator dump`.**
+
+`SetupScreen` (behind New game): opponents 2–4 seats, mode vs-AI / pass-and-play,
+difficulty (Easy/Normal/Hard), map size, fog, and On/Off rows for special units and
+diplomacy, wired through `GameSetup` into `RuleConstants`. Choices are
+`rememberSaveable` so rotation doesn't reset them. Start game generates the map
+off-main and shows the `generating` spinner here.
+
+`AboutScreen`: static content — identity and version (`BuildConfig.VERSION_NAME` /
+`VERSION_CODE`, which is why `buildFeatures { buildConfig = true }` is on), what the
+game is, credits, links, and bundled open-source licenses. Links go through
+`LocalUriHandler` wrapped in `runCatching` (it rethrows `ActivityNotFoundException`
+as `IllegalArgumentException`) and fall back to a toast.
+
+`PlaceholderScreen`: shared "Coming soon" screen, currently backing Campaign, Map
+Editor and Settings. Replacing one means swapping a single `when` branch in
+`MainActivity` — the `Screen` case and its `openX()` method already exist.
+
+`FieldGuide` (`ui/guide/`) is **not** a `Screen` — it is a self-contained overlay
+driven by `GuideCatalog`, and hosts just hoist a boolean and render it on top. Both
+`MenuScreen` (Guide button) and `GameScreen` (⋯ menu, and purchase cards passing
+`focusEntryId` to scroll straight to one entry) do exactly that. It owns its own
+`BackHandler`, so system back closes the guide without touching host navigation.
 
 ## AI driving & autosave
 
