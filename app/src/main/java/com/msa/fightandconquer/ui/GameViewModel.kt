@@ -17,6 +17,7 @@ import com.msa.fightandconquer.core.map.MapGenerator
 import com.msa.fightandconquer.core.map.MapParams
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Terrain
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GamePhase
@@ -595,7 +596,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         for (h in region) {
             HexMath.forEachNeighbor(h) { n ->
                 val t = state.tiles[n]
-                if (t != null && t.owner != unit.owner) frontier.add(n)
+                // Open sea is not a threat surface — a land unit can never
+                // capture it, so a "blocked" shield chip there is just noise.
+                val standable = t != null &&
+                    (t.terrain == Terrain.LAND || t.building == Building.BRIDGE)
+                if (standable && t!!.owner != unit.owner) frontier.add(n)
             }
         }
         return frontier.mapNotNull { hex ->
