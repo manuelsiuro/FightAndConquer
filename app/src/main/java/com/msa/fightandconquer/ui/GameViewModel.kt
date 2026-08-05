@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.msa.fightandconquer.core.ai.AiPlayer
 import com.msa.fightandconquer.core.campaign.CampaignSave
 import com.msa.fightandconquer.core.campaign.CampaignSaveRef
+import com.msa.fightandconquer.ui.editor.CustomMapStore
+import com.msa.fightandconquer.ui.editor.MapTemplates
+import java.util.UUID
 import com.msa.fightandconquer.core.campaign.CampaignStatus
 import com.msa.fightandconquer.core.campaign.CampaignTracker
 import com.msa.fightandconquer.core.campaign.FailCondition
@@ -208,7 +211,12 @@ sealed interface Screen {
 
     /** The pre-mission card: story, objectives, and what is new this time. */
     data class Briefing(val campaignId: String, val levelId: String) : Screen
-    data object MapEditor : Screen
+
+    /** The map library. [revision] bumps after a create/delete so the list recomposes. */
+    data class MapManager(val revision: Long = 0L) : Screen
+
+    /** The editor canvas; null [mapId] would be a fresh map (creation always saves first). */
+    data class MapEditor(val mapId: String) : Screen
     data object Settings : Screen
     data object About : Screen
     data object Game : Screen
@@ -314,6 +322,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     val campaigns = CampaignRepository(application)
     val campaignProgress = CampaignProgressStore(File(application.filesDir, "campaign_progress.json"))
+    val customMaps = CustomMapStore(File(application.filesDir, "maps"))
 
     private var selectedUnit: UnitId? = null
     private var selectedHex: Hex? = null
@@ -457,7 +466,29 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openMapEditor() {
-        _screen.value = Screen.MapEditor
+        _screen.value = Screen.MapManager()
+    }
+
+    /** Creates a starter map on disk immediately, so the editor always has a real id. */
+    fun newMap() {
+        val now = System.currentTimeMillis()
+        val def = MapTemplates.starter(
+            id = UUID.randomUUID().toString(),
+            name = getApplication<Application>().getString(R.string.maps_new_default_name),
+            createdAt = now,
+        )
+        customMaps.save(def)
+        _screen.value = Screen.MapEditor(def.id)
+    }
+
+    fun editMap(id: String) {
+        _screen.value = Screen.MapEditor(id)
+    }
+
+    fun deleteMap(id: String) {
+        customMaps.delete(id)
+        val revision = (_screen.value as? Screen.MapManager)?.revision ?: 0L
+        _screen.value = Screen.MapManager(revision + 1)
     }
 
     fun openSettings() {

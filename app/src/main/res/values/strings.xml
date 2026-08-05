@@ -615,4 +615,59 @@
     <string name="level_crown_three_thrones_briefing">Three claims, one crown, and no more room for arrangements. Settle it.</string>
     <string name="level_crown_three_thrones_debrief">The succession is settled. The crown was always iron; now it is yours.</string>
     <string name="hint_crown_three_thrones_succession">No clock, no levy, no favours. Only the board.</string>
+
+    <!-- Map editor: manager -->
+    <string name="maps_title">My Maps</string>
+    <string name="maps_new">New map</string>
+    <string name="maps_new_default_name">Untitled map</string>
+    <string name="maps_empty">No maps yet. Create one and shape the board yourself.</string>
+    <string name="maps_meta">%1$d players · %2$d tiles</string>
+    <string name="maps_badge_playable">Playable</string>
+    <string name="maps_badge_draft">Draft</string>
+    <string name="maps_delete_title">Delete this map?</string>
+    <string name="maps_delete_message">“%1$s” will be gone for good.</string>
+    <string name="maps_delete_confirm">Delete</string>
+    <string name="maps_cancel">Cancel</string>
+    <string name="cd_maps_row">Map %1$s</string>
+
+    <!-- Map editor: validation violations -->
+    <string name="editor_v_no_land">The map has no land</string>
+    <string name="editor_v_duplicate_tiles">Two tiles share the same hex</string>
+    <string name="editor_v_sea_owned">Sea at %1$s belongs to a player</string>
+    <string name="editor_v_sea_building">Sea at %1$s has a building</string>
+    <string name="editor_v_sea_flora">Sea at %1$s has a tree or grave</string>
+    <string name="editor_v_sea_land_deposit">Sea at %1$s has a land deposit</string>
+    <string name="editor_v_fish_on_land">A fish shoal is on land</string>
+    <string name="editor_v_sea_split">The sea is split into %1$d separate bodies</string>
+    <string name="editor_v_surface_disconnected">Land and sea do not form one connected map</string>
+    <string name="editor_v_landmass_unreachable">An island has no coast for boats to land on</string>
+    <string name="editor_v_no_capitals">No capitals placed</string>
+    <string name="editor_v_duplicate_capitals">Two capitals share a hex</string>
+    <string name="editor_v_capital_off_map">Player %1$d’s capital is off the map</string>
+    <string name="editor_v_capital_unmarked">Player %1$d’s capital hex has no capital building</string>
+    <string name="editor_v_capital_wrong_owner">Player %1$d’s capital stands on someone else’s land</string>
+    <string name="editor_v_seat_owns_nothing">Player %1$d owns no land</string>
+    <string name="editor_v_seat_cut_off">Player %1$d starts with %2$d hexes cut off from their capital</string>
+    <string name="editor_v_orphan_owner">Land belongs to player %1$d, who has no capital</string>
+    <string name="editor_v_seat_count">%1$d players configured for %2$d capitals</string>
+    <string name="editor_v_no_player_seat">No seat is set to human</string>
+    <string name="editor_v_multiple_player_seats">More than one seat is set to human</string>
+    <string name="editor_v_treasury_size">Starting gold is not set for every player</string>
+    <string name="editor_v_unit_off_map">A starting unit stands off the map at %1$s</string>
+    <string name="editor_v_unit_stacked">Two starting units share the hex %1$s</string>
+    <string name="editor_v_unit_ground">Player %1$d’s starting unit at %2$s is not on their own ground</string>
+    <string name="editor_v_unit_seat">The starting unit at %1$s belongs to a player that does not exist</string>
+    <string name="editor_v_no_objectives">The map has no objective</string>
+    <string name="editor_v_objective_off_map">An objective points at %1$s, which is off the map</string>
+    <string name="editor_v_objective_unreachable">The objective hex %1$s can never be captured</string>
+    <string name="editor_v_objective_seat">An objective names player %1$d, who does not exist</string>
+    <string name="editor_v_objective_decided">An objective is already complete before the first turn</string>
+    <string name="editor_v_failure_at_start">A defeat condition already triggers before the first turn</string>
+
+    <!-- Map sharing -->
+    <string name="share_error_not_a_code">This is not a map code</string>
+    <string name="share_error_unsupported_version">This map was made with a newer version of the game</string>
+    <string name="share_error_corrupted">The map code is damaged — ask for it to be sent again</string>
+    <string name="share_error_malformed">The map code could not be read</string>
+    <string name="share_error_invalid_map">The shared map is not playable</string>
 </resources>

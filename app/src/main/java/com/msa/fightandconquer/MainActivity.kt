@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.core.view.WindowCompat
@@ -25,6 +26,7 @@ import com.msa.fightandconquer.ui.Screen
 import com.msa.fightandconquer.ui.SetupScreen
 import com.msa.fightandconquer.ui.campaign.BriefingScreen
 import com.msa.fightandconquer.ui.campaign.CampaignScreen
+import com.msa.fightandconquer.ui.editor.MapManagerScreen
 import com.msa.fightandconquer.ui.game.GameScreen
 import com.msa.fightandconquer.ui.theme.FightAndConquerTheme
 
@@ -82,10 +84,26 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-                    Screen.MapEditor -> PlaceholderScreen(
-                        title = stringResource(R.string.menu_map_editor),
+                    is Screen.MapManager -> MapManagerScreen(
+                        maps = remember(s) { viewModel.customMaps.list() },
+                        onNew = viewModel::newMap,
+                        onOpen = viewModel::editMap,
+                        onDelete = viewModel::deleteMap,
                         onBack = viewModel::backToMenu,
                     )
+                    is Screen.MapEditor -> {
+                        val map = viewModel.customMaps.load(s.mapId)
+                        if (map == null) {
+                            // Only reachable if a saved screen names a map that no longer
+                            // exists; same LaunchedEffect idiom as a dangling Briefing.
+                            LaunchedEffect(s) { viewModel.openMapEditor() }
+                        } else {
+                            PlaceholderScreen(
+                                title = map.name,
+                                onBack = viewModel::openMapEditor,
+                            )
+                        }
+                    }
                     Screen.Settings -> PlaceholderScreen(
                         title = stringResource(R.string.menu_settings),
                         onBack = viewModel::backToMenu,
