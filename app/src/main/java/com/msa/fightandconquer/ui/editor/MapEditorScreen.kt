@@ -154,7 +154,13 @@ fun MapEditorScreen(
 
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    // The 3D canvas behind is always light; without its own panel the
+                    // bar's ink washes out in dark theme.
+                    .background(UiColors.panel, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
