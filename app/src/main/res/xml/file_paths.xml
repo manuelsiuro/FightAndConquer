@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared-map exports: written to cacheDir/shared_maps, granted per-share via
+     FLAG_GRANT_READ_URI_PERMISSION. Cache placement means the OS may reclaim them;
+     every export rewrites its file first, so that is fine. -->
+<paths>
+    <cache-path name="shared_maps" path="shared_maps/" />
+</paths>

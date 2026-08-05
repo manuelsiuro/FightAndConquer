@@ -702,6 +702,20 @@
     <string name="editor_goal_value_rounds">Rounds</string>
 
     <!-- Map sharing -->
+    <string name="share_title">Share “%1$s”</string>
+    <string name="share_copy_code">Copy map code</string>
+    <string name="share_copied">Map code copied</string>
+    <string name="share_file">Share as file</string>
+    <string name="share_qr">Show QR code</string>
+    <string name="share_qr_too_big">Map too large for a QR code — share the file or image instead</string>
+    <string name="share_image">Share as image</string>
+    <string name="share_stego_hint">The image carries the map inside it. Send it as a file or document — apps that compress photos destroy the map data.</string>
+    <string name="maps_import">Import map</string>
+    <string name="import_paste">Paste map code</string>
+    <string name="import_file">Open a map file</string>
+    <string name="import_image">Open a map image</string>
+    <string name="import_done">“%1$s” added to your maps</string>
+    <string name="cd_share_map">Share</string>
     <string name="share_error_not_a_code">This is not a map code</string>
     <string name="share_error_unsupported_version">This map was made with a newer version of the game</string>
     <string name="share_error_corrupted">The map code is damaged — ask for it to be sent again</string>

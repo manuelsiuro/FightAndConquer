@@ -1,6 +1,10 @@
 package com.msa.fightandconquer.ui.editor
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,23 +47,58 @@ import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.editor.CustomMapDef
 import com.msa.fightandconquer.core.editor.CustomMapValidator
+import com.msa.fightandconquer.core.share.ShareDecodeResult
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.resolve
+import com.msa.fightandconquer.ui.share.MapShareManager
 
 /**
- * The map library: every user-authored map with its playability badge, plus create and
- * delete. Follows `CampaignScreen`'s idiom — one scrolling column of cards, back
- * through the host — rather than introducing a new navigation style.
+ * The map library: every user-authored map with its playability badge, plus create,
+ * delete, share and import. Follows `CampaignScreen`'s idiom — one scrolling column
+ * of cards, back through the host — rather than introducing a new navigation style.
  */
 @Composable
 fun MapManagerScreen(
     maps: List<CustomMapDef>,
+    share: MapShareManager,
     onNew: () -> Unit,
     onOpen: (id: String) -> Unit,
     onDelete: (id: String) -> Unit,
+    onImported: (CustomMapDef) -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf<CustomMapDef?>(null) }
+    var shareTarget by remember { mutableStateOf<CustomMapDef?>(null) }
+    var qrTarget by remember { mutableStateOf<CustomMapDef?>(null) }
+    var showImport by remember { mutableStateOf(false) }
+
+    fun handleImport(result: ShareDecodeResult) {
+        when (result) {
+            is ShareDecodeResult.Ok -> {
+                onImported(result.def)
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.import_done, result.def.name),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            is ShareDecodeResult.Failed -> Toast.makeText(
+                context,
+                result.error.toUiText().resolve(context),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+        showImport = false
+    }
+
+    val fileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { handleImport(share.importFile(it)) } }
+    val imageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { handleImport(share.importImage(it)) } }
 
     Column(
         modifier = Modifier
@@ -91,6 +133,7 @@ fun MapManagerScreen(
                     MapRow(
                         map = map,
                         onOpen = { onOpen(map.id) },
+                        onShare = { shareTarget = map },
                         onDelete = { confirmDelete = map },
                     )
                 }
@@ -98,8 +141,13 @@ fun MapManagerScreen(
         }
 
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = onNew, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.maps_new))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onNew, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.maps_new))
+            }
+            OutlinedButton(onClick = { showImport = true }, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.maps_import))
+            }
         }
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
@@ -125,12 +173,122 @@ fun MapManagerScreen(
             },
         )
     }
+
+    shareTarget?.let { map ->
+        ShareDialog(
+            map = map,
+            share = share,
+            onQr = { qrTarget = map; shareTarget = null },
+            onClose = { shareTarget = null },
+        )
+    }
+
+    qrTarget?.let { map ->
+        QrDialog(map, share) { qrTarget = null }
+    }
+
+    if (showImport) {
+        AlertDialog(
+            onDismissRequest = { showImport = false },
+            title = { Text(stringResource(R.string.maps_import)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { handleImport(share.pasteCode()) }) {
+                        Text(stringResource(R.string.import_paste))
+                    }
+                    TextButton(onClick = { fileLauncher.launch(arrayOf("*/*")) }) {
+                        Text(stringResource(R.string.import_file))
+                    }
+                    TextButton(onClick = { imageLauncher.launch(arrayOf("image/*")) }) {
+                        Text(stringResource(R.string.import_image))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showImport = false }) {
+                    Text(stringResource(R.string.maps_cancel))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun ShareDialog(
+    map: CustomMapDef,
+    share: MapShareManager,
+    onQr: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val context = LocalContext.current
+    val qrFits = remember(map.id, map.modifiedAt) { share.qrFits(map) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.share_title, map.name)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = {
+                    share.copyCode(map)
+                    Toast.makeText(context, R.string.share_copied, Toast.LENGTH_SHORT).show()
+                    onClose()
+                }) {
+                    Text(stringResource(R.string.share_copy_code))
+                }
+                TextButton(onClick = { share.shareFile(map); onClose() }) {
+                    Text(stringResource(R.string.share_file))
+                }
+                TextButton(onClick = onQr, enabled = qrFits) {
+                    Text(stringResource(R.string.share_qr))
+                }
+                if (!qrFits) {
+                    Text(
+                        stringResource(R.string.share_qr_too_big),
+                        fontSize = 12.sp,
+                        color = UiColors.inkMuted,
+                    )
+                }
+                TextButton(onClick = { share.shareStegoImage(map); onClose() }) {
+                    Text(stringResource(R.string.share_image))
+                }
+                Text(
+                    stringResource(R.string.share_stego_hint),
+                    fontSize = 12.sp,
+                    color = UiColors.inkMuted,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.maps_cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun QrDialog(map: CustomMapDef, share: MapShareManager, onClose: () -> Unit) {
+    val qr = remember(map.id, map.modifiedAt) { share.qrBitmap(map) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(map.name, maxLines = 1) },
+        text = {
+            qr?.let { bitmap ->
+                Image(
+                    bitmap.asImageBitmap(),
+                    contentDescription = stringResource(R.string.share_qr),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.common_back)) }
+        },
+    )
 }
 
 @Composable
 private fun MapRow(
     map: CustomMapDef,
     onOpen: () -> Unit,
+    onShare: () -> Unit,
     onDelete: () -> Unit,
 ) {
     // Validation is cheap at library scale and the result only changes with the map.
@@ -166,6 +324,13 @@ private fun MapRow(
             fontSize = 12.sp,
             color = if (playable) UiColors.positive else UiColors.inkMuted,
         )
+        IconButton(onClick = onShare) {
+            Icon(
+                Icons.Filled.Share,
+                contentDescription = stringResource(R.string.cd_share_map),
+                tint = UiColors.inkMuted,
+            )
+        }
         IconButton(onClick = onDelete) {
             Icon(
                 Icons.Filled.Delete,

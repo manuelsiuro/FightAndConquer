@@ -28,6 +28,7 @@ import com.msa.fightandconquer.ui.campaign.BriefingScreen
 import com.msa.fightandconquer.ui.campaign.CampaignScreen
 import com.msa.fightandconquer.ui.editor.MapEditorScreen
 import com.msa.fightandconquer.ui.editor.MapManagerScreen
+import com.msa.fightandconquer.ui.share.MapShareManager
 import com.msa.fightandconquer.ui.game.GameScreen
 import com.msa.fightandconquer.ui.theme.FightAndConquerTheme
 
@@ -87,9 +88,11 @@ class MainActivity : ComponentActivity() {
                     }
                     is Screen.MapManager -> MapManagerScreen(
                         maps = remember(s) { viewModel.customMaps.list() },
+                        share = remember { MapShareManager(applicationContext) },
                         onNew = viewModel::newMap,
                         onOpen = viewModel::editMap,
                         onDelete = viewModel::deleteMap,
+                        onImported = viewModel::importMap,
                         onBack = viewModel::backToMenu,
                     )
                     is Screen.MapEditor -> {

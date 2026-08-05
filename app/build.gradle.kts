@@ -41,6 +41,7 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.filament.android)
     implementation(libs.kotlin.math)
+    implementation(libs.zxing.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(platform(libs.androidx.compose.bom))

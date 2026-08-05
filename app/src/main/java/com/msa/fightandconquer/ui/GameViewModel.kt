@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.msa.fightandconquer.core.ai.AiPlayer
 import com.msa.fightandconquer.core.campaign.CampaignSave
 import com.msa.fightandconquer.core.campaign.CampaignSaveRef
+import com.msa.fightandconquer.core.editor.CustomMapDef
 import com.msa.fightandconquer.ui.editor.CustomMapStore
 import com.msa.fightandconquer.ui.editor.EditorSession
 import com.msa.fightandconquer.ui.editor.MapTemplates
@@ -507,6 +508,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteMap(id: String) {
         customMaps.delete(id)
+        bumpMapManager()
+    }
+
+    /** Adopts a decoded shared map under a fresh id, so imports never collide. */
+    fun importMap(def: CustomMapDef) {
+        val now = System.currentTimeMillis()
+        val id = UUID.randomUUID().toString()
+        customMaps.save(
+            def.copy(id = id, createdAt = now, modifiedAt = now, level = def.level.copy(id = id)),
+        )
+        bumpMapManager()
+    }
+
+    private fun bumpMapManager() {
         val revision = (_screen.value as? Screen.MapManager)?.revision ?: 0L
         _screen.value = Screen.MapManager(revision + 1)
     }
