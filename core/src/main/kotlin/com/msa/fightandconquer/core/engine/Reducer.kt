@@ -28,6 +28,7 @@ object Reducer {
             is GameAction.ProposePact -> applyProposePact(b, action)
             is GameAction.RespondPact -> applyRespondPact(b, action)
             is GameAction.SendTribute -> applySendTribute(b, action)
+            is GameAction.RunScript -> applyRunScript(b, action)
             GameAction.EndTurn -> TurnPipeline.endTurn(b)
             GameAction.Surrender -> applySurrender(b)
         }
@@ -76,6 +77,11 @@ object Reducer {
             }
         } else if (isCapture) {
             b.captureHex(unit.owner, action.to)
+            // Beachhead growth: a capture made from a grace tile extends the
+            // landing's stores to the new ground, so the invasion can expand
+            // before its expedition port exists without resetting the clock.
+            val sourceGrace = state.tiles.getValue(unit.hex).graceTurns
+            if (sourceGrace > 0) b.updateTile(action.to) { it.copy(graceTurns = sourceGrace) }
         }
         // Arrive (tile ownership already transferred if capturing).
         b.updateTile(action.to) { it.copy(unit = unit.id) }
@@ -93,7 +99,14 @@ object Reducer {
         val cargo = boat.cargo!!
         val destTile = state.tiles.getValue(action.to)
         val isCapture = destTile.owner != boat.owner
-        if (isCapture) b.captureHex(boat.owner, action.to)
+        if (isCapture) {
+            b.captureHex(boat.owner, action.to)
+            // Overseas supply rule D: the landing carries stores, so the
+            // beachhead is fed for a few turns while it digs in for a port.
+            if (b.rules.beachheadGraceTurns > 0) {
+                b.updateTile(action.to) { it.copy(graceTurns = b.rules.beachheadGraceTurns) }
+            }
+        }
         b.units[boat.id] = boat.copy(cargo = null, spent = true)
         val landed = b.spawnUnit(boat.owner, cargo.tier, action.to, spent = true, type = cargo.type)
         b.events.add(GameEvent.UnitDisembarked(boat.id, landed, action.to))
@@ -105,12 +118,15 @@ object Reducer {
         val ship = state.units.getValue(action.unit)
         val target = state.tiles.getValue(action.target)
         // A raid, not a conquest: ownership never changes and capitals are immune.
-        // Raiding a pact partner breaks the pact first, like any aggression.
-        target.owner?.let { victim ->
-            if (victim != ship.owner) b.breakPact(ship.owner, victim)
-        }
+        // Raiding a pact partner breaks the pact first, like any aggression — the
+        // victim is the tile's owner, or the boat's owner on unowned open sea.
+        val victim = target.owner ?: target.unit?.let { state.units.getValue(it).owner }
+        if (victim != null && victim != ship.owner) b.breakPact(ship.owner, victim)
         b.events.add(GameEvent.Bombarded(ship.id, action.target))
-        target.unit?.let { b.killUnit(it, DeathCause.KILLED) }
+        target.unit?.let {
+            val sunk = Rules.isNaval(state.units.getValue(it).type)
+            b.killUnit(it, if (sunk) DeathCause.SUNK else DeathCause.KILLED)
+        }
         val building = target.building
         if (building != null && building != com.msa.fightandconquer.core.model.Building.CAPITAL) {
             // A bombarded bridge collapses back into open neutral water.
@@ -249,6 +265,22 @@ object Reducer {
         b.events.add(GameEvent.TributeSent(me, action.to, action.amount))
     }
 
+    /**
+     * A campaign story beat: place the scripted reinforcements and pay the scripted
+     * gold. Everything comes from the action's own payload — no level lookup, no RNG —
+     * so replaying a saved action log reproduces the beat exactly.
+     */
+    private fun applyRunScript(b: StateBuilder, action: GameAction.RunScript) {
+        b.events.add(GameEvent.ScriptFired(action.tag))
+        for (spawn in action.spawns) {
+            val unit = b.spawnUnit(spawn.owner, spawn.tier, spawn.hex, spawn.spent, spawn.type)
+            b.events.add(GameEvent.UnitSpawned(unit))
+        }
+        for (grant in action.grants) {
+            b.updatePlayer(grant.player) { it.copy(treasury = it.treasury + grant.coins) }
+        }
+    }
+
     private fun applySurrender(b: StateBuilder) {
         val quitter = b.currentPlayer
         // Territory reverts to neutral; units vanish into gravestones.
@@ -263,6 +295,7 @@ object Reducer {
                     owner = null,
                     building = if (bridge) tile.building else null,
                     starving = false,
+                    graceTurns = 0,
                 )
             }
         }

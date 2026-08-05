@@ -72,6 +72,39 @@ class BombardTest {
     }
 
     @Test
+    fun `a warship cannot bombard its own boat`() {
+        // Open sea is never owned, so only the unit-owner guard protects the fleet.
+        val s = withWarship().withUnit(owner = 0, tier = 1, at = hex(4), type = UnitType.TRANSPORT)
+        val result = GameEngine(s).submit(GameAction.Bombard(s.unitIdAt(hex(5)), hex(4)))
+        assertEquals(
+            RejectionReason.INVALID_BOMBARD_TARGET,
+            (result as LegalityResult.Rejected).reason,
+        )
+    }
+
+    @Test
+    fun `bombarding a partner's boat sinks it and breaks the pact`() {
+        val s = withWarship().withUnit(owner = 1, tier = 1, at = hex(4), type = UnitType.TRANSPORT)
+        val engine = GameEngine(s)
+        assertTrue(engine.submit(GameAction.ProposePact(PlayerId(1), 4)) is LegalityResult.Ok)
+        assertTrue(engine.submit(GameAction.EndTurn) is LegalityResult.Ok)
+        assertTrue(engine.submit(GameAction.RespondPact(PlayerId(0), accept = true)) is LegalityResult.Ok)
+        assertTrue(engine.submit(GameAction.EndTurn) is LegalityResult.Ok)
+
+        val ship = engine.state.value.unitIdAt(hex(5))
+        assertTrue(engine.submit(GameAction.Bombard(ship, hex(4))) is LegalityResult.Ok)
+        val after = engine.state.value
+        assertEquals(null, after.tiles.getValue(hex(4)).unit)
+        assertEquals(null, after.diplomacy.pactBetween(PlayerId(0), PlayerId(1)))
+        assertTrue(engine.lastEvents.any { it is GameEvent.PactBroken })
+        assertTrue(
+            "a bombarded boat goes under, not into a grave",
+            engine.lastEvents.any { it is GameEvent.UnitDied && it.cause == DeathCause.SUNK },
+        )
+        assertInvariants(after)
+    }
+
+    @Test
     fun `empty ground and own tiles are not bombard targets`() {
         val s = withWarship()
         val empty = GameEngine(s).submit(GameAction.Bombard(s.unitIdAt(hex(5)), hex(6)))

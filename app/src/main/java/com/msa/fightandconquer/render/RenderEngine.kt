@@ -32,6 +32,9 @@ class RenderEngine(private val surfaceView: SurfaceView) {
         }
         /** Vertical FOV in degrees — narrow for the near-orthographic tabletop look. */
         const val FOV_DEGREES = 30.0
+
+        /** ~20 fps ambience while the scene is still (water shimmer, boat bob). */
+        private const val IDLE_FRAME_INTERVAL_NANOS = 50_000_000L
     }
 
     // OpenGL backend: reliable on emulators (Vulkan-on-emulator is flaky).
@@ -50,6 +53,14 @@ class RenderEngine(private val surfaceView: SurfaceView) {
 
     /** Called every frame with (frameTimeNanos, deltaSeconds) before rendering. */
     var onFrame: ((Long, Float) -> Unit)? = null
+
+    /**
+     * Idle throttle: while this returns false the loop renders at the ambience
+     * rate ([IDLE_FRAME_INTERVAL_NANOS]) instead of every vsync. A turn-based
+     * board spends most of its life perfectly still — rendering it at the
+     * display rate is what cooks the phone. Null (no scene attached) = full rate.
+     */
+    var isSceneBusy: (() -> Boolean)? = null
     private var lastFrameNanos = 0L
 
     private var framesLogged = 0
@@ -59,6 +70,14 @@ class RenderEngine(private val surfaceView: SurfaceView) {
         override fun doFrame(frameTimeNanos: Long) {
             if (!running) return
             choreographer.postFrameCallback(this)
+            // Ambience pacing: a still board skips vsyncs (water/bob advance by
+            // the accumulated dt on the frames that do draw, so motion stays
+            // smooth-slow rather than fast-choppy).
+            if (isSceneBusy?.invoke() == false &&
+                frameTimeNanos - lastFrameNanos < IDLE_FRAME_INTERVAL_NANOS
+            ) {
+                return
+            }
             val dt = if (lastFrameNanos == 0L) 0f else (frameTimeNanos - lastFrameNanos) / 1e9f
             lastFrameNanos = frameTimeNanos
             // Rolling FPS probe (debug builds log every ~5s).
@@ -102,7 +121,9 @@ class RenderEngine(private val surfaceView: SurfaceView) {
             radius = 0.3f
             intensity = 1.0f
             power = 1.0f
-            quality = View.QualityLevel.MEDIUM
+            // LOW halves the AO taps; on flat pastel tiles the difference is
+            // invisible while the full-screen pass runs every drawn frame.
+            quality = View.QualityLevel.LOW
         }
         renderer.clearOptions = Renderer.ClearOptions().apply {
             clear = true

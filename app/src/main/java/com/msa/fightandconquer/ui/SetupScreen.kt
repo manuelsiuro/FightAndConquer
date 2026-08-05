@@ -106,7 +106,7 @@ fun SetupScreen(
         }
         if (mode == GameMode.VS_AI) {
             OptionRow(stringResource(R.string.menu_section_difficulty)) {
-                for (option in Difficulty.entries) {
+                for (option in Difficulty.selectable) {
                     FilterChip(
                         selected = difficulty == option,
                         onClick = { difficulty = option },
@@ -207,6 +207,8 @@ private fun Difficulty.labelRes() = when (this) {
     Difficulty.EASY -> R.string.difficulty_easy
     Difficulty.NORMAL -> R.string.difficulty_normal
     Difficulty.HARD -> R.string.difficulty_hard
+    // Never offered here (Difficulty.selectable filters it out) — campaign levels only.
+    Difficulty.PASSIVE -> R.string.difficulty_passive
 }
 
 private fun MapSize.labelRes() = when (this) {

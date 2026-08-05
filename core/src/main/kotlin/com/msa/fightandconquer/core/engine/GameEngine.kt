@@ -56,12 +56,28 @@ class GameEngine private constructor(
 
     private val undoStack = ArrayDeque<GameState>()
 
+    /**
+     * The events of the most recently accepted action, in order — the same list [events]
+     * publishes, but synchronously and without buffering.
+     *
+     * [events] is a drop-oldest flow because the renderer treats events as hints and can
+     * always fall back to the state. A campaign scoreboard cannot: it counts facts (a
+     * boat sunk, a unit lost) that no later state reveals, so it reads them here, in the
+     * same call stack as the submit that produced them. Empty after a rejected action.
+     */
+    var lastEvents: List<GameEvent> = emptyList()
+        private set
+
     fun submit(action: GameAction): LegalityResult {
         val current = _state.value
         val legality = Legality.check(current, action)
-        if (legality is LegalityResult.Rejected) return legality
+        if (legality is LegalityResult.Rejected) {
+            lastEvents = emptyList()
+            return legality
+        }
 
         val result = Reducer.reduce(current, action)
+        lastEvents = result.events
         if (action is GameAction.EndTurn || action is GameAction.Surrender) {
             undoStack.clear()
             actionsThisTurn.clear()
@@ -69,6 +85,10 @@ class GameEngine private constructor(
         } else {
             undoStack.addLast(current)
             actionsThisTurn.add(action)
+            // A campaign story beat is not the player's move to take back: it stays in
+            // the replay log (so a resumed save still contains it) but it seals the
+            // undo history behind it.
+            if (action is GameAction.RunScript) undoStack.clear()
         }
         _state.value = result.state
         result.events.forEach { _events.tryEmit(it) }

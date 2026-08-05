@@ -33,12 +33,14 @@
 │  MapGenerator + MapValidator + MapDefinition                    │
 │  AiPlayer + MoveGenerator + Evaluator                           │
 │  SaveGame + SaveCodec (kotlinx.serialization JSON)              │
+│  campaign/ LevelDef, Objectives, CampaignTracker, Hints, Scripts│
+│    — scoring is PURE and sits BESIDE the reducer, never in it   │
 │  hex/ (packed axial Hex, HexMath), engine/Rng (SplitMix64)      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 Navigation is deliberately hand-rolled: `GameViewModel.screen` is a sealed `Screen`
-StateFlow (`Menu`, `Setup`, `Campaign`, `MapEditor`, `Settings`, `About`, `Game`)
+StateFlow (`Menu`, `Setup`, `Campaign`, `Briefing`, `MapEditor`, `Settings`, `About`, `Game`)
 that `MainActivity` switches in a single `when`. No Navigation Compose, no back
 stack — every non-game screen backs out through `backToMenu()`. See
 [ui-hud.md](ui-hud.md#screens--navigation).
@@ -69,6 +71,11 @@ animations keep up. The AI uses only public actions — it cannot cheat.
 - **Event-driven rendering with a reconcile safety net.** Events drive animation;
   `reconcile()` guarantees correctness. Debug builds log a warning whenever reconcile
   had to correct anything (target: zero).
+- **Campaign scoring lives outside the reducer.** `Objectives.evaluate(state, tracker,
+  level)` is pure and is called from the ViewModel; `GamePhase` keeps meaning "the
+  conquest is over". Mission terms can change without touching the rules engine, and
+  determinism/save-replay/the AI are untouched by campaign mode entirely. See
+  [campaign.md](campaign.md).
 - **One narrow seam between game and presentation:** the `GameEngine` facade
   (`core/engine/GameEngine.kt`). Nothing in `:app` touches the reducer directly.
 - **Assets are baked, not parsed at runtime.** Blender models are converted offline

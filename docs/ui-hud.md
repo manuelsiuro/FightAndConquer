@@ -29,7 +29,7 @@ Unit/building names come from `unitNameRes(tier)`.
 
 | Flow | Type | Drives |
 |---|---|---|
-| `screen` | `Menu(hasAutosave) \| Setup(generating) \| Campaign \| MapEditor \| Settings \| About \| Game` | Top-level navigation |
+| `screen` | `Menu(hasAutosave) \| Setup(generating) \| Campaign \| Briefing(campaignId, levelId) \| MapEditor \| Settings \| About \| Game` | Top-level navigation |
 | `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection tier, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`) |
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, text, CAPTURABLE\|BLOCKED)>` | Defense chips on frontier hexes while a unit is selected (defense-0 capturable hexes omitted — the disc already says it) |
@@ -39,6 +39,7 @@ Unit/building names come from `unitNameRes(tier)`.
 | `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, cut-off tiles) — `UiText` + numbers from `RuleConstants`, never hardcoded |
 | `cameraJumps` | `SharedFlow<Hex>` | One-shot camera glides |
 | `resync` | `StateFlow<Int>` | Board must skip+reconcile (undo/load) |
+| `campaignRun` | `CampaignRunState?` | Mission HUD: level name, objective lines, coach card, turn limit, outcome. **Null in a skirmish**, which is how every pre-existing HUD path stays untouched |
 | `visibility` | `StateFlow<BoardVisibility?>` | Fog sets (`visible` + `explored`) for the viewing seat; null = fog off or game over (fog lifts). During AI turns the perspective stays on the last human seat that played (no pass-and-play leak) |
 
 ## Interaction model (`onHexTapped`)
@@ -66,6 +67,9 @@ select(hex):
                                   explored, nothing if never seen — stats never leak
 tap off-board (picker miss)     → cancelSelection (via BoardScene.onTapMiss)
 ```
+
+In a campaign the same `select()` also raises the `unitSelected` teaching signal, which is
+how a coach step can wait on "pick up a soldier" (see `ui.UiSignals`).
 
 `focusNextFreshUnit()` cycles unmoved units (stable id order), selects via the
 internal `select()` (never submits), and emits a camera jump.
@@ -102,7 +106,16 @@ alert, and `ActionRejected` reasons as info toasts.
    morphs in place into "N unmoved · ✕ · End anyway" for 3 s when fresh units
    remain). Flat glyphs are tinted vector drawables (`ic_coin/ic_flag/ic_shield/
    ic_pact`) — no emoji in persistent HUD chrome (toast/popup prose keeps 🪙).
-4. `EconomyPanel` (under the TopBar, 264 dp; income rows — hexes, fertile bonus,
+4. One panel at a time in the slot under the TopBar. `ObjectivesPanel` (campaign only;
+   mission name, turn counter that turns alert-coloured in the last three rounds, one
+   struck-through-when-done line per objective with its `have / need` counter) shows
+   whenever the two glanceable panels are closed — a mission's terms should not have to be
+   gone looking for. `CoachCardView` sits above the `BottomBar` rather than over the board,
+   so a hint never covers the hexes it points at; `HighlightSet.hintFocus` puts a pulsing
+   ring on those hexes (`BoardScene.showHighlights` draws it first so a selection reads on
+   top). `CampaignOutcomeOverlay` replaces `GameOverOverlay` for a mission: stars, rounds
+   or the defeat reason, the debrief, and Next / Retry / Leave.
+   `EconomyPanel` (under the TopBar, 264 dp; income rows — hexes, fertile bonus,
    one line per building type, each with a 20 dp piece icon — per-unit-type upkeep
    rows with unit icons, divider, emphasized net + projection, bankruptcy/upkeep-risk
    warning strips) / `DiplomacyPanel` (same slot, mutually exclusive: one row per
@@ -148,7 +161,14 @@ game is, credits, links, and bundled open-source licenses. Links go through
 `LocalUriHandler` wrapped in `runCatching` (it rethrows `ActivityNotFoundException`
 as `IllegalArgumentException`) and fall back to a toast.
 
-`PlaceholderScreen`: shared "Coming soon" screen, currently backing Campaign, Map
+`CampaignScreen` (behind Campaign): a row of campaign chips over the selected campaign's
+mission list — number badge, name, best-rounds or lock reason, star row. `BriefingScreen`
+(`Screen.Briefing`) is the pre-mission card: story, objectives read from the level's own
+opening position through the same `Objectives.evaluate` the HUD uses (so it cannot drift),
+defeat clauses, "new in this mission" chips that open the `FieldGuide` at the right entry,
+and Begin/Play-again. Both are described in [campaign.md](campaign.md).
+
+`PlaceholderScreen`: shared "Coming soon" screen, currently backing Map
 Editor and Settings. Replacing one means swapping a single `when` branch in
 `MainActivity` — the `Screen` case and its `openX()` method already exist.
 

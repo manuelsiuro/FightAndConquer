@@ -4,8 +4,6 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import com.msa.fightandconquer.core.engine.RejectionReason
 import com.msa.fightandconquer.R
 
@@ -28,15 +26,25 @@ sealed interface UiText {
 }
 
 @Composable
-fun UiText.resolve(): String = when (this) {
-    is UiText.Res -> stringResource(id, *args.toTypedArray())
-    is UiText.Plural -> pluralStringResource(id, count, *args.toTypedArray())
+fun UiText.resolve(): String {
+    val context = LocalContext.current
+    return resolve(context)
 }
 
-/** Non-composable resolution (e.g. for content descriptions built in helpers). */
-fun UiText.resolve(context: android.content.Context): String = when (this) {
-    is UiText.Res -> context.getString(id, *args.toTypedArray())
-    is UiText.Plural -> context.resources.getQuantityString(id, count, *args.toTypedArray())
+/**
+ * Non-composable resolution (e.g. for content descriptions built in helpers).
+ *
+ * A format argument may itself be a [UiText] — campaign objectives compose lines like
+ * "Build 2 × Farm" out of a template plus a piece name, and both halves have to stay in
+ * `strings.xml` to be translatable. Nested arguments are resolved first.
+ */
+fun UiText.resolve(context: android.content.Context): String {
+    fun flatten(args: List<Any>): Array<Any> =
+        args.map { if (it is UiText) it.resolve(context) else it }.toTypedArray()
+    return when (this) {
+        is UiText.Res -> context.getString(id, *flatten(args))
+        is UiText.Plural -> context.resources.getQuantityString(id, count, *flatten(args))
+    }
 }
 
 /** Unit tier (1..4) -> display name resource (soldier ladder). */
@@ -106,4 +114,9 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.TRANSPORT_EMPTY -> UiText.of(R.string.reject_transport_empty)
     RejectionReason.NOT_A_WARSHIP -> UiText.of(R.string.reject_not_a_warship)
     RejectionReason.INVALID_BOMBARD_TARGET -> UiText.of(R.string.reject_invalid_bombard)
+    RejectionReason.BUILDING_NOT_AVAILABLE -> UiText.of(R.string.reject_building_not_available)
+    // Campaign director faults: a player can never provoke these, but an authored
+    // level with a stale trigger can — surfacing them beats a silent no-op.
+    RejectionReason.SCRIPTED_EVENTS_DISABLED -> UiText.of(R.string.reject_scripted_events_disabled)
+    RejectionReason.INVALID_SCRIPT_TARGET -> UiText.of(R.string.reject_invalid_script_target)
 }

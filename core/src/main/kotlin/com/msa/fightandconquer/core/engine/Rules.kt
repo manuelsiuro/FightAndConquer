@@ -16,6 +16,8 @@ data class ReachResult(
     val mergeTargets: Set<Hex>,
     /** Own empty transports this land unit can board (moves onto the boat's hex). */
     val embarkTargets: Set<Hex> = emptySet(),
+    /** Frontier hexes within range whose defense currently beats this unit (UI chips). */
+    val blockedTargets: Set<Hex> = emptySet(),
 ) {
     companion object {
         val EMPTY = ReachResult(emptySet(), emptySet(), emptySet())
@@ -127,15 +129,26 @@ object Rules {
         -> 0
     }
 
+    /** Movement range of a land unit: max BFS steps through own territory per action. */
+    fun moveRangeOf(unit: GameUnit, rules: RuleConstants): Int = when (unit.type) {
+        UnitType.CATAPULT -> rules.catapultMoveRange
+        UnitType.ARCHER -> rules.archerMoveRange
+        else -> rules.soldierMoveRanges.getOrElse(unit.tier - 1) { rules.soldierMoveRanges.last() }
+    }
+
     /**
-     * Slay-style reachability for a fresh unit, in one region scan:
-     * - moveTargets: unoccupied, building-free hexes of its region (flora is fine — moving
-     *   onto a tree clears it);
-     * - captureTargets: non-owned hexes adjacent to the region with defense < strength;
-     * - mergeTargets: hexes in the region holding a same-tier friendly SOLDIER (tier < max;
-     *   specials never merge).
-     * A CATAPULT is range-capped: every target must lie within
-     * [RuleConstants.catapultMoveRange] of its current hex.
+     * Reachability for a fresh land unit: BFS from its hex through its own
+     * connected territory (any own tile is traversable — friendly units and
+     * buildings never block the path, bridges carry it over water), up to
+     * [moveRangeOf] steps. Mirrors the ships' bounded BFS so every unit's whole
+     * reach reads as one local blob:
+     * - moveTargets: own unoccupied, stand-able hexes (building-free or bridge;
+     *   flora is fine — moving onto a tree clears it) within range;
+     * - captureTargets: non-owned hexes with defense < strength, adjacent to
+     *   the path — the capture is the final step, at path distance <= range;
+     * - mergeTargets: same-tier friendly SOLDIERs within range (tier < max;
+     *   specials never merge);
+     * - embarkTargets: own empty transports on sea adjacent to the path.
      */
     fun reachable(state: GameState, unitId: UnitId): ReachResult {
         val unit = state.units[unitId] ?: return ReachResult.EMPTY
@@ -143,51 +156,65 @@ object Rules {
         if (isNaval(unit.type)) return seaReachable(state, unit)
         val rules = state.config.rules
         val strength = strengthOf(unit, rules)
-        val maxRange = if (unit.type == UnitType.CATAPULT) rules.catapultMoveRange else Int.MAX_VALUE
-        fun inRange(hex: Hex) = HexMath.distance(unit.hex, hex) <= maxRange
-        val region = region(state, unit.hex)
+        val maxRange = moveRangeOf(unit, rules)
         val move = HashSet<Hex>()
         val capture = HashSet<Hex>()
         val merge = HashSet<Hex>()
         val embark = HashSet<Hex>()
-        for (hex in region) {
-            val tile = state.tiles.getValue(hex)
-            // A bridge is the one stand-able building: troops walk and hold it.
-            val standable = tile.building == null || tile.building == Building.BRIDGE
-            if (hex != unit.hex && standable && inRange(hex)) {
-                val occupant = state.unitAt(hex)
-                when {
-                    occupant == null -> move.add(hex)
-                    unit.type == UnitType.SOLDIER && occupant.type == UnitType.SOLDIER &&
-                        occupant.tier == unit.tier && unit.tier < rules.maxTier -> merge.add(hex)
-                }
-            }
-            HexMath.forEachNeighbor(hex) { n ->
-                if (inRange(n)) {
-                    val neighborTile = state.tiles[n]
-                    when {
-                        neighborTile == null -> {}
-                        // Open sea is never capturable by land units — but an own
-                        // empty transport floating there can be boarded, and an
-                        // enemy/neutral BRIDGE hex is dry ground to storm.
-                        neighborTile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-                            neighborTile.building != Building.BRIDGE -> {
-                            if (n !in embark && rules.navalEnabled) {
-                                val boat = state.unitAt(n)
-                                if (boat != null && boat.owner == unit.owner &&
-                                    boat.type == UnitType.TRANSPORT && boat.cargo == null
-                                ) {
-                                    embark.add(n)
+        val visited = HashSet<Hex>().apply { add(unit.hex) }
+        val blocked = HashSet<Hex>() // non-owned hexes already found too defended
+        var frontier = listOf(unit.hex)
+        var depth = 0
+        while (depth < maxRange && frontier.isNotEmpty()) {
+            val next = ArrayList<Hex>()
+            for (hex in frontier) {
+                HexMath.forEachNeighbor(hex) { n ->
+                    if (n !in visited) {
+                        val tile = state.tiles[n]
+                        when {
+                            tile == null -> {}
+                            tile.owner == unit.owner -> {
+                                visited.add(n)
+                                next.add(n)
+                                // A bridge is the one stand-able building:
+                                // troops walk and hold it.
+                                val standable = tile.building == null || tile.building == Building.BRIDGE
+                                val occupant = state.unitAt(n)
+                                when {
+                                    occupant == null -> if (standable) move.add(n)
+                                    unit.type == UnitType.SOLDIER && occupant.type == UnitType.SOLDIER &&
+                                        occupant.tier == unit.tier && unit.tier < rules.maxTier -> merge.add(n)
+                                }
+                            }
+                            // Open sea is never capturable by land units — but an
+                            // own empty transport floating there can be boarded,
+                            // and an enemy/neutral BRIDGE hex is dry ground to storm.
+                            tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                                tile.building != Building.BRIDGE -> {
+                                if (n !in embark && rules.navalEnabled) {
+                                    val boat = state.unitAt(n)
+                                    if (boat != null && boat.owner == unit.owner &&
+                                        boat.type == UnitType.TRANSPORT && boat.cargo == null
+                                    ) {
+                                        embark.add(n)
+                                    }
+                                }
+                            }
+                            n !in capture && n !in blocked -> {
+                                if (strength > defenseOf(state, n, unit.type)) {
+                                    capture.add(n)
+                                } else {
+                                    blocked.add(n)
                                 }
                             }
                         }
-                        n !in capture && neighborTile.owner != unit.owner &&
-                            strength > defenseOf(state, n, unit.type) -> capture.add(n)
                     }
                 }
             }
+            frontier = next
+            depth++
         }
-        return ReachResult(move, capture, merge, embark)
+        return ReachResult(move, capture, merge, embark, blocked)
     }
 
     /**

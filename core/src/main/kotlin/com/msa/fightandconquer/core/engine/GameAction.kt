@@ -99,4 +99,47 @@ sealed interface GameAction {
     @Serializable
     @SerialName("surrender")
     data object Surrender : GameAction
+
+    /**
+     * A campaign story beat — reinforcements arriving, a patron's gold, a garrison
+     * mustering — submitted by the campaign director, never by a player or the AI.
+     *
+     * The payload is **self-contained on purpose**: the reducer must never need the
+     * level definition to apply it, so a saved action log replays a scripted event
+     * exactly as it first fired. It draws no randomness and, unlike every other
+     * action, is not attributed to [com.msa.fightandconquer.core.model.GameState.currentPlayer]
+     * — each spawn and grant names its own owner.
+     *
+     * Gated by [com.msa.fightandconquer.core.model.RuleConstants.scriptedEventsEnabled]
+     * (off by default), so a skirmish game can never contain one.
+     *
+     * [tag] is the trigger id the level author wrote; the HUD maps it to narration.
+     */
+    @Serializable
+    @SerialName("script")
+    data class RunScript(
+        val tag: String,
+        val spawns: List<ScriptSpawn> = emptyList(),
+        val grants: List<ScriptGrant> = emptyList(),
+    ) : GameAction
 }
+
+/** One unit placed by a [GameAction.RunScript], on an owned, empty land hex of [owner]. */
+@Serializable
+data class ScriptSpawn(
+    val owner: com.msa.fightandconquer.core.model.PlayerId,
+    val hex: Hex,
+    @SerialName("unitType")
+    val type: com.msa.fightandconquer.core.model.UnitType =
+        com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+    val tier: Int = 1,
+    /** Reinforcements normally arrive ready to act; set true for a spent arrival. */
+    val spent: Boolean = false,
+)
+
+/** A treasury gift (or levy, when negative is disallowed) from a [GameAction.RunScript]. */
+@Serializable
+data class ScriptGrant(
+    val player: com.msa.fightandconquer.core.model.PlayerId,
+    val coins: Int,
+)

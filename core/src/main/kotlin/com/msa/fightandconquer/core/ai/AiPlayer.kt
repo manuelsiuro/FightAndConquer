@@ -20,6 +20,10 @@ import com.msa.fightandconquer.core.model.GameState
 class AiPlayer(private val difficulty: Difficulty) {
 
     fun chooseAction(state: GameState): GameAction {
+        // A training dummy: holds what it has and yields. Short-circuiting here keeps
+        // PASSIVE out of the evaluator and move generator entirely.
+        if (difficulty == Difficulty.PASSIVE) return GameAction.EndTurn
+
         val me = state.currentPlayer
 
         // Diplomacy is a threshold policy, not an argmax candidate (see

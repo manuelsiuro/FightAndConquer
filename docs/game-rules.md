@@ -11,6 +11,7 @@ per game without breaking old saves.
 | Unit cost (T1–T4) | 10 / 20 / 30 / 40 | Any tier directly buyable |
 | Unit upkeep (T1–T4) | 2 / 6 / 18 / 54 | Per turn; strength = tier |
 | Max tier | 4 | Peasant, Spearman, Baron, Knight |
+| Move ranges (T1–T4) | 2 / 3 / 4 / 5 | BFS steps through own territory; capture = final step; Archer 2 |
 | Hex income | 1 /turn | Owned, non-starving, flora-free hexes |
 | Farm | cost 12 + 2×(farms owned), +4 income | Must be adjacent to own Capital or Farm |
 | Tower | cost 15, defense 2 | Covers self + 6 neighbors, no upkeep |
@@ -34,19 +35,28 @@ per game without breaking old saves.
 | Transport boat | cost 15, upkeep 4, move range 3 | Carries 1 land unit (any type); bought at a Port onto adjacent sea |
 | Warship | cost 25, upkeep 8, strength 2, move range 3 | Sinks boats (naval ties go to the **attacker**); bombards the coast |
 | Port | cost 20, +2 income | Own coastal land; sells boats; supplies overseas regions (see Naval rules) |
+| Beachhead grace | 3 turns | Sea-captured hexes carry landing stores; the starving region skips unit deaths while stocked |
 | Fishery | cost 18, +3 per adjacent fish shoal (cap 3) | Own coastal land next to fish shoals |
 | Bridge | cost 15 per hex | Built on sea touching own land/bridge; walkable ground, blocks boats |
 | Fish shoal (deposit) | 1 per player (band 2–6 from capital) + 1 neutral per 150 land hexes | Sea-only deposit; only a Fishery harvests it |
 | Pact duration | 2–10 rounds (proposals default to 6) | Unanswered proposals lapse after 1 full round |
 | Pact proposal cooldown | 6 rounds per pair | Anti-spam, enforced by Legality |
 | Pact break penalty | 25 % of the breaker's treasury, paid to the victim | Breaking = capturing a partner's hex (no explicit action) |
+| Scripted events | off by default | Campaign-only (`scriptedEventsEnabled`); see [campaign.md](campaign.md) |
+| Disabled buildings | none by default | Campaign-only per-structure gate (`disabledBuildings`) |
 
 ## Core mechanics
 
-**Movement (Slay-style).** A fresh unit may, as ONE action, move anywhere within its
-connected owned region and/or capture a single hex adjacent to that region. Any move
-spends the unit for the turn. Freshly bought units on owned hexes are unspent; buying
-directly onto a capturable hex performs the capture and arrives spent.
+**Movement (per-tier ranges).** A fresh unit marches up to its **move range** in BFS
+steps through its own connected territory (friendly units and buildings never block
+the path — bridges carry it over water — but the destination must be stand-able and
+empty), and the **final step may capture** one adjacent non-owned hex it can beat.
+Ranges: Peasant 2 / Spearman 3 / Baron 4 / Knight 5 (`soldierMoveRanges`), Archer 2,
+Catapult 2 — the same bounded-BFS model the ships always had, so a selected unit's
+whole reach reads as one local highlight blob. Any move spends the unit for the turn.
+Freshly bought units on owned hexes are unspent; buying directly onto a capturable hex
+performs the capture and arrives spent (buy-placement is not movement and is
+unchanged).
 
 **Capture.** Attacker strength must be **strictly greater** than the hex defense:
 `defense(hex) = max(unit on hex, owner's units on adjacent own hexes, tower/castle/capital coverage)`.
@@ -55,8 +65,8 @@ gravestone — the attacker occupies the hex), destroys buildings (except the Ca
 which pays loot and relocates), clears trees for the bonus, and immediately
 recomputes starvation for affected players.
 
-**Merging.** A fresh unit may merge with any same-tier friendly unit **in its own
-connected region** (no adjacency required), producing one unit of tier+1 (max 4).
+**Merging.** A fresh unit may merge with a same-tier friendly unit **within its move
+range** (same path rules as movement), producing one unit of tier+1 (max 4).
 The moving unit is consumed; the result keeps the stationary unit's spent flag.
 Buying a unit onto a same-tier own unit merges instantly ("buy-merge").
 
@@ -131,11 +141,19 @@ never captures ground, and Capitals are immune. Towers (defense 2) fully block
 it. Warships cannot be attacked from land.
 
 **Overseas supply.** A region disconnected from the capital normally starves;
-three rules make island conquest viable: (A) an own **Port** feeds its region —
+four rules make island conquest viable: (A) an own **Port** feeds its region —
 but only on a landmass *other than* the capital's, so slicing on the mainland
-still works; (B) units adjacent to an own boat never starve (beachhead
-lifeline); (C) a Port may be built *on* a starving overseas region, which then
-un-starves it.
+still works; (B) units adjacent to an own boat never starve (fleet lifeline);
+(C) a Port may be built *on* a starving overseas region, which then un-starves
+it; (D) **beachhead grace** — a hex captured from the sea (disembark) carries
+landing stores (`Tile.graceTurns` = `beachheadGraceTurns`, default 3). While a
+starving region holds at least one stocked tile, its units skip starvation at
+turn start and every stocked tile burns one turn of stores; captures made from
+a stocked tile inherit its remaining stores, so the invasion can expand without
+resetting the clock. Grace suspends only the deaths — a graced region still
+earns nothing and cannot fund purchases — and ends for good the moment the
+region is fed normally (reconnection or a Port). Slicing captures on the
+mainland never stamp stores, so classic slicing kills on schedule.
 
 **Map types.** Setup offers Continent (one landmass in open water), Islands and
 Archipelago (real water-separated islands, ≥ 2-hex-wide navigable channels, one
@@ -153,6 +171,17 @@ one — but live vision stays pure radius, so enemy boats appear only when seen.
 No action can target an unseen hex (radius-2 guarantee on land; at sea every
 naval move range is ≤ `visionRadiusUnit`), the AI honors fog symmetrically, and
 the fog lifts when the game ends. Full spec: [fog-of-war.md](fog-of-war.md).
+
+**Campaign missions.** Authored levels reuse every rule above, and add nothing to them.
+They restrict: a mission's `RuleConstants` snapshot can cap `maxTier`, switch whole systems
+off (`specialUnitsEnabled` / `navalEnabled` / `diplomacyEnabled`), disable individual
+buildings (`disabledBuildings`), or zero out income and upkeep entirely — which is how the
+tutorial teaches one idea at a time. Two additions exist only for missions:
+`Difficulty.PASSIVE`, a seat that does nothing but end its turn, and
+`GameAction.RunScript`, a replayable story beat that places authored reinforcements and
+gold (gated by `scriptedEventsEnabled`, RNG-free, never undoable). Victory conditions
+beyond conquest are scored *outside* the reducer and change no rule here — full spec in
+[campaign.md](campaign.md).
 
 ## Turn-start pipeline (exact order — `TurnPipeline.kt`)
 

@@ -28,6 +28,7 @@
     <string name="difficulty_easy">Easy</string>
     <string name="difficulty_normal">Normal</string>
     <string name="difficulty_hard">Hard</string>
+    <string name="difficulty_passive">Dormant</string>
     <string name="map_size_small">Small</string>
     <string name="map_size_medium">Medium</string>
     <string name="map_size_large">Large</string>
@@ -107,6 +108,7 @@
     <string name="piece_fertile">Fertile ground</string>
     <string name="piece_fish_shoal">Fish shoal</string>
     <string name="tile_cut_off">Cut-off territory</string>
+    <string name="tile_beachhead">Beachhead</string>
     <string name="tile_sea">Open sea</string>
 
     <!-- Info cards -->
@@ -150,6 +152,10 @@
     <string name="info_tree">Blocks this hex\'s income — move a unit onto it to clear</string>
     <string name="info_gravestone">A unit died here — a tree will sprout soon</string>
     <string name="info_cut_off">Disconnected from your capital — no income, units here will starve</string>
+    <plurals name="info_beachhead">
+        <item quantity="one">Landing stores feed this region for 1 more turn — expand, or build a Port to make it permanent</item>
+        <item quantity="other">Landing stores feed this region for %1$d more turns — expand, or build a Port to make it permanent</item>
+    </plurals>
     <string name="info_sea">Impassable water — land units cannot enter or cross it</string>
     <string name="info_fog_title">Unexplored territory</string>
     <string name="info_fog">Beyond your vision — expand your territory or move units closer to reveal it</string>
@@ -264,6 +270,9 @@
     <string name="reject_transport_empty">That longboat has nothing aboard</string>
     <string name="reject_not_a_warship">Only a warship can bombard</string>
     <string name="reject_invalid_bombard">Nothing to bombard there — capitals are immune</string>
+    <string name="reject_building_not_available">Not available in this mission</string>
+    <string name="reject_scripted_events_disabled">This game has no scripted events</string>
+    <string name="reject_invalid_script_target">A scripted event could not take place</string>
 
     <!-- Field guide (browsable reference for every unit, building and resource) -->
     <string name="guide_title">Field Guide</string>
@@ -381,4 +390,229 @@
     <string name="about_license_full_text_label">Full license text</string>
     <string name="about_license_full_text_value">apache.org/licenses/LICENSE-2.0</string>
     <string name="about_license_url" translatable="false">https://www.apache.org/licenses/LICENSE-2.0</string>
+    <!-- ===================== Campaign ===================== -->
+
+    <!-- Campaign screen chrome -->
+    <string name="campaign_title">Campaign</string>
+    <string name="campaign_locked">Locked</string>
+    <string name="campaign_locked_previous">Finish the level before this one</string>
+    <string name="campaign_locked_academy">Clear three Academy missions first</string>
+    <string name="campaign_progress">%1$d of %2$d complete</string>
+    <string name="campaign_stars">%1$d of 3 stars</string>
+    <string name="campaign_level_number">Mission %1$d</string>
+    <string name="campaign_best_rounds">Best: %1$d rounds</string>
+    <string name="campaign_no_progress">Not attempted</string>
+
+    <!-- Briefing / debrief -->
+    <string name="briefing_objectives">Objectives</string>
+    <string name="briefing_constraints">Watch out for</string>
+    <string name="briefing_new_here">New in this mission</string>
+    <string name="briefing_start">Begin mission</string>
+    <string name="briefing_replay">Play again</string>
+    <string name="briefing_par">Three stars: finish within %1$d rounds</string>
+    <string name="outcome_victory">Mission complete</string>
+    <string name="outcome_defeat">Mission failed</string>
+    <string name="outcome_rounds">%1$d rounds</string>
+    <string name="outcome_next">Next mission</string>
+    <string name="outcome_retry">Try again</string>
+    <string name="outcome_menu">Leave</string>
+    <string name="outcome_campaign_complete">You have finished this campaign.</string>
+
+    <!-- In-game campaign HUD -->
+    <string name="campaign_objectives_title">Objectives</string>
+    <string name="campaign_objectives_toggle">Mission objectives</string>
+    <string name="campaign_coach_dismiss">Got it</string>
+    <string name="campaign_turn_limit">Round %1$d of %2$d</string>
+    <string name="campaign_protect">Hold: %1$s</string>
+
+    <!-- Objective lines (shared by every mission) -->
+    <string name="objective_conquer_all">Be the last one standing</string>
+    <string name="objective_capture_hexes">Take the marked ground</string>
+    <string name="objective_hold_hexes">Hold the marked ground for %1$d rounds</string>
+    <string name="objective_survive">Last %1$d rounds</string>
+    <string name="objective_own_hexes">Hold %1$d hexes</string>
+    <string name="objective_treasury">Bank %1$d coins</string>
+    <string name="objective_income">Earn %1$d coins a turn</string>
+    <string name="objective_eliminate">Knock out the %1$s</string>
+    <string name="objective_build">Build %1$d × %2$s</string>
+    <string name="objective_field">Field %1$d × %2$s</string>
+    <string name="objective_sink">Sink %1$d enemy boats</string>
+    <string name="objective_progress">%1$d / %2$d</string>
+
+    <!-- Defeat clauses -->
+    <string name="fail_turn_limit">Finish before round %1$d</string>
+    <string name="fail_lose_hexes">Never lose the marked ground</string>
+    <string name="fail_lose_all_units">Never be left without a single unit</string>
+    <string name="fail_ally_lost">Keep the %1$s alive</string>
+
+    <!-- Defeat reasons -->
+    <string name="defeat_eliminated">Your last hex fell.</string>
+    <string name="defeat_out_of_time">The season turned before the work was done.</string>
+    <string name="defeat_lost_protected">The ground you swore to hold changed hands.</string>
+    <string name="defeat_no_units">Not a soldier left standing.</string>
+    <string name="defeat_ally_lost">Your ally was knocked out of the war.</string>
+    <string name="defeat_rival_victory">A rival took the whole board.</string>
+
+    <!-- Faction names used by objectives that point at a seat -->
+    <string name="seat_name_1">Blue</string>
+    <string name="seat_name_2">Red</string>
+    <string name="seat_name_3">Green</string>
+    <string name="seat_name_4">Amber</string>
+    <string name="seat_name_5">Violet</string>
+    <string name="seat_name_6">Slate</string>
+
+    <!-- === The Academy === -->
+    <string name="campaign_academy_name">The Academy</string>
+    <string name="campaign_academy_blurb">Eight short lessons. One new idea each, and nothing on screen you have not been taught yet.</string>
+
+    <string name="level_academy_first_steps_name">First Steps</string>
+    <string name="level_academy_first_steps_briefing">A quiet island, two farmhands, and six fields nobody has claimed. There is no money here and nothing to buy — only ground, and legs to walk it with.</string>
+    <string name="level_academy_first_steps_debrief">Ground is the whole game. Everything after this is about getting more of it, and keeping it.</string>
+    <string name="hint_academy_first_steps_select">Tap one of your soldiers to pick it up.</string>
+    <string name="hint_academy_first_steps_capture">The marked hexes are within reach. Tap one to take it.</string>
+    <string name="hint_academy_first_steps_end_turn">Moving spends a soldier for the round. When both have gone, end your turn.</string>
+    <string name="hint_academy_first_steps_finish">Take the rest of the marked fields.</string>
+
+    <string name="level_academy_coin_and_crown_name">Coin and Crown</string>
+    <string name="level_academy_coin_and_crown_briefing">Every hex you hold pays a coin a turn, and every soldier eats. Learn the arithmetic before someone makes you do it under pressure.</string>
+    <string name="level_academy_coin_and_crown_debrief">Income buys armies. Armies take ground. Ground pays income. That circle is the whole economy.</string>
+    <string name="hint_academy_coin_and_crown_coins">Tap the coin counter at the top to see where your money comes from.</string>
+    <string name="hint_academy_coin_and_crown_farm">Build a farm beside your capital — it pays far more than the bare hex under it.</string>
+    <string name="hint_academy_coin_and_crown_expand">Keep taking ground. Each hex is another coin a turn.</string>
+    <string name="hint_academy_coin_and_crown_upkeep">Watch the upkeep line. If it ever passes your income, your soldiers starve.</string>
+
+    <string name="level_academy_shoulder_name">Shoulder to Shoulder</string>
+    <string name="level_academy_shoulder_briefing">Two outposts, each with a defender. A single farmhand is not enough — but two of them, standing together, are something else entirely.</string>
+    <string name="level_academy_shoulder_debrief">A merge costs nothing but the two soldiers you already had. It is the cheapest strength in the game.</string>
+    <string name="hint_academy_shoulder_defense">Pick up a soldier: the shield numbers show how hard each hex is to take.</string>
+    <string name="hint_academy_shoulder_merge">Two peasants in one territory merge into a spearman. Move one onto the other.</string>
+    <string name="hint_academy_shoulder_storm">Strength must beat defence outright — a tie is not enough. Take both outposts.</string>
+
+    <string name="level_academy_stone_and_timber_name">Stone and Timber</string>
+    <string name="level_academy_stone_and_timber_briefing">The pass between the two valleys changes hands with every raid. Stone holds ground that soldiers cannot — and the forest will pay for it.</string>
+    <string name="level_academy_stone_and_timber_debrief">A tower costs once and defends forever. A soldier costs every single turn.</string>
+    <string name="hint_academy_stone_and_timber_trees">Trees block income. Walk a soldier into one to clear it and pocket the timber.</string>
+    <string name="hint_academy_stone_and_timber_tower">Build a tower on the pass. It defends its own hex and all six neighbours.</string>
+    <string name="hint_academy_stone_and_timber_hold">Now keep all three pass hexes for four full rounds.</string>
+
+    <string name="level_academy_cut_the_line_name">Cut the Line</string>
+    <string name="level_academy_cut_the_line_briefing">Your neighbour has overreached: a long arm of territory hanging off a single hex. Take the neck and the whole limb dies of its own weight.</string>
+    <string name="level_academy_cut_the_line_debrief">You never had to fight the whole arm. You only had to fight one hex of it.</string>
+    <string name="hint_academy_cut_the_line_slicing">Territory cut off from its capital earns nothing, and its soldiers starve. Find the narrow hex.</string>
+    <string name="hint_academy_cut_the_line_loot">Taking a capital pays you half of what is in its treasury. Finish them.</string>
+
+    <string name="level_academy_ranged_and_siege_name">Ranged and Siege</string>
+    <string name="level_academy_ranged_and_siege_briefing">Two castles, three defence apiece, and a rival content to sit behind them. Knights can be bought. Walls have to be answered.</string>
+    <string name="level_academy_ranged_and_siege_debrief">The catapult is slow, expensive and fragile. It is also the only thing on the board that does not care about walls.</string>
+    <string name="hint_academy_ranged_and_siege_castle">Tap the castle. Three defence — no soldier you can afford beats that.</string>
+    <string name="hint_academy_ranged_and_siege_catapult">Build a catapult. It ignores buildings entirely, but only moves two hexes a turn.</string>
+    <string name="hint_academy_ranged_and_siege_archer">An archer beside the catapult keeps it alive. Take both keeps.</string>
+
+    <string name="level_academy_salt_and_sail_name">Salt and Sail</string>
+    <string name="level_academy_salt_and_sail_briefing">There is no road to the far island. There is a harbour, a hull, and two hexes of open water.</string>
+    <string name="level_academy_salt_and_sail_debrief">Anything you can reach, you can take. The port is what decides what you can reach.</string>
+    <string name="hint_academy_salt_and_sail_port">Build a port on the marked coast. Boats are sold at the water beside it.</string>
+    <string name="hint_academy_salt_and_sail_transport">Buy a transport, then walk a soldier onto it to load up.</string>
+    <string name="hint_academy_salt_and_sail_landing">Sail across and land on the far shore — a loaded boat can storm a beach directly.</string>
+    <string name="hint_academy_salt_and_sail_conquer">The island is yours to take now. Finish it.</string>
+
+    <string name="level_academy_words_before_swords_name">Words Before Swords</string>
+    <string name="level_academy_words_before_swords_briefing">Two rivals, both richer than you. You cannot fight them at once — so do not. Buy time with a signature, and spend it well.</string>
+    <string name="level_academy_words_before_swords_debrief">A pact is a tool, not a friendship. Everyone at that table knew it.</string>
+    <string name="hint_academy_words_before_swords_outnumbered">Open the diplomacy panel from the top bar. You cannot hold two fronts.</string>
+    <string name="hint_academy_words_before_swords_pact">Offer a pact to the stronger neighbour and turn everything you have on the other.</string>
+    <string name="hint_academy_words_before_swords_betray">Breaking a pact costs a quarter of your treasury. Sometimes that is a bargain.</string>
+
+    <!-- === The Sundered Isles === -->
+    <string name="campaign_isles_name">The Sundered Isles</string>
+    <string name="campaign_isles_blurb">Six chapters in one archipelago. Every one of them is a logistics problem before it is a fight.</string>
+
+    <string name="level_isles_landfall_name">Landfall</string>
+    <string name="level_isles_landfall_briefing">The fleet is one hull and the army is one spearman, but the eastern beach is empty and the tide is right. Get ashore, and stay ashore.</string>
+    <string name="level_isles_landfall_debrief">Landing was never the hard part. Being there the following morning was.</string>
+    <string name="hint_isles_landfall_embark">Walk a soldier onto the transport to load it, then sail.</string>
+    <string name="hint_isles_landfall_sail">Land on the marked sand. A loaded boat can take a beach outright.</string>
+    <string name="hint_isles_landfall_supply">Soldiers beside one of your own boats never starve. Keep the hull close and hold the beach.</string>
+    <string name="script_isles_landfall_relief_squadron">A relief squadron reaches the anchorage.</string>
+
+    <string name="level_isles_lighthouse_name">The Lighthouse</string>
+    <string name="level_isles_lighthouse_briefing">Fog on the water, and one watchtower that can see through it. Lose the beacon and the channel belongs to whoever wants it.</string>
+    <string name="level_isles_lighthouse_debrief">You held a hex worth nothing at all, and it was the only thing on the map that mattered.</string>
+    <string name="hint_isles_lighthouse_fog">You can only see what your ground, your soldiers and your towers can see.</string>
+    <string name="hint_isles_lighthouse_beacon">The beacon watches six hexes in every direction. It must not fall.</string>
+    <string name="hint_isles_lighthouse_endure">Twelve rounds. Keep the beacon and keep breathing.</string>
+    <string name="script_isles_lighthouse_night_raid">A raider slips out of the fog.</string>
+
+    <string name="level_isles_wolves_name">Wolves of the Channel</string>
+    <string name="level_isles_wolves_briefing">Raiders have been crossing the channel for a season. The council wants three hulls on the bottom of it.</string>
+    <string name="level_isles_wolves_debrief">At sea, the tie goes to whoever moved first. Remember that when you are the one being hunted.</string>
+    <string name="hint_isles_wolves_warship">Build a warship. It is the only thing that can sink another boat.</string>
+    <string name="hint_isles_wolves_ties">Sail onto a raider to sink it — at sea, an equal fight goes to the attacker.</string>
+    <string name="script_isles_wolves_wolves_first">A raider is sighted in the channel.</string>
+    <string name="script_isles_wolves_wolves_second">A second raider runs the channel.</string>
+    <string name="script_isles_wolves_wolves_third">More sails on the horizon.</string>
+    <string name="script_isles_wolves_wolves_fourth">The last of the pack breaks cover.</string>
+
+    <string name="level_isles_strait_name">The Strait</string>
+    <string name="level_isles_strait_briefing">Two hexes of water, and a treasury that will not stretch to a fleet. Masons are cheaper than admirals.</string>
+    <string name="level_isles_strait_debrief">A bridge is ground. It is walked on, fought over, and it does not sink.</string>
+    <string name="hint_isles_strait_bridge">Build a bridge onto the water beside your coast, then extend it hex by hex.</string>
+    <string name="hint_isles_strait_march">The bridge is road now. March across and finish them.</string>
+
+    <string name="level_isles_admirals_grave_name">The Admiral\'s Grave</string>
+    <string name="level_isles_admirals_grave_briefing">The admiral holds the eastern isle. The southern flag holds everything else, and is watching to see which way this goes.</string>
+    <string name="level_isles_admirals_grave_debrief">One rival down. The other watched the whole thing and learned from it.</string>
+    <string name="hint_isles_admirals_grave_two_fronts">Two rivals, one of you. The diplomacy panel is in the top bar.</string>
+    <string name="hint_isles_admirals_grave_admiral">The admiral is the target. The southern flag is not — yet.</string>
+
+    <string name="level_isles_crown_of_salt_name">Crown of Salt</string>
+    <string name="level_isles_crown_of_salt_briefing">Every island, every channel, both rivals. No clock, no favours, nothing held back.</string>
+    <string name="level_isles_crown_of_salt_debrief">The archipelago is yours, salt and stone and all of it.</string>
+    <string name="hint_isles_crown_of_salt_finale">Everything the campaign taught you is on this board. So is everything it taught them.</string>
+
+    <!-- === The Iron Crown === -->
+    <string name="campaign_crown_name">The Iron Crown</string>
+    <string name="campaign_crown_blurb">A succession war fought entirely on land. What ground earns, what it costs to hold, and what happens when you run out.</string>
+
+    <string name="level_crown_granary_name">The Granary</string>
+    <string name="level_crown_granary_briefing">Before the war, the harvest. Rich soil doubles what a farm returns, and the crown will be paid for long before it is fought for.</string>
+    <string name="level_crown_granary_debrief">Wars are won in the accounts a year before they are won in the field.</string>
+    <string name="hint_crown_granary_loam">The marked hexes are rich soil. A farm there earns far more than one anywhere else.</string>
+    <string name="hint_crown_granary_market">A market pays for every producing hex around it. Put one inside your territory, not on its edge.</string>
+    <string name="hint_crown_granary_harvest">Keep building. Thirty-two coins a turn is the target.</string>
+
+    <string name="level_crown_siege_of_ash_name">The Siege of Ash</string>
+    <string name="level_crown_siege_of_ash_briefing">Both claimants have declared against you at once. There is nothing to win here. There is only the levy, four rounds out, and everything between now and then.</string>
+    <string name="level_crown_siege_of_ash_debrief">You did not beat them. You outlasted them, which counts the same in the chronicles.</string>
+    <string name="hint_crown_siege_of_ash_outnumbered">Two enemies, one of you. Trade ground for time and keep your capital covered.</string>
+    <string name="hint_crown_siege_of_ash_levy">The levy musters at the marked hex. Hold until it arrives.</string>
+    <string name="hint_crown_siege_of_ash_hold_on">Fourteen rounds. Nothing else is asked of you.</string>
+    <string name="script_crown_siege_of_ash_the_levy">The levy answers the summons.</string>
+
+    <string name="level_crown_iron_veins_name">The Iron Veins</string>
+    <string name="level_crown_iron_veins_briefing">Three seams of gold in the middle of the map, and neither claimant has the sense to be first to them. Take that back.</string>
+    <string name="level_crown_iron_veins_debrief">Ore in the ground is worth nothing. Ore under a mine pays for armies.</string>
+    <string name="hint_crown_iron_veins_veins">The marked hexes are gold seams. Take all three.</string>
+    <string name="hint_crown_iron_veins_mine">A mine only stands on a seam — and it earns six a turn while it does.</string>
+    <string name="hint_crown_iron_veins_bank">Three seams, three mines. Then the treasury does the rest.</string>
+
+    <string name="level_crown_last_wall_name">The Last Wall</string>
+    <string name="level_crown_last_wall_briefing">Everything has narrowed to the bastion above the throne room. Ground elsewhere is a luxury. That hex is not.</string>
+    <string name="level_crown_last_wall_debrief">The wall held. Very little else did, and it did not matter.</string>
+    <string name="hint_crown_last_wall_bastion">The bastion is the mission. Lose it and nothing else counts.</string>
+    <string name="hint_crown_last_wall_pact">You cannot hold two fronts. Buy one of them off.</string>
+    <string name="hint_crown_last_wall_endure">Sixteen rounds behind the wall.</string>
+    <string name="script_crown_last_wall_sworn_swords">Sworn swords ride in through the postern.</string>
+
+    <string name="level_crown_breach_name">The Breach</string>
+    <string name="level_crown_breach_briefing">A line of castles across the waist of the continent, built by someone who never expected siege engines.</string>
+    <string name="level_crown_breach_debrief">Walls are an answer to soldiers. They were never an answer to engineering.</string>
+    <string name="hint_crown_breach_wall">Two keeps, three defence each. Soldiers will not do it.</string>
+    <string name="hint_crown_breach_siege">Build a catapult. Walls mean nothing to it — enemy soldiers still do.</string>
+    <string name="hint_crown_breach_through">Take both keeps and the line is broken.</string>
+
+    <string name="level_crown_three_thrones_name">Three Thrones</string>
+    <string name="level_crown_three_thrones_briefing">Three claims, one crown, and no more room for arrangements. Settle it.</string>
+    <string name="level_crown_three_thrones_debrief">The succession is settled. The crown was always iron; now it is yours.</string>
+    <string name="hint_crown_three_thrones_succession">No clock, no levy, no favours. Only the board.</string>
 </resources>

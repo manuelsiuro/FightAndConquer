@@ -45,6 +45,7 @@ fun GameScreen(viewModel: GameViewModel) {
     val diplomacy by viewModel.diplomacy.collectAsState()
     val incomingProposals by viewModel.incomingProposals.collectAsState()
     val infoCard by viewModel.infoCard.collectAsState()
+    val campaignRun by viewModel.campaignRun.collectAsState()
     val engine = viewModel.engine ?: return
 
     // Field Guide overlay state (local UI only — no ViewModel/navigation involvement).
@@ -92,7 +93,7 @@ fun GameScreen(viewModel: GameViewModel) {
         }
         LaunchedEffect(Unit) {
             viewModel.highlights.collect { h ->
-                ref.scene?.showHighlights(h.selected, h.moves, h.captures, h.merges)
+                ref.scene?.showHighlights(h.selected, h.moves, h.captures, h.merges, h.hintFocus)
             }
         }
         LaunchedEffect(Unit) {
@@ -130,18 +131,35 @@ fun GameScreen(viewModel: GameViewModel) {
                     ProposalStrip(incomingProposals, viewModel)
                 }
                 Spacer(Modifier.weight(1f))
+                campaignRun?.coach?.let { CoachCardView(it, viewModel::dismissCoachCard) }
                 BottomBar(state, infoCard, viewModel, onOpenGuide = openGuide)
             }
 
-            economy?.let { EconomyPanel(it) }
-            diplomacy?.let { DiplomacyPanel(it, viewModel) }
+            // One panel at a time in the slot under the top bar: objectives are shown
+            // whenever the glanceable panels are closed, since a mission's terms are not
+            // something the player should have to go looking for.
+            when {
+                economy != null -> EconomyPanel(economy!!)
+                diplomacy != null -> DiplomacyPanel(diplomacy!!, viewModel)
+                campaignRun != null -> ObjectivesPanel(campaignRun!!)
+            }
             ToastStack(toasts)
 
             state.banner?.let { seat ->
                 TurnBanner(seat) { viewModel.beginTurn() }
             }
-            state.winner?.let { winner ->
-                GameOverOverlay(winner) { viewModel.backToMenu() }
+            val outcome = campaignRun?.outcome
+            when {
+                outcome != null -> CampaignOutcomeOverlay(
+                    outcome = outcome,
+                    onNext = viewModel::startNextLevel,
+                    onRetry = viewModel::retryLevel,
+                    onMenu = viewModel::backToMenu,
+                )
+                // A campaign level reports against its own terms, never "player N wins".
+                campaignRun == null -> state.winner?.let { winner ->
+                    GameOverOverlay(winner) { viewModel.backToMenu() }
+                }
             }
         }
 

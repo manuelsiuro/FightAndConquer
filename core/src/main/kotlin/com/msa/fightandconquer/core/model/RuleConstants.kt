@@ -15,6 +15,17 @@ data class RuleConstants(
     val unitUpkeep: List<Int> = listOf(2, 6, 18, 54),
     val maxTier: Int = 4,
 
+    /**
+     * Movement range by soldier tier (index = tier - 1): max BFS steps through
+     * the unit's own connected territory per action, the final step of which
+     * may capture a frontier hex. Higher tiers march farther. Kept small so a
+     * unit's whole reach is readable at a glance (the ships set the pattern:
+     * bounded BFS, range shown as a highlight blob).
+     */
+    val soldierMoveRanges: List<Int> = listOf(3, 4, 5, 6),
+    /** Movement range of the Archer (same path rules as [soldierMoveRanges]). */
+    val archerMoveRange: Int = 3,
+
     val hexIncome: Int = 1,
     val farmCostBase: Int = 12,
     /** Each additional farm costs this much more than the previous one. */
@@ -116,6 +127,13 @@ data class RuleConstants(
     val warshipMoveRange: Int = 3,
     val portCost: Int = 20,
     val portIncome: Int = 2,
+    /**
+     * Overseas supply rule D: turns a sea-captured beachhead region survives on
+     * its landing stores with no supply line. Each grace tile feeds its whole
+     * starving region at the owner's turn start and burns one turn of stores;
+     * 0 restores the pre-grace insta-starve. See docs/game-rules.md.
+     */
+    val beachheadGraceTurns: Int = 3,
     val fisheryCost: Int = 18,
     /** Fishery income per adjacent FISH_SHOAL sea hex. */
     val fisheryShoalIncome: Int = 3,
@@ -139,4 +157,19 @@ data class RuleConstants(
     val pactProposalCooldownRounds: Int = 6,
     /** Percent of the breaker's treasury paid to the victim on a pact break. */
     val pactBreakPenaltyPercent: Int = 25,
+
+    // --- Campaign ---
+    /**
+     * Buildings this game does not offer at all. Empty in skirmish; a campaign level
+     * uses it to teach one structure at a time, so the purchase tray narrows itself
+     * with no gating code anywhere else. Enforced in `Legality.checkBuyBuilding`, so
+     * the AI cannot build them either.
+     */
+    val disabledBuildings: Set<BuildingType> = emptySet(),
+    /**
+     * Allows [com.msa.fightandconquer.core.engine.GameAction.RunScript] — the campaign
+     * director's story beats. **Off by default**: a skirmish game can never contain a
+     * scripted event, so nothing outside a campaign level can spawn free units.
+     */
+    val scriptedEventsEnabled: Boolean = false,
 )

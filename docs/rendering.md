@@ -119,3 +119,16 @@ tris each) + pooled overlays — measured 119.4–120 fps on a Galaxy S24 (sea
 tiles share per-fog-band material instances, so the water adds no per-tile
 uniform traffic). Per-frame CPU extras are a handful of uniform writes (pulse/dim) and
 ≤ ~20 `project()` calls while labels are visible.
+
+**Frame pacing (heat budget).** The loop renders every vsync only while the
+scene is *busy* — `SceneController.isBusy()`: animations or queued beats,
+camera glides, rumble, pulsing highlights, or the ~10 frames after any input
+(`BoardScene.wake()`). A still board drops to a ~20 fps ambience rate
+(`RenderEngine.IDLE_FRAME_INTERVAL_NANOS`): water shimmer and boat bob advance
+by accumulated dt, so they stay smooth-slow rather than fast-choppy. A
+turn-based game is idle most of its life, and rendering a static board at the
+display rate is what used to cook the phone. Consequence for the `fps=` probe:
+the target applies **while animating** — an idle board legitimately logs
+~20 fps, so read drops only during action. Shadow map is 1024 (soft toy
+shadows at tabletop zoom) and SSAO runs LOW — both retuned for heat with no
+visible change.

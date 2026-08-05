@@ -124,6 +124,9 @@ internal class StateBuilder(private val base: GameState) {
                 owner = attacker,
                 building = if (keepBridge) Building.BRIDGE else null,
                 starving = false,
+                // Landing stores never change hands — the caller re-stamps them
+                // for a fresh beachhead (disembark / grace-region expansion).
+                graceTurns = 0,
             )
         }
         events.add(GameEvent.HexCaptured(hex, attacker, victim))
@@ -259,8 +262,11 @@ internal class StateBuilder(private val base: GameState) {
         for ((hex, tile) in tiles) {
             val owner = tile.owner ?: continue
             val shouldStarve = hex !in fedByPlayer.getValue(owner)
-            if (tile.starving != shouldStarve) {
-                tiles[hex] = tile.copy(starving = shouldStarve)
+            // A normally fed hex needs no landing stores — reconnection (or an
+            // expedition port) ends the beachhead and its grace clock for good.
+            val grace = if (shouldStarve) tile.graceTurns else 0
+            if (tile.starving != shouldStarve || tile.graceTurns != grace) {
+                tiles[hex] = tile.copy(starving = shouldStarve, graceTurns = grace)
             }
         }
     }
@@ -277,7 +283,9 @@ internal class StateBuilder(private val base: GameState) {
                 units.values.filter { it.owner == p.id }.forEach { killUnit(it.id, DeathCause.STARVED) }
                 // Owned sea hexes (bridges) outlive their builder as neutral structures.
                 for ((hex, tile) in tiles.entries.toList()) {
-                    if (tile.owner == p.id) tiles[hex] = tile.copy(owner = null, starving = false)
+                    if (tile.owner == p.id) {
+                        tiles[hex] = tile.copy(owner = null, starving = false, graceTurns = 0)
+                    }
                 }
                 updatePlayer(p.id) { it.copy(eliminated = true, capital = null) }
                 events.add(GameEvent.PlayerEliminated(p.id))

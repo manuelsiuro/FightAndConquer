@@ -31,7 +31,9 @@ object DiplomacyPolicy {
             ?: return null
         val accept = when (difficulty) {
             // Easy always signs — predictable and exploitable, which is the point.
-            Difficulty.EASY -> true
+            // A dormant seat signs too: it has no war to fight. (AiPlayer short-circuits
+            // before ever reaching here; the branch keeps the `when` honest.)
+            Difficulty.EASY, Difficulty.PASSIVE -> true
             Difficulty.NORMAL -> shouldAccept(state, me, proposal.from)
             Difficulty.HARD ->
                 shouldAccept(state, me, proposal.from) &&

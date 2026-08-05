@@ -62,7 +62,11 @@ capture, one action), `BuyUnit(tier, at, type)` (place / buy-merge / buy-capture
 `type` defaults to SOLDIER so old logs replay unchanged), `BuyBuilding(type, at)`,
 `MergeUnits(a, b)` (a is the fresh mover), `Disembark(boat, to)`,
 `Bombard(unit, target)`, `ProposePact(to, durationRounds)`,
-`RespondPact(from, accept)`, `SendTribute(to, amount)`, `EndTurn`, `Surrender`.
+`RespondPact(from, accept)`, `SendTribute(to, amount)`, `EndTurn`, `Surrender`, and
+`RunScript(tag, spawns, grants)` — the campaign director's story beat (docs/campaign.md):
+gated off by `RuleConstants.scriptedEventsEnabled` (default false), self-contained so the
+reducer never needs the level, RNG-free, and undo-sealing (`GameEngine.submit` clears the
+undo stack after one but keeps it in the action log).
 Embarking is not a new action: `MoveUnit` onto an own empty adjacent transport
 stows the mover. `MoveUnit` by a boat onto an enemy boat's hex is a naval
 strike (sink + move in, no ownership change).
@@ -76,6 +80,7 @@ mid-turn autosaves — regression-tested in `persist/LegacySaveTest`).
 `UnitDied(unit, hex, cause KILLED|STARVED|BANKRUPTCY|SUNK)`, `UnitsMerged(into, consumed)`,
 `UnitEmbarked(unit, transport, from, at)`, `UnitDisembarked(transport, unit, to)`,
 `Bombarded(by, target)`,
+`ScriptFired(tag)` (campaign narration; the renderer needs no case for it),
 `BuildingBuilt/Destroyed`, `TreeGrown`, `TreeSpread(from, to)`, `TreeCleared(hex,
 bonus)`, `GravestoneTrampled`, `TurnStarted(player, income, upkeep)`, `Bankruptcy`,
 `CapitalMoved(player, from, to, loot)`, `PlayerEliminated`, `GameOver(winner)`,
@@ -146,20 +151,40 @@ The only entry point `:app` uses:
 
 Thread-confined: call mutators from one (main) thread.
 
+## Campaign (`campaign/`)
+
+Pure data and pure functions for authored missions: `LevelDef`/`CampaignDef`,
+`Objective`/`FailCondition`, `Objectives.evaluate` (a pure verdict, called from the
+ViewModel — **never** from the reducer, so `GamePhase` keeps meaning "the conquest is
+over"), the `CampaignTracker` fold for facts state cannot imply, `LevelCondition` shared by
+coach hints and story beats, `LevelFactory`, and `CampaignProgress`. Full spec:
+[campaign.md](campaign.md).
+
+`Difficulty.PASSIVE` is a seat that only ends its turn (`AiPlayer` short-circuits) — a
+training dummy for tutorial missions; excluded from skirmish setup via
+`Difficulty.selectable`. `RuleConstants.disabledBuildings` turns individual structures off,
+which is how the tutorial teaches one building at a time without any gating code.
+
 ## Persistence (`persist/`)
 
-`SaveGame(version, turnStartState, actionsThisTurn)` — restoring **replays** the
+`SaveGame(version, turnStartState, actionsThisTurn, campaign?)` — restoring **replays** the
 turn's actions through the reducer, which doubles as an integrity check
 (`fromSave` rebuilds the undo stack via `submit`). JSON via `SaveCodec`
 (`ignoreUnknownKeys` for forward compatibility). The app stores one autosave at
-`filesDir/autosave.json`; finished games delete it.
+`filesDir/autosave.json`; finished games delete it. `campaign: CampaignSaveRef?` (defaulted)
+names the mission and carries the turn-start `CampaignTracker`, which is re-folded across
+the replayed actions so a resumed mission scores identically to one never interrupted.
+Campaign career progress is a separate permanent file (`CampaignProgress`).
 
 ## Map generation (`map/`)
 
 `MapParams(seed, size SMALL/MEDIUM/LARGE ≈ 120/250/450, playerCount 2–6, shape
 CONTINENT/ISLANDS/ARCHIPELAGO)` → `MapDefinition(name, generatorParams?, tiles,
 capitals)`; `newGame(gameSeed, kinds, rules)` instantiates a `GameState`.
-Authored campaign maps use the same format with `generatorParams = null`.
+Authored campaign maps use the same format with `generatorParams = null`, and are checked
+by `MapValidator.validateAuthored` — structural invariants only (sea contract, reachable
+land, marked/owned capitals, each seat's start region connected), because an authored level
+is asymmetric on purpose. Full campaign format in [campaign.md](campaign.md).
 
 Algorithm: seeded random-walk blob growth (frontier weighted `(1+landNeighbors)²`).
 CONTINENT is one landmass; ISLANDS/ARCHIPELAGO

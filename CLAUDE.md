@@ -13,12 +13,17 @@ renderer in Compose (`:app`) + Blender-authored piece models baked to binary ass
 ./gradlew :app:testDebugUnitTest     # app unit tests (mesh loader, projection)
 ./gradlew :app:assembleDebug         # build APK
 python3 tools/glb2pmesh.py --all art/models app/src/main/assets/pieces   # re-bake models
+python3 tools/build_campaigns.py                                        # re-bake campaign JSON
 python3 tools/render_piece_icons.py [name…]                              # re-bake UI icons (Blender w/ MCP)
 python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebuild a model (Blender must run w/ MCP add-on)
 ```
 
 ## Hard rules
 
+- Campaign objectives are scored by a **pure function beside** the reducer
+  (`core/campaign/Objectives.kt`), never inside it. Levels are ASCII sources in
+  `tools/campaign_src/` baked to `assets/campaigns/*.json`; edit the source, never the JSON
+  (docs/campaign.md).
 - `:core` must never import `android.*`; the reducer stays pure; all randomness goes
   through the SplitMix64 `rngState` inside `GameState` (never `kotlin.random`,
   never clocks) — determinism is load-bearing (saves + future online play).
@@ -28,8 +33,10 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
   (docs/asset-pipeline.md); object names carry `__<ROLE>` suffixes; ≤600 tris;
   unit heights strictly increase by tier.
 - Verify on a device, not by assumption: screenshots for visuals
-  (`adb exec-out screencap -p`), the `fps=` logcat probe for perf (target 120),
-  AI-vs-AI simulation tests for balance.
+  (`adb exec-out screencap -p`), the `fps=` logcat probe for perf (target 120
+  **while animating** — an idle board renders at a ~20 fps ambience rate by
+  design, see docs/rendering.md "Frame pacing"), AI-vs-AI simulation tests for
+  balance.
 - Filament materials (`.mat`) require recompiling with the version-matched `matc`
   (`tools/compile-materials.sh`); `.filamat` files are checked in.
 - **No hardcoded user-facing strings.** Composables use `stringResource`; the

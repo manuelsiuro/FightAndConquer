@@ -13,6 +13,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 /** Scene content plugged into a [RenderEngine]'s frame loop. */
 interface SceneController {
     fun onFrame(frameTimeNanos: Long, deltaSeconds: Float)
+
+    /**
+     * False lets the engine drop to its ambience frame rate: nothing is
+     * animating or reacting to input, so rendering every vsync only heats the
+     * phone. Default true = never throttled.
+     */
+    fun isBusy(): Boolean = true
+
     fun destroy()
 }
 
@@ -44,6 +52,7 @@ fun FilamentHost(
                 val engine = RenderEngine(surfaceView)
                 val controller = createScene(engine)
                 engine.onFrame = controller::onFrame
+                engine.isSceneBusy = controller::isBusy
                 holder.engine = engine
                 holder.controller = controller
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {

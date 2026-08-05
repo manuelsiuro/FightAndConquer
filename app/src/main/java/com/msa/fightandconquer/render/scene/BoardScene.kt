@@ -118,6 +118,8 @@ class BoardScene(
         var scale: Float = 1f,
         var yOffset: Float = 0f,
         var xz: Pair<Float, Float>? = null, // non-null while hopping between hexes
+        /** Segment start while animating — fog visibility judges both ends. */
+        var animFrom: Hex? = null,
         /** Y-rotation in radians (bridges orient toward their connected shores). */
         var yaw: Float = 0f,
     ) {
@@ -218,16 +220,33 @@ class BoardScene(
      * same way highlights do.
      */
     fun setFog(visible: Set<Hex>?, explored: Set<Hex>?) {
+        wake() // uniforms changed — show the new fog promptly even when idle
         fogVisible = visible
         fogExplored = explored ?: emptySet()
-        for ((hex, te) in tiles) applyTileColor(hex, te)
-        for (piece in unitPieces.values) piece.setHidden(isFogged(piece.hex))
+        for ((hex, te) in tiles) {
+            applyTileColor(hex, te)
+            // The rendered raise is fog-aware (ownership is not terrain, so the
+            // fog rim stays flat) — re-seat every tile for the new fog edge.
+            if (!te.sea) setTileTransform(hex, te)
+        }
+        for (piece in unitPieces.values) piece.setHidden(pieceFogged(piece))
         for ((hex, piece) in buildingPieces) piece.setHidden(isFogged(hex))
         for ((hex, piece) in floraPieces) piece.setHidden(isFogged(hex))
         for ((hex, piece) in depositPieces) applyDepositFog(hex, piece)
+        // Tile tops may have visually moved with the fog edge — re-glue pieces.
+        for (piece in buildingPieces.values) piece.updateTransform()
+        for (piece in floraPieces.values) piece.updateTransform()
+        for (piece in depositPieces.values) piece.updateTransform()
+        for (piece in unitPieces.values) if (piece.xz == null) piece.updateTransform()
         // Auras were possibly drawn before fog arrived (init reconcile) or the fog
         // edge moved — re-derive them so no ring survives inside the fog.
         refreshAuras(latestState)
+    }
+
+    /** Fog state of a piece: while animating, both segment ends must be visible. */
+    private fun pieceFogged(piece: Piece): Boolean {
+        val from = piece.animFrom ?: return isFogged(piece.hex)
+        return FogRules.segmentHidden(fogVisible, from, piece.hex)
     }
 
     private fun isFogged(hex: Hex): Boolean {
@@ -351,7 +370,27 @@ class BoardScene(
 
     // ----- public surface -----
 
+    /**
+     * Frames of full-rate rendering left after the last interaction — input
+     * response and settling UI must never render at the ambience rate.
+     */
+    private var wakeFrames = 10
+
+    private fun wake() {
+        wakeFrames = 10
+    }
+
+    /** True while pulsing highlight discs (captures, hints) are on screen. */
+    private var pulsingShown = false
+
+    /** Renderer throttle hook: full rate only while something moves or reacts. */
+    override fun isBusy(): Boolean =
+        wakeFrames > 0 || pulsingShown || rumbleTime >= 0f ||
+            !animator.isIdle || !cameraAnimator.isIdle ||
+            eventQueue.isNotEmpty() || pendingState != null
+
     fun tap(xPx: Float, yPx: Float) {
+        wake()
         // Tap during playback fast-forwards instead of selecting (doc: skip-animation input).
         if (!animator.isIdle || eventQueue.isNotEmpty()) {
             skipAnimations()
@@ -367,6 +406,7 @@ class BoardScene(
     }
 
     fun pan(dxPx: Float, dyPx: Float) {
+        wake()
         cameraAnimator.cancelAll() // user input always beats a glide
         rig.pan(dxPx, dyPx, engine.view.viewport.height)
     }
@@ -390,7 +430,10 @@ class BoardScene(
         }
     }
 
-    fun zoom(factor: Float) = rig.zoomBy(factor)
+    fun zoom(factor: Float) {
+        wake()
+        rig.zoomBy(factor)
+    }
 
     /** Feed a new authoritative state and the events that produced it. */
     fun apply(state: GameState, events: List<GameEvent>) {
@@ -403,13 +446,24 @@ class BoardScene(
      * Show selection + legal-move overlays: translucent discs hovering over tiles.
      * Colors: selected = white, move = white (dimmer), capture = warm red, merge = gold.
      */
-    fun showHighlights(selected: Hex?, moves: Set<Hex>, captures: Set<Hex>, merges: Set<Hex>) {
+    fun showHighlights(
+        selected: Hex?,
+        moves: Set<Hex>,
+        captures: Set<Hex>,
+        merges: Set<Hex>,
+        hintFocus: Set<Hex> = emptySet(),
+    ) {
         clearHighlights()
         highlightClock = 0f // pulse always starts bright: "these just lit up"
+        // The campaign coach's ring goes down first, so a selection highlight on the same
+        // hex reads on top of it — the hint is context, the selection is what you just did.
+        for (hex in hintFocus) addHighlight(hex, 0.45f, 0.8f, 0.95f, 0.5f, pulse = true)
         selected?.let { addHighlight(it, 1f, 1f, 1f, 0.55f) }
         for (hex in moves) addHighlight(hex, 1f, 1f, 1f, 0.3f)
         for (hex in captures) addHighlight(hex, 0.95f, 0.45f, 0.35f, 0.5f, pulse = true)
         for (hex in merges) addHighlight(hex, 0.9f, 0.75f, 0.35f, 0.55f)
+        pulsingShown = (0 until highlightsShown).any { highlightPool[it].pulse }
+        wake()
     }
 
     fun clearHighlights() {
@@ -422,6 +476,8 @@ class BoardScene(
             h.pulse = false
         }
         highlightsShown = 0
+        pulsingShown = false
+        wake() // redraw the cleared board promptly even when otherwise idle
     }
 
     private fun addHighlight(hex: Hex, r: Float, g: Float, b: Float, a: Float, pulse: Boolean = false) {
@@ -524,6 +580,7 @@ class BoardScene(
         }
         rig.update(engine.camera)
         publishAnchors()
+        if (wakeFrames > 0) wakeFrames--
     }
 
     /** Projects tracked hexes to screen px; publishes only on movement (quarter-px quantized). */
@@ -661,6 +718,8 @@ class BoardScene(
                 if (consumed != null) {
                     val from = consumed.hex
                     val to = event.into.hex
+                    consumed.animFrom = from
+                    consumed.setHidden(FogRules.segmentHidden(fogVisible, from, to))
                     animator.tween(0.25f, Easings::easeOutCubic, onEnd = {
                         destroyPiece(consumed)
                         finish()
@@ -719,6 +778,8 @@ class BoardScene(
                 val piece = unitPieces.remove(event.unit) ?: return
                 // Walk aboard, shrink into the hold.
                 piece.hex = event.at
+                piece.animFrom = event.from
+                piece.setHidden(FogRules.segmentHidden(fogVisible, event.from, event.at))
                 val from = event.from
                 animator.tween(0.25f, Easings::easeOutCubic, onEnd = { destroyPiece(piece) }) { t ->
                     piece.xz = lerpHex(from, event.at, t)
@@ -753,12 +814,15 @@ class BoardScene(
                 }
             }
 
-            // HUD-level events: no board animation (diplomacy stays off the board).
+            // HUD-level events: no board animation (diplomacy stays off the board, and a
+            // campaign story beat announces itself in a toast — its spawns arrive as
+            // ordinary UnitSpawned events that this same loop already animates).
             is GameEvent.ActionRejected, is GameEvent.Bankruptcy,
             is GameEvent.PlayerEliminated, is GameEvent.GameOver,
             is GameEvent.PactProposed, is GameEvent.PactAccepted, is GameEvent.PactDeclined,
             is GameEvent.PactExpired, is GameEvent.PactProposalExpired,
             is GameEvent.PactBroken, is GameEvent.TributeSent,
+            is GameEvent.ScriptFired,
             -> Unit
         }
     }
@@ -786,10 +850,14 @@ class BoardScene(
 
     private fun hop(piece: Piece, from: Hex, to: Hex, height: Float = 0.3f, unitId: UnitId? = null) {
         piece.hex = to
+        piece.animFrom = from
+        piece.setHidden(FogRules.segmentHidden(fogVisible, from, to))
         animator.tween(0.25f, Easings::easeOutCubic, onEnd = {
+            piece.animFrom = null
             piece.xz = null
             piece.yOffset = 0f
             piece.updateTransform()
+            piece.setHidden(isFogged(to))
             unitId?.let { piece.setDimmed(latestState.units[it]?.spent == true) }
         }) { t ->
             piece.xz = lerpHex(from, to, t)
@@ -844,13 +912,19 @@ class BoardScene(
             val b = path[index + 1]
             val last = index == segments - 1
             piece.hex = b
+            piece.animFrom = a
+            // Fog: render only the segments the viewer can fully see — an enemy
+            // marching deep through the murk stays unseen the whole way.
+            piece.setHidden(FogRules.segmentHidden(fogVisible, a, b))
             val yDelta = tileTopY(a) - tileTopY(b)
             val height = if (glide) 0f else if (last) 0.3f else 0.2f
             animator.tween(perHex, if (last) Easings::easeOutCubic else Easings::linear, onEnd = {
                 if (last) {
+                    piece.animFrom = null
                     piece.xz = null
                     piece.yOffset = 0f
                     piece.updateTransform()
+                    piece.setHidden(isFogged(piece.hex))
                     piece.setDimmed(latestState.units[unitId]?.spent == true)
                 } else {
                     runSegment(index + 1)
@@ -1009,13 +1083,28 @@ class BoardScene(
         return yaw
     }
 
-    private fun tileTopY(hex: Hex): Float = (tiles[hex]?.y ?: 0f) + Primitives.HEX_HEIGHT
+    /**
+     * The RENDERED tile height: the logical raise ([TileEntity.y], which
+     * reconcile diffs against) is suppressed inside the fog — ownership is not
+     * terrain, and a hex visibly rising in the murk would announce an unseen
+     * capture. Everything placed on tile tops (pieces, auras, highlights) reads
+     * height through here, so the flattened rim stays consistent.
+     */
+    private fun renderedTileY(hex: Hex, te: TileEntity): Float = if (isFogged(hex)) 0f else te.y
+
+    private fun tileTopY(hex: Hex): Float {
+        val te = tiles[hex] ?: return Primitives.HEX_HEIGHT
+        return renderedTileY(hex, te) + Primitives.HEX_HEIGHT
+    }
 
     private fun setTileTransform(hex: Hex, te: TileEntity) {
         val tm = filament.transformManager
         var instance = tm.getInstance(te.entity)
         if (instance == 0) instance = tm.create(te.entity)
-        tm.setTransform(instance, Transforms.translation(HexWorld.centerX(hex), te.y, HexWorld.centerZ(hex)))
+        tm.setTransform(
+            instance,
+            Transforms.translation(HexWorld.centerX(hex), renderedTileY(hex, te), HexWorld.centerZ(hex)),
+        )
     }
 
     private fun refreshPiecesOn(hex: Hex) {
@@ -1045,6 +1134,9 @@ class BoardScene(
                 Building.CAPITAL -> state.config.rules.capitalDefense
                 else -> continue
             }
+            // A source inside the fog contributes nothing — not even to a
+            // visible rim hex, or its ring would betray the hidden building.
+            if (FogRules.auraSourceHidden(fogVisible, hex)) continue
             covered.merge(hex, defense, ::maxOf)
             com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
                 if (state.tiles[n]?.owner == owner) covered.merge(n, defense, ::maxOf)
@@ -1052,6 +1144,9 @@ class BoardScene(
         }
         for (unit in state.units.values) {
             if (unit.type != com.msa.fightandconquer.core.model.UnitType.ARCHER) continue
+            // Same for archers — their ring moving at the fog rim would track
+            // an unseen unit's manoeuvres live.
+            if (FogRules.auraSourceHidden(fogVisible, unit.hex)) continue
             val aura = state.config.rules.archerAuraDefense
             covered.merge(unit.hex, aura, ::maxOf)
             com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(unit.hex) { n ->
@@ -1143,6 +1238,7 @@ class BoardScene(
                 piece.scale = 1f
                 piece.yOffset = 0f
                 piece.xz = null
+                piece.animFrom = null
                 piece.updateTransform()
                 corrections++
             }
