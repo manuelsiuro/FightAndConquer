@@ -125,17 +125,21 @@ object MapValidator {
      * land, capitals that actually exist — plus one playability rule of its own: every
      * seat must start on a single connected region, or it begins the level starving.
      */
-    fun validateAuthored(map: MapDefinition): List<String> {
-        val violations = ArrayList<String>()
+    fun validateAuthored(map: MapDefinition): List<String> =
+        validateAuthoredCodes(map).map { it.describe() }
+
+    /** [validateAuthored] as typed codes, for callers that must translate them. */
+    fun validateAuthoredCodes(map: MapDefinition): List<MapViolation> {
+        val violations = ArrayList<MapViolation>()
         val land = map.tiles.filter { it.terrain == Terrain.LAND }.map { it.hex }.toSet()
         val sea = map.tiles.filter { it.terrain == Terrain.SEA }.map { it.hex }.toSet()
 
         if (land.isEmpty()) {
-            violations.add("map has no land")
+            violations.add(MapViolation.NoLand)
             return violations
         }
-        if (map.tiles.size != land.size + sea.size) violations.add("duplicate tile definitions")
-        violations += seaContractViolations(map, land, sea)
+        if (map.tiles.size != land.size + sea.size) violations.add(MapViolation.DuplicateTiles)
+        violations += seaContractCodes(map, land, sea)
 
         // Every landmass must be reachable: connected to the rest by ground, or coastal
         // so a boat can get there. An unreachable island is dead level geometry.
@@ -143,18 +147,22 @@ object MapValidator {
         components.forEachIndexed { index, component ->
             val coastal = component.any { hex -> HexMath.neighbors(hex).any { it in sea } }
             if (components.size > 1 && !coastal) {
-                violations.add("landmass $index is unreachable (no adjacent sea)")
+                violations.add(MapViolation.LandmassUnreachable(index))
             }
         }
 
-        if (map.capitals.isEmpty()) violations.add("no capitals")
-        if (map.capitals.size != map.capitals.toSet().size) violations.add("duplicate capitals")
+        if (map.capitals.isEmpty()) violations.add(MapViolation.NoCapitals)
+        if (map.capitals.size != map.capitals.toSet().size) {
+            violations.add(MapViolation.DuplicateCapitals)
+        }
         map.capitals.forEachIndexed { player, capital ->
             val tile = map.tiles.find { it.hex == capital }
             when {
-                tile == null -> violations.add("capital $player off-map")
-                tile.building != Building.CAPITAL -> violations.add("capital $player not marked on tile")
-                tile.owner != player -> violations.add("capital $player on tile owned by ${tile.owner}")
+                tile == null -> violations.add(MapViolation.CapitalOffMap(player))
+                tile.building != Building.CAPITAL ->
+                    violations.add(MapViolation.CapitalUnmarked(player))
+                tile.owner != player ->
+                    violations.add(MapViolation.CapitalWrongOwner(player, tile.owner))
             }
         }
 
@@ -164,16 +172,16 @@ object MapValidator {
         map.capitals.forEachIndexed { player, capital ->
             val mine = owned[player].orEmpty().toSet()
             if (mine.isEmpty()) {
-                violations.add("seat $player owns no hexes")
+                violations.add(MapViolation.SeatOwnsNothing(player))
                 return@forEachIndexed
             }
             val reached = HexMath.floodFill(capital) { it in mine }
             if (reached.size != mine.size) {
-                violations.add("seat $player starts with ${mine.size - reached.size} cut-off hexes")
+                violations.add(MapViolation.SeatCutOffTiles(player, mine.size - reached.size))
             }
         }
         owned.keys.filter { it !in map.capitals.indices }.forEach {
-            violations.add("tiles owned by seat $it, which has no capital")
+            violations.add(MapViolation.OrphanOwner(it))
         }
         return violations
     }
@@ -187,26 +195,32 @@ object MapValidator {
         map: MapDefinition,
         land: Set<com.msa.fightandconquer.core.hex.Hex>,
         sea: Set<com.msa.fightandconquer.core.hex.Hex>,
-    ): List<String> {
-        val violations = ArrayList<String>()
+    ): List<String> = seaContractCodes(map, land, sea).map { it.describe() }
+
+    private fun seaContractCodes(
+        map: MapDefinition,
+        land: Set<com.msa.fightandconquer.core.hex.Hex>,
+        sea: Set<com.msa.fightandconquer.core.hex.Hex>,
+    ): List<MapViolation> {
+        val violations = ArrayList<MapViolation>()
         map.tiles.filter { it.terrain == Terrain.SEA }.forEach { tile ->
-            if (tile.owner != null) violations.add("sea tile ${tile.hex} has an owner")
-            if (tile.building != null) violations.add("sea tile ${tile.hex} has a building")
-            if (tile.flora != null) violations.add("sea tile ${tile.hex} has flora")
+            if (tile.owner != null) violations.add(MapViolation.SeaTileOwned(tile.hex))
+            if (tile.building != null) violations.add(MapViolation.SeaTileHasBuilding(tile.hex))
+            if (tile.flora != null) violations.add(MapViolation.SeaTileHasFlora(tile.hex))
             if (tile.deposit != null && tile.deposit != Deposit.FISH_SHOAL) {
-                violations.add("sea tile ${tile.hex} has a land deposit")
+                violations.add(MapViolation.SeaTileLandDeposit(tile.hex))
             }
         }
         if (map.tiles.any { it.terrain == Terrain.LAND && it.deposit == Deposit.FISH_SHOAL }) {
-            violations.add("fish shoal on land")
+            violations.add(MapViolation.FishShoalOnLand)
         }
         if (sea.isNotEmpty()) {
             val seaComponents = HexMath.connectedComponents(sea)
             if (seaComponents.size != 1) {
-                violations.add("sea split into ${seaComponents.size} components")
+                violations.add(MapViolation.SeaSplit(seaComponents.size))
             }
             if (HexMath.connectedComponents(land + sea).size != 1) {
-                violations.add("map is not one connected land+sea surface")
+                violations.add(MapViolation.SurfaceDisconnected)
             }
         }
         return violations
