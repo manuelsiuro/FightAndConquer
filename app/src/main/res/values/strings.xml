@@ -671,9 +671,35 @@
     <string name="editor_brush_land">Land</string>
     <string name="editor_brush_sea">Sea</string>
     <string name="editor_brush_erase">Erase</string>
-    <string name="editor_brush_owner">P%1$d land</string>
-    <string name="editor_brush_capital">P%1$d capital</string>
+    <string name="editor_brush_clear">Clear</string>
+    <string name="editor_brush_claim">Claim</string>
+    <string name="editor_brush_capital_tool">Capital</string>
     <string name="editor_brush_add_player">Add player</string>
+    <string name="editor_brush_tree">Tree</string>
+    <string name="editor_brush_grave">Gravestone</string>
+    <string name="editor_brush_gold">Gold vein</string>
+    <string name="editor_brush_fertile">Fertile soil</string>
+    <string name="editor_brush_shoal">Fish shoal</string>
+    <string name="editor_players">Players</string>
+    <string name="editor_rules">Rules</string>
+    <string name="editor_goals">Goals</string>
+    <string name="editor_paint_lock">Paint</string>
+    <string name="editor_seat_human">Human</string>
+    <string name="editor_treasury">Starting gold</string>
+    <string name="editor_rule_naval">Boats &amp; sea</string>
+    <string name="editor_turn_limit">Turn limit (empty = none)</string>
+    <string name="editor_goal_add">Add</string>
+    <string name="editor_goal_pick_hexes">Pick hexes</string>
+    <string name="editor_goal_capture">Capture hexes</string>
+    <string name="editor_goal_hold">Hold hexes</string>
+    <string name="editor_goal_survive">Survive</string>
+    <string name="editor_goal_own">Own hexes</string>
+    <string name="editor_goal_treasury">Amass gold</string>
+    <string name="editor_goal_eliminate">Defeat a player</string>
+    <string name="editor_goal_value_player">Player number</string>
+    <string name="editor_goal_value_coins">Coins</string>
+    <string name="editor_goal_value_hexes">Hexes</string>
+    <string name="editor_goal_value_rounds">Rounds</string>
 
     <!-- Map sharing -->
     <string name="share_error_not_a_code">This is not a map code</string>

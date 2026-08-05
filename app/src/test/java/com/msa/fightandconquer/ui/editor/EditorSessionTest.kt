@@ -1,9 +1,14 @@
 package com.msa.fightandconquer.ui.editor
 
+import com.msa.fightandconquer.core.campaign.Objective
+import com.msa.fightandconquer.core.campaign.SeatDef
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.map.MapViolation
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Deposit
+import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.Terrain
+import com.msa.fightandconquer.core.model.UnitType
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -71,16 +76,18 @@ class EditorSessionTest {
     }
 
     @Test
-    fun `owner brush claims land but never sea`() {
+    fun `owner brush claims land for the active seat but never sea`() {
         val s = session()
         val neutral = Hex.of(0, 1)
-        s.setBrush(EditorSession.Brush.Owner(1))
+        s.setActiveSeat(1)
+        s.setBrush(EditorSession.Brush.Owner)
         s.paint(neutral)
         assertEquals(1, s.tile(neutral)?.owner)
 
         s.setBrush(EditorSession.Brush.Sea)
         s.paint(Hex.of(0, -1))
-        s.setBrush(EditorSession.Brush.Owner(0))
+        s.setActiveSeat(0)
+        s.setBrush(EditorSession.Brush.Owner)
         val before = s.ui.value.def
         s.paint(Hex.of(0, -1))
         assertEquals(before, s.ui.value.def) // sea refused the owner brush
@@ -91,7 +98,8 @@ class EditorSessionTest {
         val s = session()
         val oldCapital = s.ui.value.def.level.map.capitals[0]
         val target = Hex.of(-1, 0) // inside seat 0's region: the territory stays whole
-        s.setBrush(EditorSession.Brush.Capital(0))
+        s.setActiveSeat(0)
+        s.setBrush(EditorSession.Brush.Capital)
         s.paint(target)
         val def = s.ui.value.def
         assertEquals(target, def.level.map.capitals[0])
@@ -104,21 +112,22 @@ class EditorSessionTest {
     @Test
     fun `moving a capital away from its territory is flagged, not blocked`() {
         val s = session()
-        s.setBrush(EditorSession.Brush.Capital(0))
+        s.setActiveSeat(0)
+        s.setBrush(EditorSession.Brush.Capital)
         s.paint(Hex.of(0, 2)) // neutral hex with no path to seat 0's old land
         assertTrue(s.ui.value.violations.any { it is MapViolation.SeatCutOffTiles })
     }
 
     @Test
-    fun `capital brush on a new seat grows seats and stays consistent`() {
+    fun `capital on a pending new seat grows seats and stays consistent`() {
         val s = session()
-        s.setBrush(EditorSession.Brush.Capital(2))
+        s.setActiveSeat(2) // == seats.size: the pending seat
+        s.setBrush(EditorSession.Brush.Capital)
         s.paint(Hex.of(0, 2))
         val level = s.ui.value.def.level
         assertEquals(3, level.seats.size)
         assertEquals(3, level.map.capitals.size)
         assertEquals(Hex.of(0, 2), level.map.capitals[2])
-        // New seat owns only its capital hex; that is a valid single-hex region.
         assertTrue(s.ui.value.violations.isEmpty())
     }
 
@@ -130,6 +139,101 @@ class EditorSessionTest {
         s.paint(capital)
         assertTrue(s.ui.value.violations.contains(MapViolation.CapitalOffMap(0)))
         s.previewState() // draft must still render
+    }
+
+    @Test
+    fun `structures need owned land and never overwrite a capital`() {
+        val s = session()
+        s.setActiveSeat(0)
+        s.setBrush(EditorSession.Brush.Structure(Building.FARM))
+        val neutral = Hex.of(0, 1)
+        s.paint(neutral) // neutral land: refused (campaign rule)
+        assertNull(s.tile(neutral)?.building)
+        val owned = Hex.of(-1, 0)
+        s.paint(owned)
+        assertEquals(Building.FARM, s.tile(owned)?.building)
+        val capital = s.ui.value.def.level.map.capitals[0]
+        s.paint(capital)
+        assertEquals(Building.CAPITAL, s.tile(capital)?.building) // untouched
+    }
+
+    @Test
+    fun `deposits respect their terrain`() {
+        val s = session()
+        s.setBrush(EditorSession.Brush.Sea)
+        s.paint(Hex.of(0, -2))
+        s.setBrush(EditorSession.Brush.Resource(Deposit.FISH_SHOAL))
+        s.paint(Hex.of(0, -2))
+        assertEquals(Deposit.FISH_SHOAL, s.tile(Hex.of(0, -2))?.deposit)
+        s.paint(Hex.of(0, 1)) // shoal on land: refused
+        assertNull(s.tile(Hex.of(0, 1))?.deposit)
+        s.setBrush(EditorSession.Brush.Resource(Deposit.GOLD_VEIN))
+        s.paint(Hex.of(0, 1))
+        assertEquals(Deposit.GOLD_VEIN, s.tile(Hex.of(0, 1))?.deposit)
+    }
+
+    @Test
+    fun `unit brush mirrors the placement rules and replaces on repaint`() {
+        val s = session()
+        s.setActiveSeat(0)
+        s.setBrush(EditorSession.Brush.UnitBrush(UnitType.SOLDIER, 1))
+        val owned = Hex.of(-1, 0)
+        s.paint(owned)
+        assertEquals(1, s.ui.value.def.level.startingUnits.size)
+        s.setBrush(EditorSession.Brush.UnitBrush(UnitType.SOLDIER, 3))
+        s.paint(owned) // replace, not stack
+        val units = s.ui.value.def.level.startingUnits
+        assertEquals(1, units.size)
+        assertEquals(3, units.single().tier)
+        s.paint(Hex.of(0, 1)) // neutral land: refused
+        assertEquals(1, s.ui.value.def.level.startingUnits.size)
+        assertTrue(s.ui.value.violations.isEmpty())
+    }
+
+    @Test
+    fun `terrain edits sweep stranded units away`() {
+        val s = session()
+        s.setActiveSeat(0)
+        s.setBrush(EditorSession.Brush.UnitBrush(UnitType.SOLDIER, 1))
+        val owned = Hex.of(-1, 0)
+        s.paint(owned)
+        s.setBrush(EditorSession.Brush.Sea)
+        s.paint(owned)
+        assertTrue(s.ui.value.def.level.startingUnits.isEmpty())
+    }
+
+    @Test
+    fun `seat kind changes keep exactly one human`() {
+        val s = session()
+        s.setSeatKind(1, SeatDef.Player)
+        val seats = s.ui.value.def.level.seats
+        assertEquals(1, seats.count { it is SeatDef.Player })
+        assertTrue(seats[1] is SeatDef.Player)
+        assertEquals(SeatDef.Ai(Difficulty.NORMAL), seats[0])
+        assertTrue(s.ui.value.violations.isEmpty())
+    }
+
+    @Test
+    fun `objectives are added painted and removed`() {
+        val s = session()
+        val index = s.addObjective(Objective.CaptureHexes(emptyList()))
+        assertTrue(s.ui.value.brush is EditorSession.Brush.ObjectiveHexes)
+        s.paint(Hex.of(0, 1))
+        s.paint(Hex.of(1, 0))
+        s.paint(Hex.of(0, 1)) // toggle off again
+        assertEquals(setOf(Hex.of(1, 0)), s.objectiveHexes(index))
+        s.removeObjective(index)
+        assertEquals(1, s.ui.value.def.level.objectives.size) // ConquerAll remains
+        assertEquals(EditorSession.Brush.Land, s.ui.value.brush)
+    }
+
+    @Test
+    fun `treasury edits create the purse list on demand`() {
+        val s = session()
+        s.setTreasury(1, 250)
+        val purses = s.ui.value.def.level.startingTreasury
+        assertEquals(listOf(s.ui.value.def.level.rules.startingTreasury, 250), purses)
+        assertTrue(s.ui.value.violations.isEmpty())
     }
 
     @Test
