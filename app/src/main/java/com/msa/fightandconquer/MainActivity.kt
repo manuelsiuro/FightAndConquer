@@ -26,6 +26,7 @@ import com.msa.fightandconquer.ui.Screen
 import com.msa.fightandconquer.ui.SetupScreen
 import com.msa.fightandconquer.ui.campaign.BriefingScreen
 import com.msa.fightandconquer.ui.campaign.CampaignScreen
+import com.msa.fightandconquer.ui.editor.MapEditorScreen
 import com.msa.fightandconquer.ui.editor.MapManagerScreen
 import com.msa.fightandconquer.ui.game.GameScreen
 import com.msa.fightandconquer.ui.theme.FightAndConquerTheme
@@ -92,15 +93,15 @@ class MainActivity : ComponentActivity() {
                         onBack = viewModel::backToMenu,
                     )
                     is Screen.MapEditor -> {
-                        val map = viewModel.customMaps.load(s.mapId)
-                        if (map == null) {
-                            // Only reachable if a saved screen names a map that no longer
-                            // exists; same LaunchedEffect idiom as a dangling Briefing.
+                        val session = viewModel.editor
+                        if (session == null) {
+                            // Only reachable if the screen outlived its session (e.g. a
+                            // dangling id); same LaunchedEffect idiom as Briefing.
                             LaunchedEffect(s) { viewModel.openMapEditor() }
                         } else {
-                            PlaceholderScreen(
-                                title = map.name,
-                                onBack = viewModel::openMapEditor,
+                            MapEditorScreen(
+                                session = session,
+                                onBack = viewModel::closeEditor,
                             )
                         }
                     }

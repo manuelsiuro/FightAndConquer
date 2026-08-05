@@ -7,6 +7,7 @@ import com.msa.fightandconquer.core.ai.AiPlayer
 import com.msa.fightandconquer.core.campaign.CampaignSave
 import com.msa.fightandconquer.core.campaign.CampaignSaveRef
 import com.msa.fightandconquer.ui.editor.CustomMapStore
+import com.msa.fightandconquer.ui.editor.EditorSession
 import com.msa.fightandconquer.ui.editor.MapTemplates
 import java.util.UUID
 import com.msa.fightandconquer.core.campaign.CampaignStatus
@@ -465,7 +466,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         startLevel(campaignId, levelId)
     }
 
+    /** The live editing session; non-null exactly while Screen.MapEditor shows. */
+    var editor: EditorSession? = null
+        private set
+
     fun openMapEditor() {
+        closeEditorSession()
         _screen.value = Screen.MapManager()
     }
 
@@ -478,11 +484,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             createdAt = now,
         )
         customMaps.save(def)
+        editor = EditorSession(customMaps, def)
         _screen.value = Screen.MapEditor(def.id)
     }
 
     fun editMap(id: String) {
+        val def = customMaps.load(id) ?: return openMapEditor()
+        editor = EditorSession(customMaps, def)
         _screen.value = Screen.MapEditor(id)
+    }
+
+    /** Leaves the canvas, autosaving a dirty draft — back never discards work. */
+    fun closeEditor() {
+        closeEditorSession()
+        _screen.value = Screen.MapManager()
+    }
+
+    private fun closeEditorSession() {
+        editor?.saveIfDirty(System.currentTimeMillis())
+        editor = null
     }
 
     fun deleteMap(id: String) {
@@ -500,6 +520,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun backToMenu() {
+        closeEditorSession()
         mapGenJob?.cancel()
         aiJob?.cancel()
         eventsJob?.cancel()
@@ -1584,6 +1605,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Called from onStop so a mid-turn kill resumes exactly where it was. */
     fun persistNow() {
+        // The editor's equivalent of the autosave: onStop must not lose a draft.
+        editor?.saveIfDirty(System.currentTimeMillis())
         val engine = engine ?: return
         if (engine.state.value.phase is GamePhase.Finished) return
         if (_campaignRun.value?.outcome != null) return

@@ -664,6 +664,17 @@
     <string name="editor_v_objective_decided">An objective is already complete before the first turn</string>
     <string name="editor_v_failure_at_start">A defeat condition already triggers before the first turn</string>
 
+    <!-- Map editor: canvas -->
+    <string name="editor_undo">Undo</string>
+    <string name="editor_issues">%1$d issues</string>
+    <string name="editor_issues_title">Not playable yet</string>
+    <string name="editor_brush_land">Land</string>
+    <string name="editor_brush_sea">Sea</string>
+    <string name="editor_brush_erase">Erase</string>
+    <string name="editor_brush_owner">P%1$d land</string>
+    <string name="editor_brush_capital">P%1$d capital</string>
+    <string name="editor_brush_add_player">Add player</string>
+
     <!-- Map sharing -->
     <string name="share_error_not_a_code">This is not a map code</string>
     <string name="share_error_unsupported_version">This map was made with a newer version of the game</string>
