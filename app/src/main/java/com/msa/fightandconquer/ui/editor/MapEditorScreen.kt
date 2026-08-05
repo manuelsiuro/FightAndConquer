@@ -3,6 +3,7 @@ package com.msa.fightandconquer.ui.editor
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -89,6 +90,7 @@ fun MapEditorScreen(
     val ref = remember { SceneRef() }
     val ui by session.ui.collectAsState()
     var showIssues by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf(Panel.NONE) }
     var paintLock by rememberSaveable { mutableStateOf(false) }
 
@@ -164,7 +166,9 @@ fun MapEditorScreen(
                 }
                 Text(
                     ui.def.name,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showRename = true },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = UiColors.ink,
@@ -225,6 +229,30 @@ fun MapEditorScreen(
         Panel.PLAYERS -> PlayersDialog(ui, session) { panel = Panel.NONE }
         Panel.RULES -> RulesDialog(ui, session) { panel = Panel.NONE }
         Panel.GOALS -> GoalsDialog(ui, session) { panel = Panel.NONE }
+    }
+    if (showRename) {
+        var name by remember { mutableStateOf(ui.def.name) }
+        AlertDialog(
+            onDismissRequest = { showRename = false },
+            title = { Text(stringResource(R.string.editor_rename_title)) },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(40) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { session.rename(name); showRename = false }) {
+                    Text(stringResource(R.string.editor_rename_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRename = false }) {
+                    Text(stringResource(R.string.maps_cancel))
+                }
+            },
+        )
     }
 }
 
