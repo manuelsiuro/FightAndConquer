@@ -26,6 +26,7 @@ import com.msa.fightandconquer.ui.Screen
 import com.msa.fightandconquer.ui.SetupScreen
 import com.msa.fightandconquer.ui.campaign.BriefingScreen
 import com.msa.fightandconquer.ui.campaign.CampaignScreen
+import com.msa.fightandconquer.core.editor.CustomMapValidator
 import com.msa.fightandconquer.ui.editor.MapEditorScreen
 import com.msa.fightandconquer.ui.editor.MapManagerScreen
 import com.msa.fightandconquer.ui.share.MapShareManager
@@ -63,6 +64,10 @@ class MainActivity : ComponentActivity() {
                         generating = s.generating,
                         onStart = viewModel::newGame,
                         onBack = viewModel::backToMenu,
+                        customMaps = remember(s) {
+                            viewModel.customMaps.list()
+                                .filter { CustomMapValidator.validate(it).isEmpty() }
+                        },
                     )
                     Screen.Campaign -> CampaignScreen(
                         campaigns = viewModel.campaigns.campaigns(),
@@ -91,6 +96,7 @@ class MainActivity : ComponentActivity() {
                         share = remember { MapShareManager(applicationContext) },
                         onNew = viewModel::newMap,
                         onOpen = viewModel::editMap,
+                        onPlay = viewModel::playCustomMap,
                         onDelete = viewModel::deleteMap,
                         onImported = viewModel::importMap,
                         onBack = viewModel::backToMenu,

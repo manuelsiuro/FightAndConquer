@@ -7,6 +7,7 @@ import com.msa.fightandconquer.core.ai.AiPlayer
 import com.msa.fightandconquer.core.campaign.CampaignSave
 import com.msa.fightandconquer.core.campaign.CampaignSaveRef
 import com.msa.fightandconquer.core.editor.CustomMapDef
+import com.msa.fightandconquer.core.editor.CustomMapValidator
 import com.msa.fightandconquer.ui.editor.CustomMapStore
 import com.msa.fightandconquer.ui.editor.EditorSession
 import com.msa.fightandconquer.ui.editor.MapTemplates
@@ -76,6 +77,8 @@ data class GameSetup(
     val shape: com.msa.fightandconquer.core.map.MapShape = com.msa.fightandconquer.core.map.MapShape.CONTINENT,
     val seed: Long = System.currentTimeMillis(),
     val fogOfWar: Boolean = false,
+    /** Non-null: play this stored custom map as authored; generation options ignored. */
+    val customMapId: String? = null,
     val specialUnits: Boolean = true,
     val diplomacy: Boolean = true,
 )
@@ -262,6 +265,8 @@ data class CampaignRunState(
     val campaignId: String,
     val levelId: String,
     val levelName: Int,
+    /** A custom map's user-typed title; campaign missions keep resource names. */
+    val levelNameText: String? = null,
     val objectives: List<ObjectiveLine>,
     val coach: CoachCard?,
     val turnLimit: Int?,
@@ -348,6 +353,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // ----- campaign director state -----
     private var activeLevel: LevelDef? = null
     private var activeCampaignId: String? = null
+
+    /** Set while a custom map plays; [activeCampaignId] is then [CUSTOM_CAMPAIGN]. */
+    private var activeCustomMapId: String? = null
     private var tracker = CampaignTracker()
     /** Teaching moments the board cannot imply (a unit picked up, a panel opened). */
     private var uiSignals = mutableSetOf<String>()
@@ -360,6 +368,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun newGame(setup: GameSetup) {
         clearCampaignRun()
+        // A picked custom map plays strictly as authored — none of the generation
+        // options below apply, so the whole flow hands over to the custom path.
+        setup.customMapId?.let { return playCustomMap(it) }
         _screen.value = Screen.Setup(generating = true)
         mapGenJob = viewModelScope.launch(Dispatchers.Default) {
             val map = MapGenerator.generate(
@@ -404,9 +415,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 // save, and the tracker is rebuilt by re-folding the replayed turn — so a
                 // resumed level scores exactly as one that was never interrupted.
                 val ref = save.campaign
-                val level = ref?.let { campaigns.level(it.campaignId, it.levelId) }
+                // A custom-map ref names the map under the sentinel; a deleted map
+                // degrades to a plain skirmish resume rather than a dead Continue.
+                val level = ref?.let {
+                    if (it.campaignId == CUSTOM_CAMPAIGN) customMaps.load(it.levelId)?.level
+                    else campaigns.level(it.campaignId, it.levelId)
+                }
                 if (ref != null && level != null) {
                     activeCampaignId = ref.campaignId
+                    activeCustomMapId = ref.levelId.takeIf { ref.campaignId == CUSTOM_CAMPAIGN }
                     activeLevel = level
                     tracker = CampaignSave.restoreTracker(save, level)
                     turnStartTracker = ref.tracker
@@ -432,6 +449,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openBriefing(campaignId: String, levelId: String) {
         _screen.value = Screen.Briefing(campaignId, levelId)
+    }
+
+    /**
+     * Plays a custom map strictly as authored: the whole campaign director runs it
+     * (objectives, turn limits, tracker) under the [CUSTOM_CAMPAIGN] sentinel, which
+     * the repository can never resolve — so next-mission and progress recording stay
+     * naturally out of the picture. Silently refuses a draft; the library only
+     * offers Play on validated maps.
+     */
+    fun playCustomMap(id: String) {
+        val def = customMaps.load(id) ?: return
+        if (CustomMapValidator.validate(def).isNotEmpty()) return
+        _campaignRun.value = null
+        firingScript = false
+        activeCampaignId = CUSTOM_CAMPAIGN
+        activeCustomMapId = id
+        activeLevel = def.level
+        tracker = CampaignTracker()
+        turnStartTracker = tracker
+        uiSignals = mutableSetOf()
+        startEngine(GameEngine(LevelFactory.instantiate(def.level)), showOpeningBanner = false)
     }
 
     /** Starts (or restarts) a campaign mission from its opening position. */
@@ -462,6 +500,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun retryLevel() {
+        activeCustomMapId?.let { return playCustomMap(it) }
         val campaignId = activeCampaignId ?: return
         val levelId = activeLevel?.id ?: return
         startLevel(campaignId, levelId)
@@ -862,6 +901,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun clearCampaignRun() {
         activeLevel = null
         activeCampaignId = null
+        activeCustomMapId = null
         tracker = CampaignTracker()
         turnStartTracker = null
         uiSignals = mutableSetOf()
@@ -1781,6 +1821,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             campaignId = campaignId,
             levelId = level.id,
             levelName = CampaignText.level(level.id)?.name ?: R.string.campaign_title,
+            levelNameText = level.map.name.takeIf { campaignId == CUSTOM_CAMPAIGN },
             objectives = status.rows.map {
                 ObjectiveLine(it.label(), it.counter(), it.done)
             },
@@ -1862,7 +1903,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun onMissionSettled(level: LevelDef, outcome: CampaignOutcome) {
         aiJob?.cancel()
         aiThinking = false
-        if (outcome.won) campaignProgress.record(level.id, outcome.stars, outcome.rounds)
+        // Custom maps have no campaign progress to advance.
+        if (outcome.won && activeCampaignId != CUSTOM_CAMPAIGN) {
+            campaignProgress.record(level.id, outcome.stars, outcome.rounds)
+        }
         viewModelScope.launch(Dispatchers.IO) { autosaveFile.delete() }
     }
 
@@ -1900,4 +1944,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // within vision) and coin popups fire only on the viewer's own actions, so the
     // Compose anchor overlay never reveals fogged activity by construction.
 
+    companion object {
+        /**
+         * The campaign-id a custom-map run travels under, in the run state and the
+         * autosave's [CampaignSaveRef]. Campaign asset ids come from file names, so
+         * the leading `@` can never collide; the repository resolves it to nothing,
+         * which is exactly right — no next mission, no unlocks, no progress.
+         */
+        const val CUSTOM_CAMPAIGN = "@custom"
+    }
 }

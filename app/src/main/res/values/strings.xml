@@ -617,6 +617,10 @@
     <string name="hint_crown_three_thrones_succession">No clock, no levy, no favours. Only the board.</string>
 
     <!-- Map editor: manager -->
+    <string name="menu_section_map_source">Map</string>
+    <string name="menu_source_generated">Generated</string>
+    <string name="menu_source_custom">My maps</string>
+    <string name="maps_play">Play</string>
     <string name="maps_title">My Maps</string>
     <string name="maps_new">New map</string>
     <string name="maps_new_default_name">Untitled map</string>

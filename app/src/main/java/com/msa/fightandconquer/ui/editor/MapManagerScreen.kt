@@ -63,6 +63,7 @@ fun MapManagerScreen(
     share: MapShareManager,
     onNew: () -> Unit,
     onOpen: (id: String) -> Unit,
+    onPlay: (id: String) -> Unit,
     onDelete: (id: String) -> Unit,
     onImported: (CustomMapDef) -> Unit,
     onBack: () -> Unit,
@@ -133,6 +134,7 @@ fun MapManagerScreen(
                     MapRow(
                         map = map,
                         onOpen = { onOpen(map.id) },
+                        onPlay = { onPlay(map.id) },
                         onShare = { shareTarget = map },
                         onDelete = { confirmDelete = map },
                     )
@@ -288,6 +290,7 @@ private fun QrDialog(map: CustomMapDef, share: MapShareManager, onClose: () -> U
 private fun MapRow(
     map: CustomMapDef,
     onOpen: () -> Unit,
+    onPlay: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -319,11 +322,17 @@ private fun MapRow(
                 color = UiColors.inkSecondary,
             )
         }
-        Text(
-            stringResource(if (playable) R.string.maps_badge_playable else R.string.maps_badge_draft),
-            fontSize = 12.sp,
-            color = if (playable) UiColors.positive else UiColors.inkMuted,
-        )
+        if (playable) {
+            TextButton(onClick = onPlay) {
+                Text(stringResource(R.string.maps_play), color = UiColors.positive, fontSize = 13.sp)
+            }
+        } else {
+            Text(
+                stringResource(R.string.maps_badge_draft),
+                fontSize = 12.sp,
+                color = UiColors.inkMuted,
+            )
+        }
         IconButton(onClick = onShare) {
             Icon(
                 Icons.Filled.Share,
