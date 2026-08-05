@@ -84,4 +84,10 @@ enum class RejectionReason {
     NOT_A_WARSHIP,
     /** Nothing to bombard there (empty hex, open sea, or a capital — capitals are immune). */
     INVALID_BOMBARD_TARGET,
+    /** This game's rules snapshot does not offer that building (campaign curriculum). */
+    BUILDING_NOT_AVAILABLE,
+    /** Scripted campaign events are disabled by this game's rules snapshot. */
+    SCRIPTED_EVENTS_DISABLED,
+    /** A scripted spawn/grant names a hex or player the state cannot honor. */
+    INVALID_SCRIPT_TARGET,
 }

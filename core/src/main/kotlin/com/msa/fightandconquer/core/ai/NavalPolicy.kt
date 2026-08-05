@@ -236,7 +236,12 @@ internal object NavalPolicy {
                 } else {
                     strikeable.filter { s -> enemyCapitals.any { HexMath.distance(s, it) <= 2 } }
                 }
-                sailToward(state, boat, nearCapital.ifEmpty { strikeable })?.let { return it }
+                // Capital shores first — but they are a PREFERENCE, not a cage:
+                // when their approach is blocked (often by the convoy's own
+                // hulls), fall back to any beach the cargo can take, or the
+                // fleet freezes at sea forever while the war stalemates.
+                sailToward(state, boat, nearCapital)?.let { return it }
+                sailToward(state, boat, strikeable)?.let { return it }
             } else {
                 // 3b: nothing to strike — bring the marine home as garrison.
                 val homeLanding = HexMath.neighbors(boat.hex)

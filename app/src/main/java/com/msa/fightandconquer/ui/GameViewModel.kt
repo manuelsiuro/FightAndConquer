@@ -4,6 +4,18 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.msa.fightandconquer.core.ai.AiPlayer
+import com.msa.fightandconquer.core.campaign.CampaignSave
+import com.msa.fightandconquer.core.campaign.CampaignSaveRef
+import com.msa.fightandconquer.core.campaign.CampaignStatus
+import com.msa.fightandconquer.core.campaign.CampaignTracker
+import com.msa.fightandconquer.core.campaign.FailCondition
+import com.msa.fightandconquer.core.campaign.Hints
+import com.msa.fightandconquer.core.campaign.LevelCondition
+import com.msa.fightandconquer.core.campaign.LevelDef
+import com.msa.fightandconquer.core.campaign.LevelFactory
+import com.msa.fightandconquer.core.campaign.Objectives
+import com.msa.fightandconquer.core.campaign.Scripts
+import com.msa.fightandconquer.core.campaign.Verdict
 import com.msa.fightandconquer.core.engine.GameAction
 import com.msa.fightandconquer.core.engine.GameEngine
 import com.msa.fightandconquer.core.engine.GameEvent
@@ -28,6 +40,12 @@ import com.msa.fightandconquer.core.model.PlayerKind
 import com.msa.fightandconquer.core.model.RuleConstants
 import com.msa.fightandconquer.core.model.UnitId
 import com.msa.fightandconquer.core.persist.SaveCodec
+import com.msa.fightandconquer.core.persist.SaveGame
+import com.msa.fightandconquer.ui.campaign.CampaignProgressStore
+import com.msa.fightandconquer.ui.campaign.CampaignRepository
+import com.msa.fightandconquer.ui.campaign.CampaignText
+import com.msa.fightandconquer.ui.campaign.counter
+import com.msa.fightandconquer.ui.campaign.label
 import com.msa.fightandconquer.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -68,6 +86,11 @@ data class HighlightSet(
     val moves: Set<Hex> = emptySet(),
     val captures: Set<Hex> = emptySet(),
     val merges: Set<Hex> = emptySet(),
+    /**
+     * Hexes the campaign coach is pointing at ("land on the marked sand"). Independent
+     * of selection, so it survives taps and keeps the prose free of coordinates.
+     */
+    val hintFocus: Set<Hex> = emptySet(),
 )
 
 /** Defense numbers shown on frontier hexes while a unit is selected. */
@@ -182,11 +205,59 @@ sealed interface Screen {
     data class Menu(val hasAutosave: Boolean) : Screen
     data class Setup(val generating: Boolean = false) : Screen
     data object Campaign : Screen
+
+    /** The pre-mission card: story, objectives, and what is new this time. */
+    data class Briefing(val campaignId: String, val levelId: String) : Screen
     data object MapEditor : Screen
     data object Settings : Screen
     data object About : Screen
     data object Game : Screen
 }
+
+/**
+ * The teaching moments a coach step can wait on that no board state implies. Names must
+ * match the `uiSignal` values authored in the level JSON — `CampaignTextTest` checks the
+ * catalogue against this list, so a typo in a level fails the build rather than leaving a
+ * hint stuck on screen forever.
+ */
+object UiSignals {
+    const val UNIT_SELECTED = "unitSelected"
+    const val ECONOMY_OPENED = "economyOpened"
+    const val DIPLOMACY_OPENED = "diplomacyOpened"
+
+    val all = setOf(UNIT_SELECTED, ECONOMY_OPENED, DIPLOMACY_OPENED)
+}
+
+/** One line of the in-game objectives strip. */
+data class ObjectiveLine(val text: UiText, val counter: UiText?, val done: Boolean)
+
+/** The coach card: a teaching step with the hexes it is pointing at. */
+data class CoachCard(val text: UiText, val dismissible: Boolean)
+
+/** How a mission ended, and where the player can go from here. */
+data class CampaignOutcome(
+    val won: Boolean,
+    val stars: Int,
+    val rounds: Int,
+    val reason: UiText?,
+    val debrief: Int,
+    val nextLevelId: String?,
+)
+
+/**
+ * Everything the HUD needs to know about the mission in progress. Null in a skirmish,
+ * which is how every existing HUD path stays exactly as it was.
+ */
+data class CampaignRunState(
+    val campaignId: String,
+    val levelId: String,
+    val levelName: Int,
+    val objectives: List<ObjectiveLine>,
+    val coach: CoachCard?,
+    val turnLimit: Int?,
+    val round: Int,
+    val outcome: CampaignOutcome?,
+)
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -237,6 +308,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _visibility = MutableStateFlow<BoardVisibility?>(null)
     val visibility: StateFlow<BoardVisibility?> = _visibility.asStateFlow()
 
+    /** Mission state while a campaign level is being played; null in a skirmish. */
+    private val _campaignRun = MutableStateFlow<CampaignRunState?>(null)
+    val campaignRun: StateFlow<CampaignRunState?> = _campaignRun.asStateFlow()
+
+    val campaigns = CampaignRepository(application)
+    val campaignProgress = CampaignProgressStore(File(application.filesDir, "campaign_progress.json"))
+
     private var selectedUnit: UnitId? = null
     private var selectedHex: Hex? = null
     private var banner: Int? = null
@@ -256,9 +334,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var cutOffWarned = false
     private var knownStarving: Set<Hex> = emptySet()
 
+    // ----- campaign director state -----
+    private var activeLevel: LevelDef? = null
+    private var activeCampaignId: String? = null
+    private var tracker = CampaignTracker()
+    /** Teaching moments the board cannot imply (a unit picked up, a panel opened). */
+    private var uiSignals = mutableSetOf<String>()
+    /** The scoreboard as of the current turn's start — what an autosave must carry. */
+    private var turnStartTracker: CampaignTracker? = null
+    /** Re-entrancy guard: firing a story beat re-enters refreshCampaign through submit. */
+    private var firingScript = false
+
     // ----- menu -----
 
     fun newGame(setup: GameSetup) {
+        clearCampaignRun()
         _screen.value = Screen.Setup(generating = true)
         mapGenJob = viewModelScope.launch(Dispatchers.Default) {
             val map = MapGenerator.generate(
@@ -297,9 +387,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             withContext(Dispatchers.Main.immediate) {
                 if (save == null) {
                     _screen.value = Screen.Menu(hasAutosave = false)
-                } else {
-                    startEngine(GameEngine.fromSave(save), showOpeningBanner = false)
+                    return@withContext
                 }
+                // A campaign autosave resumes as a campaign: the mission is named in the
+                // save, and the tracker is rebuilt by re-folding the replayed turn — so a
+                // resumed level scores exactly as one that was never interrupted.
+                val ref = save.campaign
+                val level = ref?.let { campaigns.level(it.campaignId, it.levelId) }
+                if (ref != null && level != null) {
+                    activeCampaignId = ref.campaignId
+                    activeLevel = level
+                    tracker = CampaignSave.restoreTracker(save, level)
+                    turnStartTracker = ref.tracker
+                    uiSignals = ref.uiSignals.toMutableSet()
+                } else {
+                    activeCampaignId = null
+                    activeLevel = null
+                    tracker = CampaignTracker()
+                    uiSignals = mutableSetOf()
+                }
+                startEngine(GameEngine.fromSave(save), showOpeningBanner = false)
             }
         }
     }
@@ -310,6 +417,43 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openCampaign() {
         _screen.value = Screen.Campaign
+    }
+
+    fun openBriefing(campaignId: String, levelId: String) {
+        _screen.value = Screen.Briefing(campaignId, levelId)
+    }
+
+    /** Starts (or restarts) a campaign mission from its opening position. */
+    fun startLevel(campaignId: String, levelId: String) {
+        val level = campaigns.level(campaignId, levelId) ?: return
+        // The previous mission's run state is a latch: if its outcome survived
+        // into this mission, refreshCampaign would republish it (frozen board,
+        // stale victory overlay, "Next" looping back to the same briefing).
+        _campaignRun.value = null
+        firingScript = false
+        activeCampaignId = campaignId
+        activeLevel = level
+        tracker = CampaignTracker()
+        turnStartTracker = tracker
+        uiSignals = mutableSetOf()
+        startEngine(GameEngine(LevelFactory.instantiate(level)), showOpeningBanner = false)
+    }
+
+    /**
+     * The next mission after the one just finished, or null at the end of a campaign.
+     * Exposed so the outcome overlay can offer "Next mission" without the composable
+     * having to know about the repository.
+     */
+    fun startNextLevel() {
+        val campaignId = activeCampaignId ?: return
+        val next = _campaignRun.value?.outcome?.nextLevelId ?: return
+        openBriefing(campaignId, next)
+    }
+
+    fun retryLevel() {
+        val campaignId = activeCampaignId ?: return
+        val levelId = activeLevel?.id ?: return
+        startLevel(campaignId, levelId)
     }
 
     fun openMapEditor() {
@@ -341,6 +485,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         selectedUnit = null; selectedHex = null; banner = null; pendingPactBreak = null
         lastHumanSeat = null
         _visibility.value = null
+        clearCampaignRun()
         // Synchronous backstop: the finished-game deletion above is async, and
         // the menu must never offer to continue a game that is already over.
         if (engine?.state?.value?.phase is GamePhase.Finished) autosaveFile.delete()
@@ -375,6 +520,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _economy.value = null // board taps dismiss the glanceable panels
         _diplomacy.value = null
         if (banner != null || !hudNow.currentIsHuman || hudNow.winner != null) return
+        if (_campaignRun.value?.outcome != null) return
         val state = engine.state.value
 
         val heldUnit = selectedUnit
@@ -398,6 +544,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     GameAction.Bombard(heldUnit, hex),
                 ) is com.msa.fightandconquer.core.engine.LegalityResult.Ok
             ) {
+                // Bombarding a pact partner (their coast, or their boat on open
+                // sea) is aggression like a capture — arm the same second-tap
+                // confirmation instead of firing immediately.
+                val bombardVictim = state.tiles[hex]?.owner ?: state.unitAt(hex)?.owner
+                if (bombardVictim != null &&
+                    engine.pactBetween(state.currentPlayer, bombardVictim) != null &&
+                    pendingPactBreak != hex
+                ) {
+                    pendingPactBreak = hex
+                    val penalty = state.player(state.currentPlayer).treasury *
+                        state.config.rules.pactBreakPenaltyPercent / 100
+                    pushToast(UiText.of(R.string.toast_pact_break_confirm, penalty), ToastKind.WARNING)
+                    return
+                }
+                pendingPactBreak = null
                 submit(GameAction.Bombard(heldUnit, hex))
                 clearSelection()
                 refreshHud()
@@ -457,6 +618,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (unit != null && unit.owner == me && !unit.spent) {
             selectedUnit = unit.id
             selectedHex = hex
+            signalUi(UiSignals.UNIT_SELECTED)
             val reach = engine.reachableFor(unit.id)
             // Naval extras: landings for a loaded transport, raids for a warship.
             var friendly = emptySet<Hex>()
@@ -567,6 +729,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         refreshHud()
     }
 
+    /** The player acknowledged a coach card that waits on nothing but being read. */
+    fun dismissCoachCard() {
+        val level = activeLevel ?: return
+        if (tracker.hintIndex >= level.hints.size) return
+        tracker = tracker.withHintIndex(tracker.hintIndex + 1)
+        refreshCampaign()
+    }
+
     fun undo() {
         val engine = engine ?: return
         if (engine.undo()) {
@@ -585,32 +755,64 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun submit(action: GameAction): LegalityResult {
-        val result = engine?.submit(action)
-            ?: LegalityResult.Rejected(com.msa.fightandconquer.core.engine.RejectionReason.NO_GAME)
+        val engine = engine
+            ?: return LegalityResult.Rejected(com.msa.fightandconquer.core.engine.RejectionReason.NO_GAME)
+        val before = engine.state.value
+        val result = engine.submit(action)
+        foldCampaign(before, engine, action)
         // A game can finish mid-turn (capturing the last capital) — the turn-
         // boundary autosave sites never run then, so the stale resume file
         // must be dropped here or the menu keeps offering Continue Game.
-        if (engine?.state?.value?.phase is GamePhase.Finished) autosave()
+        if (engine.state.value.phase is GamePhase.Finished) autosave()
         refreshHud()
         return result
+    }
+
+    /**
+     * Advances the campaign scoreboard across one accepted action.
+     *
+     * It reads [GameEngine.lastEvents] rather than the events flow because the flow is
+     * drop-oldest by design — fine for a renderer that reconciles from state, fatal for a
+     * tally of facts no later state reveals (a boat sunk, a unit lost).
+     */
+    private fun foldCampaign(before: GameState, engine: GameEngine, action: GameAction) {
+        val level = activeLevel ?: return
+        tracker = CampaignTracker.step(
+            prev = tracker,
+            before = before,
+            after = engine.state.value,
+            events = engine.lastEvents,
+            seat = level.playerSeat,
+            objectives = level.objectives,
+        )
+        // The engine rebases its save snapshot on a turn boundary; the scoreboard the
+        // save carries has to be rebased with it (see trackerAtTurnStart).
+        if (action is GameAction.EndTurn || action is GameAction.Surrender) {
+            turnStartTracker = tracker
+        }
+    }
+
+    private fun clearCampaignRun() {
+        activeLevel = null
+        activeCampaignId = null
+        tracker = CampaignTracker()
+        turnStartTracker = null
+        uiSignals = mutableSetOf()
+        _campaignRun.value = null
+    }
+
+    /** Records a teaching moment the board cannot imply, and re-checks the coach script. */
+    private fun signalUi(name: String) {
+        if (activeLevel == null || !uiSignals.add(name)) return
+        refreshCampaign()
     }
 
     // ----- threat overlay -----
 
     private fun computeOverlay(state: GameState, unit: GameUnit, reach: ReachResult): List<OverlayLabel> {
-        val region = Rules.region(state, unit.hex)
-        val frontier = HashSet<Hex>()
-        for (h in region) {
-            HexMath.forEachNeighbor(h) { n ->
-                val t = state.tiles[n]
-                // Open sea is not a threat surface — a land unit can never
-                // capture it, so a "blocked" shield chip there is just noise.
-                val standable = t != null &&
-                    (t.terrain == Terrain.LAND || t.building == Building.BRIDGE)
-                if (standable && t!!.owner != unit.owner) frontier.add(n)
-            }
-        }
-        return frontier.mapNotNull { hex ->
+        // Chips live only on the unit's own reach — the frontier it can touch
+        // this action — so the overlay reads as "what this unit can do here".
+        return (reach.captureTargets + reach.blockedTargets).mapNotNull { hex ->
             val defense = Rules.defenseOf(state, hex)
             val capturable = hex in reach.captureTargets
             when {
@@ -625,6 +827,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleEconomyPanel() {
         _diplomacy.value = null
         _economy.value = if (_economy.value == null) computeEconomy() else null
+        if (_economy.value != null) signalUi(UiSignals.ECONOMY_OPENED)
     }
 
     // ----- diplomacy -----
@@ -632,6 +835,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleDiplomacyPanel() {
         _economy.value = null
         _diplomacy.value = if (_diplomacy.value == null) computeDiplomacy() else null
+        if (_diplomacy.value != null) signalUi(UiSignals.DIPLOMACY_OPENED)
     }
 
     fun proposePact(playerIndex: Int) {
@@ -994,12 +1198,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                 )
                 when (unit.type) {
-                    com.msa.fightandconquer.core.model.UnitType.ARCHER -> add(
+                    com.msa.fightandconquer.core.model.UnitType.SOLDIER -> add(
                         InfoStat(
-                            UiText.of(R.string.info_stat_defense),
-                            UiText.of(R.string.info_value_defense_area, rules.archerAuraDefense),
+                            UiText.of(R.string.info_stat_range),
+                            UiText.of(R.string.info_value_plain, Rules.moveRangeOf(unit, rules)),
                         ),
                     )
+                    com.msa.fightandconquer.core.model.UnitType.ARCHER -> {
+                        add(
+                            InfoStat(
+                                UiText.of(R.string.info_stat_defense),
+                                UiText.of(R.string.info_value_defense_area, rules.archerAuraDefense),
+                            ),
+                        )
+                        add(
+                            InfoStat(
+                                UiText.of(R.string.info_stat_range),
+                                UiText.of(R.string.info_value_plain, rules.archerMoveRange),
+                            ),
+                        )
+                    }
                     com.msa.fightandconquer.core.model.UnitType.CATAPULT -> add(
                         InfoStat(
                             UiText.of(R.string.info_stat_range),
@@ -1027,7 +1245,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                             UiText.of(R.string.info_value_plain, rules.warshipMoveRange),
                         ),
                     )
-                    com.msa.fightandconquer.core.model.UnitType.SOLDIER -> {}
                 }
             }
             return InfoCard(
@@ -1249,6 +1466,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 UiText.of(R.string.info_sea),
             )
         }
+        if (tile.owner == me && tile.starving && tile.graceTurns > 0) {
+            return InfoCard(
+                UiText.of(R.string.tile_beachhead),
+                UiText.plural(R.plurals.info_beachhead, tile.graceTurns, tile.graceTurns),
+                factionIndex = me.value,
+            )
+        }
         if (tile.owner == me && tile.starving) {
             return InfoCard(
                 UiText.of(R.string.tile_cut_off),
@@ -1263,6 +1487,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun maybeRunAi() {
         val engine = engine ?: return
+        // A finished mission stops the clock — endTurn() reaches here after the director
+        // has already settled the level, and the AI must not play on past the overlay.
+        if (_campaignRun.value?.outcome != null) return
         val state = engine.state.value
         if (state.phase !is GamePhase.Playing) return
         val kind = state.player(state.currentPlayer).kind
@@ -1279,7 +1506,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 val action = AiPlayer(currentKind.difficulty).chooseAction(current)
                 val turnEnds = action == GameAction.EndTurn || ++guard >= AiPlayer.MAX_ACTIONS_PER_TURN
                 withContext(Dispatchers.Main.immediate) {
+                    val before = engine.state.value
                     engine.submit(if (guard >= AiPlayer.MAX_ACTIONS_PER_TURN) GameAction.EndTurn else action)
+                    // The scoreboard counts the AI's turn too — a boat it sinks is a unit
+                    // the player lost.
+                    foldCampaign(before, engine, action)
                     refreshHud()
                 }
                 if (turnEnds) {
@@ -1310,11 +1541,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun autosave() {
         val engine = engine ?: return
         val state = engine.state.value
-        if (state.phase is GamePhase.Finished) {
+        if (state.phase is GamePhase.Finished || _campaignRun.value?.outcome != null) {
             viewModelScope.launch(Dispatchers.IO) { autosaveFile.delete() }
             return
         }
-        val save = engine.toSave()
+        val save = saveWithCampaign(engine)
         viewModelScope.launch(Dispatchers.IO) {
             runCatching { autosaveFile.writeText(SaveCodec.encode(save)) }
         }
@@ -1324,8 +1555,37 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun persistNow() {
         val engine = engine ?: return
         if (engine.state.value.phase is GamePhase.Finished) return
-        runCatching { autosaveFile.writeText(SaveCodec.encode(engine.toSave())) }
+        if (_campaignRun.value?.outcome != null) return
+        runCatching { autosaveFile.writeText(SaveCodec.encode(saveWithCampaign(engine))) }
     }
+
+    /**
+     * The engine's save plus, for a mission, which level it belongs to and the scoreboard
+     * as it stood at the snapshot's turn start — the tracker is re-folded across the
+     * replayed actions on load, exactly as the state itself is.
+     */
+    private fun saveWithCampaign(engine: GameEngine): SaveGame {
+        val save = engine.toSave()
+        val level = activeLevel ?: return save
+        val campaignId = activeCampaignId ?: return save
+        return save.copy(
+            campaign = CampaignSaveRef(
+                campaignId = campaignId,
+                levelId = level.id,
+                tracker = trackerAtTurnStart(),
+                uiSignals = uiSignals.toSortedSet(),
+            ),
+        )
+    }
+
+    /**
+     * The tracker as it stood at the snapshot's turn start.
+     *
+     * A save is `turnStartState` plus the turn's actions, and loading replays those
+     * actions — so the stored tracker must be the pre-turn one, or the replay would fold
+     * this turn's kills and losses a second time on top of an already-current tally.
+     */
+    private fun trackerAtTurnStart(): CampaignTracker = turnStartTracker ?: tracker
 
     // ----- HUD -----
 
@@ -1394,6 +1654,147 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         // load, AI actions), so the vision sets stay in lockstep with the board.
         if (state.player(me).kind is PlayerKind.Human) lastHumanSeat = me.value
         refreshVisibility(state)
+        refreshCampaign()
+    }
+
+    // ----- campaign director -----
+
+    /**
+     * Scores the mission, fires any story beat that has come due, advances the coach and
+     * publishes [campaignRun]. Runs after every state change (see [refreshHud]).
+     *
+     * Story beats fire only on the player's own turn: `RunScript` lands in the current
+     * turn's action log, and a beat that went off mid-AI-turn would both interleave with
+     * the AI's animation pacing and be attributed to the wrong turn on replay. One beat
+     * per pass — each gets its own animation, and the next pass picks up the one after.
+     */
+    private fun refreshCampaign() {
+        val level = activeLevel ?: return
+        val campaignId = activeCampaignId ?: return
+        val engine = engine ?: return
+        val seat = level.playerSeat
+        val state = engine.state.value
+        val settled = _campaignRun.value?.outcome != null
+
+        var status = Objectives.evaluate(state, tracker, level, seat)
+
+        if (!settled && !firingScript && state.currentPlayer == seat && banner == null) {
+            Scripts.next(level.scripts, state, seat, status, tracker)?.let { beat ->
+                firingScript = true
+                try {
+                    if (submit(beat.action) is LegalityResult.Ok) {
+                        tracker = tracker.withScriptFired(beat.id)
+                        CampaignText.script(level.id, beat.id)?.let {
+                            pushToast(UiText.of(it), ToastKind.INFO)
+                        }
+                    }
+                } finally {
+                    firingScript = false
+                }
+                status = Objectives.evaluate(engine.state.value, tracker, level, seat)
+            }
+        }
+
+        val hintIndex = Hints.advance(level.hints, tracker.hintIndex, state, seat, status, uiSignals)
+        if (hintIndex != tracker.hintIndex) tracker = tracker.withHintIndex(hintIndex)
+        val step = level.hints.getOrNull(tracker.hintIndex)
+        val coach = step?.let { hint ->
+            CampaignText.hint(level.id, hint.id)?.let {
+                CoachCard(UiText.of(it), dismissible = hint.until == LevelCondition.Acknowledged)
+            }
+        }
+
+        val previousOutcome = _campaignRun.value?.outcome
+        val outcome = previousOutcome ?: outcomeFor(campaignId, level, status, state.turnNumber)
+        if (outcome != null && previousOutcome == null) onMissionSettled(level, outcome)
+
+        _campaignRun.value = CampaignRunState(
+            campaignId = campaignId,
+            levelId = level.id,
+            levelName = CampaignText.level(level.id)?.name ?: R.string.campaign_title,
+            objectives = status.rows.map {
+                ObjectiveLine(it.label(), it.counter(), it.done)
+            },
+            coach = coach.takeIf { outcome == null },
+            turnLimit = level.failures.filterIsInstance<FailCondition.TurnLimit>().minOfOrNull { it.rounds },
+            round = state.turnNumber,
+            outcome = outcome,
+        )
+        // The coach points with the board, not with coordinates in the prose — and so do
+        // the objectives: "take the marked ground" has to actually mark it. Hexes an
+        // objective has already secured drop out of the set, so the ring always shows
+        // what is left to do.
+        val focus = if (outcome != null) {
+            emptySet()
+        } else {
+            step?.focus.orEmpty().toSet() + objectiveMarks(level, status, state, seat)
+        }
+        if (_highlights.value.hintFocus != focus) {
+            _highlights.value = _highlights.value.copy(hintFocus = focus)
+        }
+    }
+
+    /**
+     * The hexes a mission's own wording points at: ground an unfinished objective still
+     * wants, and ground a defeat clause tells the player to protect. Marking these is
+     * what lets objective copy stay geography-free ("take the marked ground") and
+     * translatable.
+     */
+    private fun objectiveMarks(
+        level: LevelDef,
+        status: CampaignStatus,
+        state: GameState,
+        seat: PlayerId,
+    ): Set<Hex> {
+        val marks = HashSet<Hex>()
+        status.rows.forEach { row ->
+            if (row.done) return@forEach
+            val wanted = when (val objective = row.objective) {
+                is com.msa.fightandconquer.core.campaign.Objective.CaptureHexes -> objective.hexes
+                is com.msa.fightandconquer.core.campaign.Objective.HoldHexes -> objective.hexes
+                else -> emptyList()
+            }
+            wanted.filterTo(marks) { state.tiles[it]?.owner != seat }
+        }
+        level.failures.filterIsInstance<FailCondition.LoseHexes>().forEach { marks += it.hexes }
+        return marks
+    }
+
+    private fun outcomeFor(
+        campaignId: String,
+        level: LevelDef,
+        status: CampaignStatus,
+        rounds: Int,
+    ): CampaignOutcome? = when (val verdict = status.verdict) {
+        Verdict.InProgress -> null
+        Verdict.Won -> CampaignOutcome(
+            won = true,
+            stars = level.starsFor(rounds),
+            rounds = rounds,
+            reason = null,
+            debrief = CampaignText.level(level.id)?.debrief ?: R.string.outcome_victory,
+            nextLevelId = campaigns.nextLevel(campaignId, level.id)?.id,
+        )
+        is Verdict.Lost -> CampaignOutcome(
+            won = false,
+            stars = 0,
+            rounds = rounds,
+            reason = verdict.reason.label(),
+            debrief = CampaignText.level(level.id)?.debrief ?: R.string.outcome_defeat,
+            nextLevelId = null,
+        )
+    }
+
+    /**
+     * A settled mission stops the clock: the AI loop is cancelled (it would keep playing
+     * a game the player has already finished) and the resume file is dropped, because
+     * Continue must never reopen a level that is over.
+     */
+    private fun onMissionSettled(level: LevelDef, outcome: CampaignOutcome) {
+        aiJob?.cancel()
+        aiThinking = false
+        if (outcome.won) campaignProgress.record(level.id, outcome.stars, outcome.rounds)
+        viewModelScope.launch(Dispatchers.IO) { autosaveFile.delete() }
     }
 
     // ----- fog of war -----

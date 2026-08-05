@@ -63,23 +63,69 @@ object MoveGenerator {
         }
         val frontierDefenses = frontier.values.toSet()
 
+        // --- Capital defense (range-bound movement means nobody teleports home:
+        // the garrison must be raised BEFORE the axe falls, so when an enemy is
+        // within striking range of the throne, offer moves and buys onto its
+        // neighboring hexes — the evaluator's capital-guard term picks them up).
+        val capital = state.player(me).capital
+        val capitalGuardHexes: Set<Hex>
+        val capitalThreat: Int
+        if (capital != null && state.tiles[capital]?.owner == me) {
+            val capDefense = Rules.defenseOf(state, capital)
+            capitalThreat = state.units.values
+                .filter { u ->
+                    u.owner != me && !Rules.isNaval(u.type) &&
+                        HexMath.distance(u.hex, capital) <= Rules.moveRangeOf(u, rules) &&
+                        Rules.strengthOf(u, rules) > capDefense
+                }
+                .maxOfOrNull { Rules.strengthOf(it, rules) } ?: 0
+            capitalGuardHexes = if (capitalThreat == 0) {
+                emptySet()
+            } else {
+                HexMath.neighbors(capital).filter { n ->
+                    val t = state.tiles[n]
+                    t != null && t.owner == me && !t.starving &&
+                        t.unit == null && t.building == null
+                }.toSet()
+            }
+        } else {
+            capitalGuardHexes = emptySet()
+            capitalThreat = 0
+        }
+        if (capitalThreat > 0) {
+            for (hex in capitalGuardHexes.sortedBy { it.packed }) {
+                val tier = minOf(capitalThreat, rules.maxTier)
+                if (treasury >= rules.unitCost[tier - 1]) out.add(GameAction.BuyUnit(tier, hex))
+                if (tier > 1 && treasury >= rules.unitCost[0]) out.add(GameAction.BuyUnit(1, hex))
+            }
+        }
+
         // --- Unit actions ---
         val myUnits = state.units.values
             .filter { it.owner == me && !it.spent }
             .sortedBy { it.id.value }
         for (unit in myUnits) {
             val reach = Rules.reachable(state, unit.id)
-            reach.captureTargets.sortedBy { it.packed }.forEach {
-                // (Includes warship strikes: an enemy boat sits on unowned sea,
-                // and null is never in partners.)
-                if (state.tiles.getValue(it).owner !in partners) {
+            if (capitalThreat > 0) {
+                // Rush the guard hexes with whoever can reach them.
+                reach.moveTargets.intersect(capitalGuardHexes).sortedBy { it.packed }.forEach {
                     out.add(GameAction.MoveUnit(unit.id, it))
                 }
             }
-            // Warship raids on adjacent coastal targets (never on pact partners).
+            reach.captureTargets.sortedBy { it.packed }.forEach {
+                // The victim of a warship strike is the boat's owner — its sea
+                // hex is unowned, so the tile owner alone would miss partners.
+                val victim = state.tiles.getValue(it).owner ?: state.unitAt(it)?.owner
+                if (victim !in partners) {
+                    out.add(GameAction.MoveUnit(unit.id, it))
+                }
+            }
+            // Warship raids on adjacent coastal targets (never on pact partners —
+            // including their boats on unowned open sea).
             if (unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP) {
                 HexMath.neighbors(unit.hex).sortedBy { it.packed }.forEach { n ->
-                    if (state.tiles[n]?.owner !in partners) {
+                    val raidVictim = state.tiles[n]?.owner ?: state.unitAt(n)?.owner
+                    if (raidVictim !in partners) {
                         val bombard = GameAction.Bombard(unit.id, n)
                         if (com.msa.fightandconquer.core.engine.Legality.check(state, bombard)
                             is com.msa.fightandconquer.core.engine.LegalityResult.Ok
@@ -339,6 +385,18 @@ object MoveGenerator {
                     .forEach { out.add(GameAction.BuyBuilding(BuildingType.WATCHTOWER, it.first)) }
             }
         }
+        // Never pave the last muster yard: in a naval game a fully built-up
+        // island leaves no hex to raise a unit on, and a rich AI with no army
+        // can never invade anyone again — the game freezes with a full purse.
+        if (rules.navalEnabled) {
+            val emptyOwnLand = state.tiles.values.count { t ->
+                t.owner == me && !t.starving &&
+                    t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                    t.building == null && t.unit == null
+            }
+            if (emptyOwnLand <= 1) out.removeAll { it is GameAction.BuyBuilding }
+        }
+
         return out
     }
 

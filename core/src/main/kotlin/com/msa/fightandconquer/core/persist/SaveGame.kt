@@ -16,6 +16,12 @@ data class SaveGame(
     val version: Int = 1,
     val turnStartState: GameState,
     val actionsThisTurn: List<GameAction> = emptyList(),
+    /**
+     * Set when the save belongs to a campaign mission: which level, and the score-
+     * keeping the board itself cannot imply. Defaulted, so skirmish saves — and every
+     * save written before campaigns existed — decode unchanged.
+     */
+    val campaign: com.msa.fightandconquer.core.campaign.CampaignSaveRef? = null,
 )
 
 object SaveCodec {

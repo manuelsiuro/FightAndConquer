@@ -54,10 +54,12 @@ internal object TurnPipeline {
 
         // Starvation on sliced-off hexes. Marine supply: a unit whose hex touches
         // an own boat is fed by the fleet for as long as it stays alongside.
+        // Beachhead grace: a landing region lives off its stores for a few turns.
         b.recomputeStarving()
+        val graced = gracedHexes(b, playerId)
         b.units.values.filter {
             it.owner == playerId && b.tiles.getValue(it.hex).starving &&
-                !suppliedBySea(b, it.hex, playerId)
+                it.hex !in graced && !suppliedBySea(b, it.hex, playerId)
         }
             .map { it.id }
             .forEach { b.killUnit(it, DeathCause.STARVED) }
@@ -133,6 +135,34 @@ internal object TurnPipeline {
             b.updateTile(target) { it.copy(flora = Flora.Tree) }
             b.events.add(GameEvent.TreeSpread(tree, target))
         }
+    }
+
+    /**
+     * Beachhead grace (overseas supply rule D): a starving region holding at
+     * least one tile with landing stores ([Tile.graceTurns] > 0) skips
+     * starvation deaths this turn; every stocked tile in it burns one turn of
+     * stores. Regions without stores starve exactly as before, so mainland
+     * slicing (which never stamps grace) is untouched.
+     */
+    private fun gracedHexes(
+        b: StateBuilder,
+        player: com.msa.fightandconquer.core.model.PlayerId,
+    ): Set<com.msa.fightandconquer.core.hex.Hex> {
+        val starving = b.tiles.entries
+            .filter { it.value.owner == player && it.value.starving }
+            .map { it.key }
+            .toSet()
+        if (starving.isEmpty()) return emptySet()
+        val graced = HashSet<com.msa.fightandconquer.core.hex.Hex>()
+        for (region in HexMath.connectedComponents(starving)) {
+            val stocked = region.filter { b.tiles.getValue(it).graceTurns > 0 }
+            if (stocked.isEmpty()) continue
+            graced += region
+            for (hex in stocked) {
+                b.updateTile(hex) { it.copy(graceTurns = it.graceTurns - 1) }
+            }
+        }
+        return graced
     }
 
     /** Marine supply (rule B): any adjacent own boat feeds a starving unit. */

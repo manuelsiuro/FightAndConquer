@@ -54,6 +54,9 @@ class LegacySaveTest {
         "bridgeCost",
         "fishShoalsPerPlayer", "fishShoalBandMin", "fishShoalBandMax",
         "fishShoalsNeutralPer150Hexes",
+        // RuleConstants / SaveGame (campaign)
+        "scriptedEventsEnabled", "disabledBuildings",
+        "campaign",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

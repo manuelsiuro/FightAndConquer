@@ -12,4 +12,22 @@ value class PlayerId(val value: Int)
 value class UnitId(val value: Int)
 
 @Serializable
-enum class Difficulty { EASY, NORMAL, HARD }
+enum class Difficulty {
+    EASY,
+    NORMAL,
+    HARD,
+
+    /**
+     * A seat that does nothing but end its turn — a training dummy for campaign
+     * levels whose lesson a live opponent would drown out. Not offered in skirmish
+     * setup; [com.msa.fightandconquer.core.ai.AiPlayer] short-circuits on it, so the
+     * evaluator and move generator never see it.
+     */
+    PASSIVE,
+    ;
+
+    /** The difficulties a player can pick for a skirmish (PASSIVE is level-design only). */
+    companion object {
+        val selectable: List<Difficulty> = listOf(EASY, NORMAL, HARD)
+    }
+}

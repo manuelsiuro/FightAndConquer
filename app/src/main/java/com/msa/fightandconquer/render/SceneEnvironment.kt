@@ -27,7 +27,9 @@ class SceneEnvironment(private val engine: Engine, scene: Scene) {
             .castShadows(true)
             .shadowOptions(
                 LightManager.ShadowOptions().apply {
-                    mapSize = 2048
+                    // 1024 is indistinguishable at tabletop zoom for soft toy
+                    // shadows and re-renders every frame at a quarter the cost.
+                    mapSize = 1024
                     normalBias = 1.0f
                     shadowFar = 60f
                 },

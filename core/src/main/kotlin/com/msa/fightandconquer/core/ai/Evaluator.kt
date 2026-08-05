@@ -127,9 +127,19 @@ object Evaluator {
         score -= 6.0 * myTrees
         score -= 2.0 * enemyHexes
 
-        // Bankruptcy guard: never plan into a projected negative treasury.
+        // Bankruptcy guard: never plan into a projected negative treasury — and
+        // (rookies excepted) stay solvent through a HALVED income. The 1-ply
+        // projection uses CURRENT income, but under range-bound movement a
+        // slice on the opponent's turn routinely erases half of it before the
+        // next upkeep tick, and an army financed to the last coin dies whole
+        // to the first cut.
+        // Soft on purpose (a capture that reconnects starving territory swings
+        // income by far more than this): the guard prunes routine army padding
+        // at the margin without freezing a zero-net economy solid.
         if (treasury + net < 0) {
             score -= if (difficulty == Difficulty.EASY) 100.0 else 1e6
+        } else if (difficulty != Difficulty.EASY && treasury + income / 2 - upkeep < 0) {
+            score -= 60.0
         }
 
         // Pact value (Normal/Hard): peace with someone stronger is worth keeping.
@@ -151,9 +161,55 @@ object Evaluator {
             }
         }
 
-        if (difficulty == Difficulty.HARD) {
-            // Slicing pays: enemy tiles cut off from their capital are dying assets.
+        // Capital guard (Normal/Hard): with range-bound movement no unit
+        // teleports home to save the throne, so the throne must be held ahead
+        // of time. Losing the capital slices the realm, halves the purse, and
+        // usually bankrupts what remains — fear any enemy that could reach it.
+        if (difficulty != Difficulty.EASY) {
+            val capital = state.player(me).capital
+            if (capital != null && state.tiles[capital]?.owner == me) {
+                val capDefense = Rules.defenseOf(state, capital)
+                val threatened = state.units.values.any { u ->
+                    u.owner != me && !Rules.isNaval(u.type) &&
+                        (visible == null || u.hex in visible) &&
+                        com.msa.fightandconquer.core.hex.HexMath.distance(u.hex, capital) <=
+                        Rules.moveRangeOf(u, state.config.rules) &&
+                        Rules.strengthOf(u, state.config.rules) > capDefense
+                }
+                if (threatened) score -= 30.0
+            }
+        }
+
+        // Slicing pays: enemy tiles cut off from their capital are dying assets.
+        // Not just Hard's trick — it is a core mechanic the Academy teaches in
+        // mission 5, and under range-bound movement the cut is the main answer
+        // to a cheap swarm, so Normal must see it too (Easy stays blind).
+        if (difficulty != Difficulty.EASY) {
             score += 8.0 * enemyStarving
+        }
+
+        // Invasion defense (Normal/Hard, naval games only): an enemy soldier
+        // standing on the capital's own landmass is a beachhead growing under
+        // grace — every one is worth killing. This is the term that prices
+        // warship bombards on landings and land counterattacks (a kill alone
+        // wins no hex, so without it the greedy loop scores crushing an
+        // invasion at zero). Landlocked games get nothing: with no sea there
+        // are no invasions, and on a shared continent the term would just
+        // count the ordinary front line twice.
+        if (difficulty != Difficulty.EASY && state.config.rules.navalEnabled) {
+            val homeland = state.player(me).capital?.let { cap ->
+                com.msa.fightandconquer.core.hex.HexMath.floodFill(cap) {
+                    state.tiles[it]?.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
+                }
+            } ?: emptySet()
+            val invaders = state.units.values.count {
+                it.owner != me && !Rules.isNaval(it.type) && it.hex in homeland &&
+                    (visible == null || it.hex in visible)
+            }
+            score -= 6.0 * invaders
+        }
+
+        if (difficulty == Difficulty.HARD) {
             // Retake awareness: undefended fresh borders are a liability.
             score -= 1.5 * exposedBorderHexes(state, me, visible)
             // Anti-hoard: a catapult with no visible fortification left to crack is

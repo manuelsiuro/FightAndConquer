@@ -30,9 +30,48 @@ object Legality {
             is GameAction.ProposePact -> checkProposePact(state, action)
             is GameAction.RespondPact -> checkRespondPact(state, action)
             is GameAction.SendTribute -> checkSendTribute(state, action)
+            is GameAction.RunScript -> checkRunScript(state, action)
             GameAction.EndTurn -> LegalityResult.Ok
             GameAction.Surrender -> LegalityResult.Ok
         }
+    }
+
+    /**
+     * A campaign story beat. Only campaign levels enable it, and it may only place
+     * units where an ordinary purchase could have placed them — on an owned, empty,
+     * flora-free land hex of the spawn's own player — so no scripted event can
+     * violate a board invariant or hand a player ground they never took.
+     */
+    private fun checkRunScript(state: GameState, action: GameAction.RunScript): LegalityResult {
+        if (!state.config.rules.scriptedEventsEnabled) {
+            return reject(RejectionReason.SCRIPTED_EVENTS_DISABLED)
+        }
+        val seats = state.players.indices
+        val claimed = HashSet<com.msa.fightandconquer.core.hex.Hex>()
+        for (spawn in action.spawns) {
+            if (spawn.owner.value !in seats || state.player(spawn.owner).eliminated) {
+                return reject(RejectionReason.INVALID_SCRIPT_TARGET)
+            }
+            val maxTier = if (spawn.type == UnitType.SOLDIER) state.config.rules.maxTier else 1
+            if (spawn.tier !in 1..maxTier) return reject(RejectionReason.INVALID_SCRIPT_TARGET)
+            val tile = state.tiles[spawn.hex] ?: return reject(RejectionReason.INVALID_SCRIPT_TARGET)
+            val naval = Rules.isNaval(spawn.type)
+            val onSea = tile.terrain == Terrain.SEA && tile.building != Building.BRIDGE
+            // Boats muster at sea, everyone else on their owner's dry, empty ground.
+            if (naval != onSea) return reject(RejectionReason.INVALID_SCRIPT_TARGET)
+            if (!naval && (tile.owner != spawn.owner || tile.flora != null)) {
+                return reject(RejectionReason.INVALID_SCRIPT_TARGET)
+            }
+            if (tile.unit != null || !claimed.add(spawn.hex)) {
+                return reject(RejectionReason.INVALID_SCRIPT_TARGET)
+            }
+        }
+        for (grant in action.grants) {
+            if (grant.player.value !in seats || grant.coins < 0) {
+                return reject(RejectionReason.INVALID_SCRIPT_TARGET)
+            }
+        }
+        return LegalityResult.Ok
     }
 
     private fun checkDiplomacyTarget(state: GameState, target: com.msa.fightandconquer.core.model.PlayerId): LegalityResult? {
@@ -130,6 +169,11 @@ object Legality {
         }
         val tile = state.tiles[action.target] ?: return reject(RejectionReason.NO_SUCH_HEX)
         if (tile.owner == state.currentPlayer) return reject(RejectionReason.INVALID_BOMBARD_TARGET)
+        // Open sea is never owned, so the tile check alone would let a warship
+        // sink its own fleet — the unit's owner must be checked too.
+        if (state.unitAt(action.target)?.owner == state.currentPlayer) {
+            return reject(RejectionReason.INVALID_BOMBARD_TARGET)
+        }
         // Something raid-able must be there: a unit, or a destroyable building.
         val hasTarget = tile.unit != null ||
             (tile.building != null && tile.building != Building.CAPITAL)
@@ -203,6 +247,10 @@ object Legality {
 
     private fun checkBuyBuilding(state: GameState, action: GameAction.BuyBuilding): LegalityResult {
         val player = state.player(state.currentPlayer)
+        // Campaign levels teach one structure at a time by switching the rest off.
+        if (action.type in state.config.rules.disabledBuildings) {
+            return reject(RejectionReason.BUILDING_NOT_AVAILABLE)
+        }
         val cost = Rules.buildingCost(state, state.currentPlayer, action.type)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)
         val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)

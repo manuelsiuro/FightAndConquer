@@ -65,10 +65,12 @@ same hook covers turn-start discovery for the incoming player. Initial
 discovery is seeded per player in `MapDefinition.newGame`.
 
 Explored memory is **terrain-only**: fogged tiles render as dark neutral
-terrain with no faction color and no pieces. There is no "last-known enemy
-snapshot" state to store or invalidate. Known accepted simplification: tile
-raise-height is live, so a captured plateau at the fog rim can silhouette
-slightly; cosmetic, and invisible in the near-black unexplored zone.
+terrain with no faction color, no pieces, and **no ownership raise** — the
+rendered tile height (`renderedTileY`) is flattened inside the fog while the
+logical raise (`TileEntity.y`, which reconcile diffs against) marches on, so a
+capture in the murk no longer pops the terrain up. Fog lifting re-seats the
+tiles (and everything standing on them) at their true heights. There is no
+"last-known enemy snapshot" state to store or invalidate.
 
 ### Determinism contract
 
@@ -103,11 +105,16 @@ self-describing.
   are removed from the scene (same mechanism as highlights), synced silently
   in `reconcile` exactly like the `spent → dimmed` annotation, so the
   "zero reconcile corrected warnings" gate still holds.
-- Events are **never filtered** (filtering would trip the reconcile gate);
-  animations simply play on hidden pieces. Only juice is suppressed in fog:
-  camera rumble, the capture wave, and defense auras on fogged hexes.
-  Compose-space anchors (coin popups, defense chips) are only tracked for
-  non-fogged hexes.
+- Events are **never filtered** (filtering would trip the reconcile gate), but
+  the animation layer is fog-aware (`FogRules`): a moving piece renders a
+  segment only when **both ends are inside vision** (`Piece.animFrom` +
+  `FogRules.segmentHidden`), so an enemy marching through the murk stays
+  unseen the whole way; the single rim segment in/out of vision still animates
+  (the accepted "revealed a beat early" nuance). Defense auras ignore
+  **sources** on fogged hexes — a hidden archer/tower paints no ring on a
+  visible rim hex. Juice is suppressed in fog: camera rumble, the capture
+  wave, and auras on fogged hexes. Compose-space anchors (coin popups, defense
+  chips) are only tracked for non-fogged hexes.
 - Info cards: an explored-but-fogged hex shows an "unexplored territory"
   card; a never-seen hex shows nothing. Unit/building stats never leak.
 - Timing nuance (accepted): the fog set derives from the newest engine state

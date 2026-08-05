@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -22,6 +23,8 @@ import com.msa.fightandconquer.ui.MenuScreen
 import com.msa.fightandconquer.ui.PlaceholderScreen
 import com.msa.fightandconquer.ui.Screen
 import com.msa.fightandconquer.ui.SetupScreen
+import com.msa.fightandconquer.ui.campaign.BriefingScreen
+import com.msa.fightandconquer.ui.campaign.CampaignScreen
 import com.msa.fightandconquer.ui.game.GameScreen
 import com.msa.fightandconquer.ui.theme.FightAndConquerTheme
 
@@ -57,10 +60,28 @@ class MainActivity : ComponentActivity() {
                         onStart = viewModel::newGame,
                         onBack = viewModel::backToMenu,
                     )
-                    Screen.Campaign -> PlaceholderScreen(
-                        title = stringResource(R.string.menu_campaign),
+                    Screen.Campaign -> CampaignScreen(
+                        campaigns = viewModel.campaigns.campaigns(),
+                        progress = viewModel.campaignProgress,
+                        onLevel = viewModel::openBriefing,
                         onBack = viewModel::backToMenu,
                     )
+                    is Screen.Briefing -> {
+                        val level = viewModel.campaigns.level(s.campaignId, s.levelId)
+                        if (level == null) {
+                            // Only reachable if a saved screen names a level this build no
+                            // longer ships. Navigation is a side effect, so it happens in
+                            // an effect rather than during composition.
+                            LaunchedEffect(s) { viewModel.openCampaign() }
+                        } else {
+                            BriefingScreen(
+                                level = level,
+                                alreadyCleared = viewModel.campaignProgress.isComplete(level.id),
+                                onStart = { viewModel.startLevel(s.campaignId, s.levelId) },
+                                onBack = viewModel::openCampaign,
+                            )
+                        }
+                    }
                     Screen.MapEditor -> PlaceholderScreen(
                         title = stringResource(R.string.menu_map_editor),
                         onBack = viewModel::backToMenu,

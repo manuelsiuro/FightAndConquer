@@ -54,4 +54,12 @@ sealed interface GameEvent {
     @Serializable data class PactProposalExpired(val from: PlayerId, val to: PlayerId) : GameEvent
     @Serializable data class PactBroken(val breaker: PlayerId, val victim: PlayerId, val penalty: Int) : GameEvent
     @Serializable data class TributeSent(val from: PlayerId, val to: PlayerId, val amount: Int) : GameEvent
+
+    // --- Campaign ---
+    /**
+     * A scripted story beat fired ([GameAction.RunScript.tag]). HUD-level only: the
+     * spawns and grants it performed arrive as their own ordinary events, so the
+     * renderer needs no case for this one.
+     */
+    @Serializable data class ScriptFired(val tag: String) : GameEvent
 }

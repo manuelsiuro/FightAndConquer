@@ -41,17 +41,31 @@ Feature gate: `navalEnabled` plus zeroed shoal counts in `RuleConstants`.
 Full rules in [game-rules.md](game-rules.md); engine details in
 [core-engine.md](core-engine.md).
 
+## Shipped: campaign mode
+
+The `feature/campaign` work landed three campaigns of authored missions — **The Academy**
+(8-mission tutorial), **The Sundered Isles** (6 naval chapters) and **The Iron Crown**
+(6 land/economy chapters) — on the authored-map path `MapDefinition` was always built for
+(`generatorParams = null`). Save-compatible by the same discipline as the earlier
+expansions (`SaveGame.campaign` and the two new `RuleConstants` fields are defaulted;
+`persist/LegacySaveTest` guards it).
+
+The load-bearing decision: **objective scoring is a pure function beside the reducer**, not
+inside it, so `GamePhase` still means "the conquest is over" and determinism, save replay
+and the AI are untouched. Levels are ASCII-art sources baked to JSON assets by
+`tools/build_campaigns.py`; story beats are a new replayable `GameAction.RunScript`
+(gated off outside campaigns); the tutorial teaches by *switching rules off*
+(`disabledBuildings`, `maxTier`, the feature flags) rather than by gating actions.
+Full spec: [campaign.md](campaign.md).
+
 ## Designed-for, not yet built
 
-### Campaign / authored maps
-`MapDefinition` already supports authored maps (`generatorParams = null`) with the
-same serialization as skirmish maps. The menu already has **Campaign** and **Map
-Editor** entries wired to `Screen.Campaign`/`Screen.MapEditor`, both currently
-rendering `PlaceholderScreen` — building either means swapping one `when` branch in
-`MainActivity`. To build: author JSON (or a small editor that emits
-`MapDefinition`), ship under assets, add a campaign list behind `Screen.Campaign`,
-pass scripted `RuleConstants`/`PlayerKind`s per level. `MapValidator` should run on
-every authored map in a unit test.
+### Map editor
+`Screen.MapEditor` still renders `PlaceholderScreen`. The target format already exists and
+is exercised daily by the campaign: an editor only needs to emit a `MapDefinition` (or a
+whole `CampaignDef`) that `CampaignCodec` can decode — `MapValidator.validateAuthored` is
+the check it should run before saving. The ASCII sources under `tools/campaign_src/` are
+the reference for what a hand-authored map looks like.
 
 ### Online multiplayer
 The groundwork is deliberate: deterministic reducer, RNG inside `GameState`,
@@ -95,9 +109,19 @@ purchase-card copy in `GameScreen`, info card in `GameViewModel.infoCardFor`.
 automatically; add `PieceKind.UNIT_T5` + model + `PieceMeshes.unitKind`; keep the
 height progression strictly increasing and pips countable.
 
-**New AI difficulty**: add to `Difficulty`, weight branch in `Evaluator.score`,
-candidate filtering in `MoveGenerator`, seat wiring in `GameViewModel.newGame`,
-and a winrate expectation in `AiSimulationTest`.
+**New AI difficulty**: add to `Difficulty` (and to `Difficulty.selectable` if players may
+pick it), weight branch in `Evaluator.score`, candidate filtering in `MoveGenerator`, seat
+wiring in `GameViewModel.newGame`, and a winrate expectation in `AiSimulationTest`.
+
+**New campaign mission**: add a level dict to `tools/campaign_src/<campaign>.py`, bake with
+`python3 tools/build_campaigns.py <campaign>`, add its strings and `CampaignText` ids, then
+run `:core:test` + `:app:testDebugUnitTest` — the campaign suites check the map, the
+objective's reachability, the clocks and the copy. Recipe in [campaign.md](campaign.md).
+
+**New objective or defeat clause**: add the variant to `Objective`/`FailCondition`, a
+branch in `Objectives.row`/`verdict`, a label in `ui/campaign/CampaignText.kt` (exhaustive
+`when`, so it fails to compile until it has a string), and an entry in
+`CampaignCodecTest`'s round-trip list.
 
 **Rule tuning**: change `RuleConstants` defaults → run `:core:test`. The AI
 simulation suite is the balance tripwire (termination, winrates, Easy-expands).
