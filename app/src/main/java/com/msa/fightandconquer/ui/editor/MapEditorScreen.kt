@@ -345,11 +345,32 @@ private fun EditorDock(
             TextChip(ui, EditorSession.Brush.Capital, stringResource(R.string.editor_brush_capital_tool), session)
         }
 
+        // Terrain features on their own visible row — buried at the tail of the pieces
+        // row, trees and deposits were effectively undiscoverable.
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            IconChip(ui, EditorSession.Brush.Plant(EditorSession.PlantKind.TREE), PieceIcons.tree, R.string.editor_brush_tree, session)
+            IconChip(ui, EditorSession.Brush.Plant(EditorSession.PlantKind.GRAVE), PieceIcons.gravestone, R.string.editor_brush_grave, session)
+            IconChip(ui, EditorSession.Brush.Resource(Deposit.GOLD_VEIN), PieceIcons.goldVein, R.string.editor_brush_gold, session)
+            IconChip(ui, EditorSession.Brush.Resource(Deposit.FERTILE), PieceIcons.fertile, R.string.editor_brush_fertile, session)
+            IconChip(ui, EditorSession.Brush.Resource(Deposit.FISH_SHOAL), PieceIcons.fishShoal, R.string.editor_brush_shoal, session)
+        }
+
+        // Pieces for the selected seat: buildings, then the garrison.
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (building in EDITOR_BUILDINGS) {
+                IconChip(
+                    ui, EditorSession.Brush.Structure(building),
+                    PieceIcons.building(building), buildingLabel(building), session,
+                )
+            }
             for (tier in 1..4) {
                 IconChip(
                     ui, EditorSession.Brush.UnitBrush(UnitType.SOLDIER, tier),
@@ -360,17 +381,6 @@ private fun EditorDock(
             IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.CATAPULT), PieceIcons.unit(UnitType.CATAPULT, 1), R.string.unit_catapult, session)
             IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.TRANSPORT), PieceIcons.unit(UnitType.TRANSPORT, 1), R.string.unit_transport, session)
             IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.WARSHIP), PieceIcons.unit(UnitType.WARSHIP, 1), R.string.unit_warship, session)
-            for (building in EDITOR_BUILDINGS) {
-                IconChip(
-                    ui, EditorSession.Brush.Structure(building),
-                    PieceIcons.building(building), buildingLabel(building), session,
-                )
-            }
-            IconChip(ui, EditorSession.Brush.Plant(EditorSession.PlantKind.TREE), PieceIcons.tree, R.string.editor_brush_tree, session)
-            IconChip(ui, EditorSession.Brush.Plant(EditorSession.PlantKind.GRAVE), PieceIcons.gravestone, R.string.editor_brush_grave, session)
-            IconChip(ui, EditorSession.Brush.Resource(Deposit.GOLD_VEIN), PieceIcons.goldVein, R.string.editor_brush_gold, session)
-            IconChip(ui, EditorSession.Brush.Resource(Deposit.FERTILE), PieceIcons.fertile, R.string.editor_brush_fertile, session)
-            IconChip(ui, EditorSession.Brush.Resource(Deposit.FISH_SHOAL), PieceIcons.fishShoal, R.string.editor_brush_shoal, session)
         }
     }
 }
