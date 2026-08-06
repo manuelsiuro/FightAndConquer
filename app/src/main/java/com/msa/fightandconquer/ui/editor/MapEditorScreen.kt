@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -170,16 +171,28 @@ fun MapEditorScreen(
                         tint = UiColors.ink,
                     )
                 }
-                Text(
-                    ui.def.name,
+                Row(
                     modifier = Modifier
                         .weight(1f)
                         .clickable { showRename = true },
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = UiColors.ink,
-                    maxLines = 1,
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        ui.def.name,
+                        modifier = Modifier.weight(1f, fill = false),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = UiColors.ink,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Icon(
+                        Icons.Filled.Edit,
+                        contentDescription = stringResource(R.string.editor_rename_title),
+                        tint = UiColors.inkMuted,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
                 TextButton(onClick = session::undo, enabled = ui.canUndo) {
                     Text(
                         stringResource(R.string.editor_undo),
