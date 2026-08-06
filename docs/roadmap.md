@@ -60,12 +60,15 @@ Full spec: [campaign.md](campaign.md).
 
 ## Designed-for, not yet built
 
-### Map editor
-`Screen.MapEditor` still renders `PlaceholderScreen`. The target format already exists and
-is exercised daily by the campaign: an editor only needs to emit a `MapDefinition` (or a
-whole `CampaignDef`) that `CampaignCodec` can decode — `MapValidator.validateAuthored` is
-the check it should run before saving. The ASCII sources under `tools/campaign_src/` are
-the reference for what a hand-authored map looks like.
+### Map editor — SHIPPED
+Landed as designed (see [map-editor.md](map-editor.md)): the editor emits a
+`CustomMapDef` wrapping a real `LevelDef`, validated by typed `MapViolation` codes
+(the old `validateAuthored` prose is now `codes.map { describe() }`), stored at
+`filesDir/maps/`, played through `LevelFactory` under the `@custom` sentinel, and
+shared as text code / `.fcmap` file / QR / steganographic image over one `FCM1`
+envelope. Deferred follow-ups: live camera QR scanning (zxing-android-embedded +
+the app's first runtime permission), `.fcmap` ACTION_VIEW registration, authored
+hints/scripts for custom maps, seat labels floating over capitals.
 
 ### Online multiplayer
 The groundwork is deliberate: deterministic reducer, RNG inside `GameState`,

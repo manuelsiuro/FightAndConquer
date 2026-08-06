@@ -312,7 +312,6 @@ class BoardScene(
     var onTapMiss: (() -> Unit)? = null
 
     init {
-        val tileMaterial = materials.material("hexTile")
         var minX = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE
         var minZ = Float.MAX_VALUE; var maxZ = -Float.MAX_VALUE
 
@@ -321,42 +320,7 @@ class BoardScene(
             val cz = HexWorld.centerZ(hex)
             minX = minOf(minX, cx); maxX = maxOf(maxX, cx)
             minZ = minOf(minZ, cz); maxZ = maxOf(maxZ, cz)
-
-            val sea = tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
-            if (sea) hasSea = true
-            val color = when {
-                sea -> Palette.SEA
-                else -> tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
-            }
-            val raised = !sea && tile.owner != null
-            val instance = if (sea) {
-                waterVisible // shared: one animated instance for the whole ocean
-            } else {
-                tileMaterial.createInstance().apply {
-                    setParameter("colorFrom", color.x, color.y, color.z)
-                    setParameter("colorTo", color.x, color.y, color.z)
-                    setParameter("tileCenter", cx, 0f, cz)
-                    setParameter("waveRadius", 0f)
-                    setParameter("waveSoftness", 0.18f)
-                }
-            }
-            val entity = EntityManager.get().create()
-            RenderableManager.Builder(1)
-                .boundingBox(hexMesh.aabb)
-                .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, hexMesh.vertexBuffer, hexMesh.indexBuffer)
-                .material(0, instance)
-                .castShadows(!sea)
-                .receiveShadows(true)
-                .build(filament, entity)
-            engine.scene.addEntity(entity)
-            val y = when {
-                sea -> -Primitives.SEA_SINK
-                raised -> Primitives.CAPTURE_RAISE
-                else -> 0f
-            }
-            val te = TileEntity(entity, instance, color, raised, y, sea)
-            tiles[hex] = te
-            setTileTransform(hex, te)
+            createTile(hex, tile)
         }
 
         rig.targetX = (minX + maxX) / 2f
@@ -366,6 +330,58 @@ class BoardScene(
         rig.boundsFromBoard(minX, maxX, minZ, maxZ)
 
         reconcile(initialState, log = false)
+    }
+
+    /** Builds the tile entity for [hex] exactly as construction always has. */
+    private fun createTile(hex: Hex, tile: com.msa.fightandconquer.core.model.Tile): TileEntity {
+        val cx = HexWorld.centerX(hex)
+        val cz = HexWorld.centerZ(hex)
+        val sea = tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+        if (sea) hasSea = true
+        val color = when {
+            sea -> Palette.SEA
+            else -> tile.owner?.let { Palette.faction(it.value) } ?: Palette.NEUTRAL
+        }
+        val raised = !sea && tile.owner != null
+        val instance = if (sea) {
+            waterVisible // shared: one animated instance for the whole ocean
+        } else {
+            materials.material("hexTile").createInstance().apply {
+                setParameter("colorFrom", color.x, color.y, color.z)
+                setParameter("colorTo", color.x, color.y, color.z)
+                setParameter("tileCenter", cx, 0f, cz)
+                setParameter("waveRadius", 0f)
+                setParameter("waveSoftness", 0.18f)
+            }
+        }
+        val entity = EntityManager.get().create()
+        RenderableManager.Builder(1)
+            .boundingBox(hexMesh.aabb)
+            .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, hexMesh.vertexBuffer, hexMesh.indexBuffer)
+            .material(0, instance)
+            .castShadows(!sea)
+            .receiveShadows(true)
+            .build(filament, entity)
+        engine.scene.addEntity(entity)
+        val y = when {
+            sea -> -Primitives.SEA_SINK
+            raised -> Primitives.CAPTURE_RAISE
+            else -> 0f
+        }
+        val te = TileEntity(entity, instance, color, raised, y, sea)
+        tiles[hex] = te
+        setTileTransform(hex, te)
+        return te
+    }
+
+    /** Removes a tile entity from the scene; the game path never needs this. */
+    private fun destroyTile(hex: Hex) {
+        val te = tiles.remove(hex) ?: return
+        engine.scene.removeEntity(te.entity)
+        filament.destroyEntity(te.entity)
+        EntityManager.get().destroy(te.entity)
+        // Sea tiles share the water instances, destroyed once in destroy().
+        if (!te.sea) filament.destroyMaterialInstance(te.instance)
     }
 
     // ----- public surface -----
@@ -399,10 +415,26 @@ class BoardScene(
         val viewport = engine.view.viewport
         val hex = picker.pick(xPx, yPx, viewport.width, viewport.height, rig)
         if (hex == null) {
+            if (pickVoid) {
+                voidPick(xPx, yPx, viewport.width, viewport.height)?.let {
+                    onTap?.invoke(it)
+                    return
+                }
+            }
             onTapMiss?.invoke() // tapping the void cancels the selection
             return
         }
         onTap?.invoke(hex)
+    }
+
+    /** Unconditional ray hit on the flat land plane, for painting where no tile is. */
+    private fun voidPick(xPx: Float, yPx: Float, viewportW: Int, viewportH: Int): Hex? {
+        if (viewportW <= 0 || viewportH <= 0) return null
+        val (origin, dir) = rig.rayThrough(xPx, yPx, viewportW, viewportH)
+        if (dir.y >= -1e-5f) return null
+        val t = (Primitives.HEX_TOP_Y - origin.y) / dir.y
+        if (t <= 0f) return null
+        return HexWorld.worldToHex(origin.x + dir.x * t, origin.z + dir.z * t)
     }
 
     fun pan(dxPx: Float, dyPx: Float) {
@@ -440,6 +472,51 @@ class BoardScene(
         latestState = state
         pendingState = state
         eventQueue.addAll(events)
+    }
+
+    // ----- editor surface (never called on the game path) -----
+
+    /** Editor mode: a miss on real tiles falls back to the flat land plane, so empty
+     *  hexes can be painted. Stays false in play — the game keeps tap-to-cancel. */
+    var pickVoid: Boolean = false
+
+    /**
+     * Snap the scene to an editor state whose TILE SET may differ from the last one —
+     * hexes appear, vanish and flip LAND↔SEA, which [reconcile] deliberately never
+     * handles. Terrain flips rebuild the entity (different material, height, shadow);
+     * everything on top rides the ordinary reconcile that follows. No events, no
+     * animation, no correction logging: an edit is authoritative, not a discrepancy.
+     */
+    fun applyEditorState(state: GameState) {
+        latestState = state
+        tiles.keys.filterNot { it in state.tiles }.forEach { destroyTile(it) }
+        for ((hex, tile) in state.tiles) {
+            val existing = tiles[hex]
+            val sea = tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+            if (existing == null || existing.sea != sea) {
+                if (existing != null) destroyTile(hex)
+                createTile(hex, tile)
+            }
+        }
+        refreshBoardBounds()
+        reconcile(state, log = false)
+        wake()
+    }
+
+    /** Re-derives camera bounds after the board's extent changed (editor only). */
+    private fun refreshBoardBounds() {
+        if (tiles.isEmpty()) return
+        var minX = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE
+        var minZ = Float.MAX_VALUE; var maxZ = -Float.MAX_VALUE
+        for (hex in tiles.keys) {
+            val cx = HexWorld.centerX(hex)
+            val cz = HexWorld.centerZ(hex)
+            minX = minOf(minX, cx); maxX = maxOf(maxX, cx)
+            minZ = minOf(minZ, cz); maxZ = maxOf(maxZ, cz)
+        }
+        boardSpanX = maxX - minX + 2f
+        boardSpanZ = maxZ - minZ + 2f
+        rig.boundsFromBoard(minX, maxX, minZ, maxZ)
     }
 
     /**
@@ -510,6 +587,62 @@ class BoardScene(
         if (!h.inScene) {
             engine.scene.addEntity(h.entity)
             h.inScene = true
+        }
+    }
+
+    // ----- editor ghost ring: dim discs marking paintable empty hexes -----
+
+    private class GhostEntity(val entity: Int, val instance: MaterialInstance, var inScene: Boolean)
+
+    private val ghostPool = ArrayList<GhostEntity>()
+    private var ghostsShown = 0
+
+    /**
+     * Marks empty hexes the editor can grow onto. A separate pool from highlights so
+     * the brush cursor ([showHighlights]) never clears the ring. Pass empty to hide.
+     */
+    fun setGhosts(hexes: Collection<Hex>) {
+        for (i in 0 until ghostsShown) {
+            val g = ghostPool[i]
+            if (g.inScene) {
+                engine.scene.removeEntity(g.entity)
+                g.inScene = false
+            }
+        }
+        ghostsShown = 0
+        for (hex in hexes) addGhost(hex)
+        wake()
+    }
+
+    private fun addGhost(hex: Hex) {
+        val g = if (ghostsShown < ghostPool.size) {
+            ghostPool[ghostsShown]
+        } else {
+            val instance = materials.material("highlight").createInstance().apply {
+                setParameter("color", 1f, 1f, 1f, GHOST_ALPHA)
+            }
+            val entity = EntityManager.get().create()
+            RenderableManager.Builder(1)
+                .boundingBox(highlightMesh.aabb)
+                .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, highlightMesh.vertexBuffer, highlightMesh.indexBuffer)
+                .material(0, instance)
+                .castShadows(false)
+                .receiveShadows(false)
+                .build(filament, entity)
+            GhostEntity(entity, instance, inScene = false).also { ghostPool.add(it) }
+        }
+        ghostsShown++
+        val tm = filament.transformManager
+        var ti = tm.getInstance(g.entity)
+        if (ti == 0) ti = tm.create(g.entity)
+        tm.setTransform(
+            ti,
+            // The hex has no tile yet: the ghost floats where a flat land top would be.
+            Transforms.translation(HexWorld.centerX(hex), Primitives.HEX_TOP_Y + 0.012f, HexWorld.centerZ(hex)),
+        )
+        if (!g.inScene) {
+            engine.scene.addEntity(g.entity)
+            g.inScene = true
         }
     }
 
@@ -1347,6 +1480,13 @@ class BoardScene(
             filament.destroyMaterialInstance(h.instance)
         }
         highlightPool.clear()
+        for (g in ghostPool) {
+            if (g.inScene) engine.scene.removeEntity(g.entity)
+            filament.destroyEntity(g.entity)
+            EntityManager.get().destroy(g.entity)
+            filament.destroyMaterialInstance(g.instance)
+        }
+        ghostPool.clear()
         highlightMesh.destroy(filament)
         for (aura in auraPool) {
             if (aura.inScene) engine.scene.removeEntity(aura.entity)
@@ -1385,5 +1525,7 @@ class BoardScene(
         private const val ANCHOR_LIFT = 0.8f
         /** Water shimmer wrap: 20pi is a whole period of both sine bands (x0.9, x0.6). */
         private const val WATER_PERIOD = (20.0 * Math.PI).toFloat()
+        /** Editor ghost ring: barely-there, so the board's own colors stay dominant. */
+        private const val GHOST_ALPHA = 0.12f
     }
 }

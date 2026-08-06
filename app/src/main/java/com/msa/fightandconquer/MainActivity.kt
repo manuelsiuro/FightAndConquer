@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.core.view.WindowCompat
@@ -25,6 +26,10 @@ import com.msa.fightandconquer.ui.Screen
 import com.msa.fightandconquer.ui.SetupScreen
 import com.msa.fightandconquer.ui.campaign.BriefingScreen
 import com.msa.fightandconquer.ui.campaign.CampaignScreen
+import com.msa.fightandconquer.core.editor.CustomMapValidator
+import com.msa.fightandconquer.ui.editor.MapEditorScreen
+import com.msa.fightandconquer.ui.editor.MapManagerScreen
+import com.msa.fightandconquer.ui.share.MapShareManager
 import com.msa.fightandconquer.ui.game.GameScreen
 import com.msa.fightandconquer.ui.theme.FightAndConquerTheme
 
@@ -59,6 +64,10 @@ class MainActivity : ComponentActivity() {
                         generating = s.generating,
                         onStart = viewModel::newGame,
                         onBack = viewModel::backToMenu,
+                        customMaps = remember(s) {
+                            viewModel.customMaps.list()
+                                .filter { CustomMapValidator.validate(it).isEmpty() }
+                        },
                     )
                     Screen.Campaign -> CampaignScreen(
                         campaigns = viewModel.campaigns.campaigns(),
@@ -82,10 +91,29 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-                    Screen.MapEditor -> PlaceholderScreen(
-                        title = stringResource(R.string.menu_map_editor),
+                    is Screen.MapManager -> MapManagerScreen(
+                        maps = remember(s) { viewModel.customMaps.list() },
+                        share = remember { MapShareManager(applicationContext) },
+                        onNew = viewModel::newMap,
+                        onOpen = viewModel::editMap,
+                        onPlay = viewModel::playCustomMap,
+                        onDelete = viewModel::deleteMap,
+                        onImported = viewModel::importMap,
                         onBack = viewModel::backToMenu,
                     )
+                    is Screen.MapEditor -> {
+                        val session = viewModel.editor
+                        if (session == null) {
+                            // Only reachable if the screen outlived its session (e.g. a
+                            // dangling id); same LaunchedEffect idiom as Briefing.
+                            LaunchedEffect(s) { viewModel.openMapEditor() }
+                        } else {
+                            MapEditorScreen(
+                                session = session,
+                                onBack = viewModel::closeEditor,
+                            )
+                        }
+                    }
                     Screen.Settings -> PlaceholderScreen(
                         title = stringResource(R.string.menu_settings),
                         onBack = viewModel::backToMenu,

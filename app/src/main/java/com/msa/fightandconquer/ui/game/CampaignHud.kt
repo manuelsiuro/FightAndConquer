@@ -64,7 +64,7 @@ internal fun ObjectivesPanel(run: CampaignRunState) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    stringResource(run.levelName),
+                    run.levelNameText ?: stringResource(run.levelName),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = UiColors.ink,

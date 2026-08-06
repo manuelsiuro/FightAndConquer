@@ -13,6 +13,7 @@ Google Filament 3D renderer inside Jetpack Compose, Blender-authored low-poly mi
 | [ui-hud.md](ui-hud.md) | ViewModel state surface, interaction model, HUD components |
 | [fog-of-war.md](fog-of-war.md) | Fog of War spec, gameplay impact, and extension proposals |
 | [campaign.md](campaign.md) | Campaign mode — level format, objectives, coach hints, story beats, authoring |
+| [map-editor.md](map-editor.md) | Map editor — custom scenarios, validation, storage, play path, sharing (code/file/QR/stego) |
 | [roadmap.md](roadmap.md) | Extension points, how-to recipes, known gaps |
 | [game-idea.md](game-idea.md) | The original design brief (vision doc — rules + art direction) |
 
