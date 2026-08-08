@@ -62,6 +62,7 @@ import com.msa.fightandconquer.ui.InfoCard
 import com.msa.fightandconquer.ui.PieceIcons
 import com.msa.fightandconquer.ui.ShopInfo
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.buildingNameRes
 import com.msa.fightandconquer.ui.guide.GuideCatalog
 import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.unitNameRes
@@ -275,18 +276,7 @@ private fun PurchaseCard(
     val requirementRes = (option as? PurchaseOption.Structure)?.let { guideEntry.requirementRes }
     val nameRes = when (option) {
         is PurchaseOption.Unit -> unitNameRes(option.type, option.tier)
-        is PurchaseOption.Structure -> when (option.type) {
-            BuildingType.FARM -> R.string.building_farm
-            BuildingType.TOWER -> R.string.building_tower
-            BuildingType.STRONG_TOWER -> R.string.building_castle
-            BuildingType.MINE -> R.string.building_mine
-            BuildingType.MARKET -> R.string.building_market
-            BuildingType.LUMBER_CAMP -> R.string.building_lumber_camp
-            BuildingType.WATCHTOWER -> R.string.building_watchtower
-            BuildingType.PORT -> R.string.building_port
-            BuildingType.FISHERY -> R.string.building_fishery
-            BuildingType.BRIDGE -> R.string.building_bridge
-        }
+        is PurchaseOption.Structure -> buildingNameRes(option.type)
     }
     val iconRes = when (option) {
         is PurchaseOption.Unit -> PieceIcons.unit(option.type, option.tier)

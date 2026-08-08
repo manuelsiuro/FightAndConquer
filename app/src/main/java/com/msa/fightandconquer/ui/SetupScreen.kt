@@ -242,13 +242,7 @@ private const val MAX_PLAYERS = 4
 private inline fun <reified T : Enum<T>> enumSaver(): Saver<T, String> =
     Saver(save = { it.name }, restore = { enumValueOf<T>(it) })
 
-private fun Difficulty.labelRes() = when (this) {
-    Difficulty.EASY -> R.string.difficulty_easy
-    Difficulty.NORMAL -> R.string.difficulty_normal
-    Difficulty.HARD -> R.string.difficulty_hard
-    // Never offered here (Difficulty.selectable filters it out) — campaign levels only.
-    Difficulty.PASSIVE -> R.string.difficulty_passive
-}
+private fun Difficulty.labelRes() = difficultyLabelRes(this)
 
 private fun MapSize.labelRes() = when (this) {
     MapSize.SMALL -> R.string.map_size_small
