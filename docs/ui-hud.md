@@ -115,7 +115,10 @@ alert, and `ActionRejected` reasons as info toasts.
    ring on those hexes (`BoardScene.showHighlights` draws it first so a selection reads on
    top). `CampaignOutcomeOverlay` replaces `GameOverOverlay` for a mission: stars, rounds
    or the defeat reason, the debrief, and Next / Retry / Leave.
-   `EconomyPanel` (under the TopBar, 264 dp; income rows — hexes, fertile bonus,
+   All three occupants of the slot share one chrome — `HudSidePanel` (264 dp
+   Surface hung off the TopBar) with `PanelHeader` section titles and
+   `seatLabel()` for the "Player N"/"AI N" wording (`ui/game/HudMetrics.kt`).
+   `EconomyPanel` (income rows — hexes, fertile bonus,
    one line per building type, each with a 20 dp piece icon — per-unit-type upkeep
    rows with unit icons, divider, emphasized net + projection, bankruptcy/upkeep-risk
    warning strips) / `DiplomacyPanel` (same slot, mutually exclusive: one row per

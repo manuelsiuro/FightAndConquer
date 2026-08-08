@@ -128,7 +128,8 @@ and elimination leave bridges standing as neutral spans.
 move by BFS over open sea (range 3, blocked by bridges, other boats and sea
 buildings). They occupy sea hexes without owning them. **Embark:** moving a
 fresh land unit onto an adjacent own empty transport stows it (capacity 1; the
-boat can still sail this turn). **Disembark** onto adjacent land — onto an own
+boat can still sail this turn; tapping a *loaded* transport refuses with the
+specific "transport is full" message rather than a generic unreachable). **Disembark** onto adjacent land — onto an own
 empty hex, or an amphibious assault onto any hex the cargo's strength could
 capture normally; boat and landed unit end spent. A sunk boat drowns its cargo
 (no gravestone at sea). Cargo pays its normal upkeep while at sea.

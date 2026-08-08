@@ -98,8 +98,9 @@ match the filament-android runtime** — recompile on every Filament upgrade.
 
 ## Camera & picking (`render/CameraRig.kt`, `HexPicker.kt`, `HexWorld.kt`)
 
-Orbit rig (target on the ground plane, min distance 5, pitch 35–70°, FOV 30°
-near-ortho look). `fitCameraOnce` frames the whole board using the **viewport
+Orbit rig (target on the ground plane, min distance 5, fixed 55° pitch — no
+rotate/pitch gesture exists, so the rig exposes none — FOV 30° near-ortho
+look). `fitCameraOnce` frames the whole board using the **viewport
 aspect** (portrait makes horizontal FOV the constraint) and raises the max
 distance per board (`max(40, fit×1.3)` — the constructor's 35 is only a default;
 the far plane sits at 800 because island maps fit the camera ~330 units out).
