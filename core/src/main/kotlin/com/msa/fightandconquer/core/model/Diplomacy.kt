@@ -63,4 +63,14 @@ data class DiplomacyState(
         lastTributeRounds.firstOrNull { it.a == from && it.b == to }?.round
 
     fun breaksOf(p: PlayerId): Int = pactBreaks.getOrElse(p.value) { 0 }
+
+    /** Every seat [p] currently has a pact with. */
+    fun partnersOf(p: PlayerId): Set<PlayerId> =
+        pacts.mapNotNull {
+            when (p) {
+                it.a -> it.b
+                it.b -> it.a
+                else -> null
+            }
+        }.toSet()
 }

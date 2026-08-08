@@ -355,10 +355,15 @@ object Rules {
         return income
     }
 
-    fun upkeepOf(state: GameState, player: PlayerId): Int {
-        val rules = state.config.rules
-        return state.units.values.sumOf { if (it.owner == player) unitUpkeepOf(it, rules) else 0 }
-    }
+    fun upkeepOf(state: GameState, player: PlayerId): Int =
+        upkeepFrom(state.units.values, state.config.rules, player)
+
+    /** Single source of truth for upkeep, shared with TurnPipeline (mirrors [incomeFrom]). */
+    internal fun upkeepFrom(
+        units: Collection<GameUnit>,
+        rules: RuleConstants,
+        player: PlayerId,
+    ): Int = units.sumOf { if (it.owner == player) unitUpkeepOf(it, rules) else 0 }
 
     /**
      * Fog-of-war live vision: union of radius ranges around the player's owned hexes,

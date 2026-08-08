@@ -1,23 +1,12 @@
 package com.msa.fightandconquer.core.campaign
 
+import com.msa.fightandconquer.core.persist.CompatJson
 import kotlinx.serialization.json.Json
 
-/**
- * JSON for shipped campaign definitions, mirroring
- * [com.msa.fightandconquer.core.persist.SaveCodec]:
- *
- * - `ignoreUnknownKeys` so a level authored against a newer format still loads the parts
- *   this build understands instead of failing the whole campaign;
- * - `encodeDefaults` so a written level is fully self-describing — a level that relies on
- *   today's `RuleConstants` defaults must not silently adopt tomorrow's.
- */
+/** JSON for shipped campaign definitions — [CompatJson] explains the configuration. */
 object CampaignCodec {
 
-    val json: Json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-        prettyPrint = false
-    }
+    val json: Json = CompatJson
 
     fun decode(text: String): CampaignDef =
         json.decodeFromString(CampaignDef.serializer(), text)

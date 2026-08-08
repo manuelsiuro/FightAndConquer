@@ -49,20 +49,25 @@ object Evaluator {
                             Deposit.FERTILE -> myFertile++
                             Deposit.FISH_SHOAL, null -> {} // shoals live at sea, valued via FISHERY
                         }
+                        // Caps come from the rule constants so the valuation can't
+                        // drift from the income these buildings actually earn.
                         when (tile.building) {
                             Building.MARKET ->
-                                buildingScore += 4.0 + 1.0 * min(adjacentOwned(state, hex, me), 6)
+                                buildingScore += 4.0 + 1.0 *
+                                    min(adjacentOwned(state, hex, me), state.config.rules.marketNeighborCap)
                             Building.LUMBER_CAMP ->
-                                buildingScore += 3.0 + 1.5 * min(adjacentOwnTrees(state, hex, me), 4)
+                                buildingScore += 3.0 + 1.5 *
+                                    min(Adjacency.adjacentOwnTrees(state, hex, me), state.config.rules.lumberCampTreeCap)
                             Building.WATCHTOWER -> myWatchtowers++
                             Building.PORT -> myPorts++
                             Building.FISHERY ->
-                                buildingScore += 2.0 + 1.5 * min(adjacentShoals(state, hex), 3)
+                                buildingScore += 2.0 + 1.5 *
+                                    min(adjacentShoals(state, hex), state.config.rules.fisheryShoalCap)
                             else -> {}
                         }
                     }
                     // Trees next to an own lumber camp are managed income, not rot.
-                    if (tile.flora is Flora.Tree && !nextToOwnCamp(state, hex, me)) myTrees++
+                    if (tile.flora is Flora.Tree && !Adjacency.nextToOwnCamp(state, hex, me)) myTrees++
                 }
                 tile.owner != null -> {
                     if (visible == null || hex in visible) {
@@ -244,24 +249,6 @@ object Evaluator {
             }
         }
         return count
-    }
-
-    private fun adjacentOwnTrees(state: GameState, hex: com.msa.fightandconquer.core.hex.Hex, me: PlayerId): Int {
-        var count = 0
-        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
-            val t = state.tiles[n]
-            if (t != null && t.owner == me && t.flora is Flora.Tree) count++
-        }
-        return count
-    }
-
-    private fun nextToOwnCamp(state: GameState, hex: com.msa.fightandconquer.core.hex.Hex, me: PlayerId): Boolean {
-        var found = false
-        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
-            val t = state.tiles[n]
-            if (t != null && t.owner == me && t.building == Building.LUMBER_CAMP) found = true
-        }
-        return found
     }
 
     /**

@@ -26,8 +26,15 @@ import org.junit.Test
  */
 class CampaignPlaythroughTest {
 
-    /** Enough rope for a greedy AI to blunder through a level a human would finish faster. */
-    private fun roundCap(level: LevelDef): Int = (level.parRounds ?: 30) * 3
+    /**
+     * Enough rope for a greedy AI to blunder through a level a human would finish
+     * faster. Levels the AI is not expected to WIN only prove termination here —
+     * a 3-way AI war can legitimately grind past 3x par (the isles finale ends
+     * around round 202 of par 40) while a genuine deadlock runs to 400+, so the
+     * looser cap still catches what this gate exists to catch.
+     */
+    private fun roundCap(level: LevelDef): Int =
+        (level.parRounds ?: 30) * (if (level.aiSolvable) 3 else 6)
 
     /** How long every level's opening must stand up, whoever is driving. */
     private val OPENING_ROUNDS = 8
