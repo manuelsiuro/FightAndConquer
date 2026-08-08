@@ -40,7 +40,6 @@ class MeshData(
 class GpuMesh(
     val vertexBuffer: VertexBuffer,
     val indexBuffer: IndexBuffer,
-    val indexCount: Int,
     val aabb: Box,
 ) {
     fun destroy(engine: Engine) {
@@ -67,7 +66,7 @@ fun MeshData.upload(engine: Engine): GpuMesh {
     indexBytes.asShortBuffer().put(indices)
     ib.setBuffer(engine, indexBytes)
 
-    return GpuMesh(vb, ib, indices.size, boundingBox())
+    return GpuMesh(vb, ib, boundingBox())
 }
 
 private fun floatBuffer(data: FloatArray): ByteBuffer {

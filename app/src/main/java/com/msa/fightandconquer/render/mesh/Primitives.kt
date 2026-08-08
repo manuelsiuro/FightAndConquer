@@ -361,36 +361,4 @@ object Primitives {
     fun starProfile(outer: Float, inner: Float): List<Float> =
         (0 until 10).map { if (it % 2 == 0) outer else inner }
 
-    fun box(halfW: Float, height: Float, halfD: Float, baseY: Float = 0f): MeshData {
-        val b = MeshBuilder()
-        val y0 = baseY
-        val y1 = baseY + height
-        val c = listOf(
-            Float3(-halfW, y0, -halfD), Float3(halfW, y0, -halfD),
-            Float3(halfW, y0, halfD), Float3(-halfW, y0, halfD),
-        )
-        val t = c.map { Float3(it.x, y1, it.z) }
-        b.sideWall(c, t)
-        b.capFan(t, y1, upward = true)
-        return b.build()
-    }
-
-    /** Triangular-prism wedge: the Farm's minimalist greenhouse. */
-    fun wedge(halfW: Float, height: Float, halfD: Float, baseY: Float = 0f): MeshData {
-        val b = MeshBuilder()
-        val y0 = baseY
-        val apex0 = Float3(0f, y0 + height, -halfD)
-        val apex1 = Float3(0f, y0 + height, halfD)
-        val bl0 = Float3(-halfW, y0, -halfD)
-        val br0 = Float3(halfW, y0, -halfD)
-        val bl1 = Float3(-halfW, y0, halfD)
-        val br1 = Float3(halfW, y0, halfD)
-        // Sloped roofs.
-        b.addQuad(bl0, apex0, apex1, bl1, Float3(-0.7f, 0.7f, 0f))
-        b.addQuad(br0, br1, apex1, apex0, Float3(0.7f, 0.7f, 0f))
-        // Gable ends.
-        b.addTriangle(bl0, br0, apex0, Float3(0f, 0f, -1f))
-        b.addTriangle(bl1, apex1, br1, Float3(0f, 0f, 1f))
-        return b.build()
-    }
 }

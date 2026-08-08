@@ -8,7 +8,6 @@ import com.msa.fightandconquer.core.TestStates.withSea
 import com.msa.fightandconquer.core.TestStates.withUnit
 import com.msa.fightandconquer.core.model.BuildingType
 import com.msa.fightandconquer.core.model.GameState
-import com.msa.fightandconquer.core.model.PlayerId
 import com.msa.fightandconquer.core.model.UnitType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

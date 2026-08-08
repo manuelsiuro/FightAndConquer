@@ -1005,9 +1005,17 @@ class BoardScene(
      * direct hop should be used (adjacent, unreachable, or degenerate).
      */
     private fun ownedPath(from: Hex, to: Hex, owner: com.msa.fightandconquer.core.model.PlayerId): List<Hex>? {
-        if (from == to) return null
         val canEnter: (Hex) -> Boolean = { h -> h == from || latestState.tiles[h]?.owner == owner }
         if (!canEnter(to)) return null
+        return bfsPath(from, to, canEnter)
+    }
+
+    /**
+     * BFS shortest path for an animation, or null when the plain direct segment
+     * should be used (identical/adjacent endpoints, unreachable, or too long).
+     */
+    private fun bfsPath(from: Hex, to: Hex, canEnter: (Hex) -> Boolean): List<Hex>? {
+        if (from == to) return null
         val parent = HashMap<Hex, Hex>()
         val queue = ArrayDeque<Hex>().apply { add(from) }
         val visited = HashSet<Hex>().apply { add(from) }
@@ -1030,7 +1038,7 @@ class BoardScene(
             h = parent[h] ?: break
         }
         path.reverse()
-        return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain hop; too long = direct
+        return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain hop/glide
     }
 
     /**
@@ -1072,35 +1080,9 @@ class BoardScene(
     }
 
     /** BFS shortest path over open water for the sail animation (null = direct glide). */
-    private fun seaPath(from: Hex, to: Hex): List<Hex>? {
-        if (from == to) return null
-        val canEnter: (Hex) -> Boolean = { h ->
-            h == from || h == to ||
-                latestState.tiles[h]?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
-        }
-        val parent = HashMap<Hex, Hex>()
-        val queue = ArrayDeque<Hex>().apply { add(from) }
-        val visited = HashSet<Hex>().apply { add(from) }
-        var reached = false
-        while (queue.isNotEmpty() && visited.size < 512 && !reached) {
-            val current = queue.removeFirst()
-            com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(current) { n ->
-                if (!reached && n !in visited && canEnter(n)) {
-                    visited.add(n)
-                    parent[n] = current
-                    if (n == to) reached = true else queue.add(n)
-                }
-            }
-        }
-        if (!reached) return null
-        val path = ArrayList<Hex>()
-        var h = to
-        while (true) {
-            path.add(h)
-            h = parent[h] ?: break
-        }
-        path.reverse()
-        return if (path.size in 3..MAX_PATH_LEN) path else null // 2 = plain glide
+    private fun seaPath(from: Hex, to: Hex): List<Hex>? = bfsPath(from, to) { h ->
+        h == from || h == to ||
+            latestState.tiles[h]?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
     }
 
     private fun sinkAway(

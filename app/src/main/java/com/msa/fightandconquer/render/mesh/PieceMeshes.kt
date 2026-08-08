@@ -426,7 +426,7 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
             Part(up(Primitives.cone(0.14f, 0.2f, 8, baseY = 0.32f)), ColorRole.TREE_FOLIAGE),
         )
         PieceKind.GRAVESTONE -> listOf(
-            Part(up(Primitives.box(0.11f, 0.24f, 0.05f)), ColorRole.STONE),
+            Part(up(Primitives.boxAt(0f, 0f, 0.11f, 0.24f, 0.05f)), ColorRole.STONE),
         )
 
         // Terrain deposits: low edge-scatter rings (hex center stays clear for units).

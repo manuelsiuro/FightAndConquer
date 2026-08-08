@@ -19,10 +19,6 @@ object TestStates {
 
     fun hex(q: Int, r: Int = 0): Hex = Hex.of(q, r)
 
-    /**
-     * A 1-row strip of [length] hexes at r=0. P0 owns [p0] (capital at its first hex),
-     * P1 owns [p1] (capital at its last hex), everything else neutral.
-     */
     /** Fully custom micro-map: hex -> owner index (null = neutral). */
     fun custom(
         owners: Map<Hex, Int?>,
@@ -48,6 +44,10 @@ object TestStates {
         )
     }
 
+    /**
+     * A 1-row strip of [length] hexes at r=0. P0 owns [p0] (capital at its first hex),
+     * P1 owns [p1] (capital at its last hex), everything else neutral.
+     */
     fun strip(
         length: Int,
         p0: IntRange,

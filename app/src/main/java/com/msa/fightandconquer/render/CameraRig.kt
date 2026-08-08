@@ -26,8 +26,6 @@ class CameraRig(
     var minTargetX = -50f; var maxTargetX = 50f
     var minTargetZ = -50f; var maxTargetZ = 50f
     var minDistance = 5f; var maxDistance = 35f
-    private val minPitch = Math.toRadians(35.0).toFloat()
-    private val maxPitch = Math.toRadians(70.0).toFloat()
 
     /** Additive camera-shake offset (decaying spring, driven by animations). */
     var shake = Float3(0f, 0f, 0f)
@@ -65,14 +63,6 @@ class CameraRig(
         distance = (distance / factor).coerceIn(minDistance, maxDistance)
     }
 
-    fun rotateBy(radians: Float) {
-        yaw += radians
-    }
-
-    fun pitchBy(radians: Float) {
-        pitch = (pitch + radians).coerceIn(minPitch, maxPitch)
-    }
-
     private fun clampTarget() {
         targetX = targetX.coerceIn(minTargetX, maxTargetX)
         targetZ = targetZ.coerceIn(minTargetZ, maxTargetZ)
@@ -89,23 +79,31 @@ class CameraRig(
     }
 
     /**
-     * World point -> screen pixels, exact inverse of [rayThrough]'s basis (same FOV,
-     * same eye/target incl. shake — labels ride camera rumble with the board).
+     * The eye/forward/right/up frame plus FOV scale that [project] and [rayThrough]
+     * both derive their math from. One computation, so the two stay exact inverses
+     * (CameraRigProjectionTest pins that) and both include shake — labels ride
+     * camera rumble with the board.
+     */
+    private class Basis(rig: CameraRig, viewportW: Int, viewportH: Int) {
+        val eye = rig.eye()
+        val forward = normalize(rig.target() - eye)
+        val right = normalize(cross(forward, Float3(0f, 1f, 0f)))
+        val up = cross(right, forward)
+        val tanHalf = tan(Math.toRadians(RenderEngine.FOV_DEGREES / 2).toFloat())
+        val aspect = viewportW.toFloat() / viewportH
+    }
+
+    /**
+     * World point -> screen pixels, exact inverse of [rayThrough].
      * Null when the point is at/behind the eye plane.
      */
     fun project(world: Float3, viewportW: Int, viewportH: Int): dev.romainguy.kotlin.math.Float2? {
-        val e = eye()
-        val t = target()
-        val forward = normalize(t - e)
-        val right = normalize(cross(forward, Float3(0f, 1f, 0f)))
-        val up = cross(right, forward)
-        val d = world - e
-        val zCam = dot(d, forward)
+        val b = Basis(this, viewportW, viewportH)
+        val d = world - b.eye
+        val zCam = dot(d, b.forward)
         if (zCam <= 0.01f) return null
-        val tanHalf = tan(Math.toRadians(RenderEngine.FOV_DEGREES / 2).toFloat())
-        val aspect = viewportW.toFloat() / viewportH
-        val ndcX = dot(d, right) / (zCam * tanHalf * aspect)
-        val ndcY = dot(d, up) / (zCam * tanHalf)
+        val ndcX = dot(d, b.right) / (zCam * b.tanHalf * b.aspect)
+        val ndcY = dot(d, b.up) / (zCam * b.tanHalf)
         return dev.romainguy.kotlin.math.Float2(
             (ndcX + 1f) * 0.5f * viewportW,
             (1f - ndcY) * 0.5f * viewportH,
@@ -114,16 +112,10 @@ class CameraRig(
 
     /** Camera basis for ray reconstruction (must match [update]'s look-at). */
     fun rayThrough(xPx: Float, yPx: Float, viewportW: Int, viewportH: Int): Pair<Float3, Float3> {
-        val e = eye()
-        val t = target()
-        val forward = normalize(t - e)
-        val right = normalize(cross(forward, Float3(0f, 1f, 0f)))
-        val up = cross(right, forward)
-        val tanHalf = tan(Math.toRadians(RenderEngine.FOV_DEGREES / 2).toFloat())
-        val aspect = viewportW.toFloat() / viewportH
+        val b = Basis(this, viewportW, viewportH)
         val ndcX = (2f * xPx / viewportW) - 1f
         val ndcY = 1f - (2f * yPx / viewportH)
-        val dir = normalize(forward + right * (ndcX * tanHalf * aspect) + up * (ndcY * tanHalf))
-        return e to dir
+        val dir = normalize(b.forward + b.right * (ndcX * b.tanHalf * b.aspect) + b.up * (ndcY * b.tanHalf))
+        return b.eye to dir
     }
 }

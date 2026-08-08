@@ -1,6 +1,5 @@
 package com.msa.fightandconquer.render
 
-import dev.romainguy.kotlin.math.Float3
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
