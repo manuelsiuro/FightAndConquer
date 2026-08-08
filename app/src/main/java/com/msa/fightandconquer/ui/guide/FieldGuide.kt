@@ -9,6 +9,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,7 +37,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -81,7 +82,7 @@ internal fun FieldGuide(onClose: () -> Unit, focusEntryId: String? = null) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color(0x99000000))
+            .background(UiColors.bannerScrim)
             // Tapping the scrim outside the panel dismisses.
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -228,9 +229,12 @@ private fun EntryCard(entry: GuideEntry) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatRow(entry: GuideEntry) {
-    Row {
+    // FlowRow so each pair wraps as a whole; a plain Row squeezes overflowing
+    // stats to letter-per-line (same fix as InfoCardView's stats).
+    FlowRow {
         entry.stats.forEachIndexed { index, stat ->
             if (index > 0) {
                 Text(

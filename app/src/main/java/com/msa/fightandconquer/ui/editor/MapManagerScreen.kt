@@ -53,8 +53,9 @@ import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.share.MapShareManager
 
 /**
- * The map library: every user-authored map with its playability badge, plus create,
- * delete, share and import. Follows `CampaignScreen`'s idiom — one scrolling column
+ * The map library: every user-authored map (a Play button when valid, a draft badge
+ * otherwise), plus create, delete, share and import. Follows `CampaignScreen`'s
+ * idiom — one scrolling column
  * of cards, back through the host — rather than introducing a new navigation style.
  */
 @Composable

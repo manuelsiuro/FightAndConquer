@@ -221,10 +221,13 @@ internal fun ProposalStrip(proposals: List<IncomingProposal>, viewModel: GameVie
                     Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val factionDescription =
+                        stringResource(R.string.cd_faction_color, proposal.fromIndex + 1)
                     Box(
                         Modifier
                             .size(12.dp)
-                            .background(UiColors.faction(proposal.fromIndex), CircleShape),
+                            .background(UiColors.faction(proposal.fromIndex), CircleShape)
+                            .semantics { contentDescription = factionDescription },
                     )
                     Spacer(Modifier.width(6.dp))
                     Icon(

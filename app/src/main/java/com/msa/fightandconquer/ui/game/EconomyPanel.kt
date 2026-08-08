@@ -121,7 +121,7 @@ internal fun EconomyPanel(economy: EconomyBreakdown) {
             )
             when {
                 economy.bankruptcyImminent ->
-                    WarningStrip(stringResource(R.string.economy_warn_bankruptcy), UiColors.alert, Color.White)
+                    WarningStrip(stringResource(R.string.economy_warn_bankruptcy), UiColors.alert, UiColors.onAlert)
                 economy.upkeepRisk ->
                     WarningStrip(stringResource(R.string.economy_warn_upkeep), UiColors.toastWarning, UiColors.ink)
             }

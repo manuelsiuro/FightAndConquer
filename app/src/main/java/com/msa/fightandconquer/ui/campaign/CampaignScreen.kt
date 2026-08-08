@@ -257,8 +257,9 @@ private fun LevelRow(
 
 @Composable
 internal fun StarRow(stars: Int, size: Int = 16) {
+    val starsDescription = stringResource(R.string.campaign_stars, stars)
     Row(
-        Modifier.semantics { contentDescription = "$stars" },
+        Modifier.semantics { contentDescription = starsDescription },
         horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         repeat(3) { index ->
