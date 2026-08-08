@@ -108,7 +108,7 @@ object Conditions {
         LevelCondition.Acknowledged -> false
         is LevelCondition.UiSignal -> condition.name in uiSignals
         is LevelCondition.OwnHexCountAtLeast ->
-            state.tiles.count { it.value.owner == seat } >= condition.count
+            state.ownedHexCount(seat) >= condition.count
         is LevelCondition.RoundAtLeast -> state.turnNumber >= condition.round
         is LevelCondition.UnitCountAtLeast ->
             Objectives.countUnits(state, seat, condition.type, condition.tier) >= condition.count

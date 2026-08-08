@@ -139,7 +139,7 @@ object Objectives {
             ObjectiveRow(objective, state.turnNumber, objective.rounds)
 
         is Objective.OwnHexCount ->
-            ObjectiveRow(objective, state.tiles.count { it.value.owner == seat }, objective.count)
+            ObjectiveRow(objective, state.ownedHexCount(seat), objective.count)
 
         is Objective.ReachTreasury ->
             ObjectiveRow(objective, state.player(seat).treasury, objective.coins)
@@ -149,7 +149,11 @@ object Objectives {
 
         is Objective.EliminatePlayer -> ObjectiveRow(
             objective,
-            if (state.player(objective.seat).eliminated) 1 else 0,
+            // Same out-of-range guard as Conditions.PlayerEliminated: a malformed
+            // seat reads as not-yet-eliminated instead of throwing mid-turn.
+            if (objective.seat.value in state.players.indices &&
+                state.player(objective.seat).eliminated
+            ) 1 else 0,
             1,
         )
 

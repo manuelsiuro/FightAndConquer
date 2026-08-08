@@ -26,8 +26,6 @@ object HexMath {
         return (abs(dq) + abs(dq + dr) + abs(dr)) / 2
     }
 
-    fun areAdjacent(a: Hex, b: Hex): Boolean = distance(a, b) == 1
-
     /** All hexes within [radius] of [center], including the center itself. */
     fun range(center: Hex, radius: Int): List<Hex> {
         val out = ArrayList<Hex>()

@@ -2,7 +2,6 @@ package com.msa.fightandconquer.core.engine
 
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Flora
-import com.msa.fightandconquer.core.model.GamePhase
 
 /**
  * Turn-boundary processing. On EndTurn the seat advances to the next living player Q,

@@ -103,7 +103,7 @@ embarkTargets)`
 range-capped, land units may stand on/capture own-or-enemy BRIDGE hexes but
 never plain sea; naval units route through `seaReachable`, a range-limited BFS
 over open sea that bridges, boats and sea buildings block),
-`capitalConnected`, `visibleHexes` (fog-of-war live vision,
+`visibleHexes` (fog-of-war live vision,
 RNG-free), `incomeOf` (delegating to `incomeFrom`, the single income source shared
 with `TurnPipeline`: hex + deposit bonuses + farm/mine/market/lumber-camp),
 `upkeepOf`/`unitUpkeepOf`, `strengthOf`/`buyStrength`/`unitCostOf`,

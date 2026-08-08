@@ -41,6 +41,11 @@ data class RuleConstants(
     val capitalLootPercent: Int = 50,
 
     val startingTreasury: Int = 12,
+    /**
+     * NOT wired up: MapGenerator hardcodes the start region as radius-1
+     * (= 7 hexes) and never reads this. Kept because the field is frozen into
+     * the share-format v1 dictionary (ShareCodec); changing it does nothing.
+     */
     val startRegionSize: Int = 7,
 
     val treeClearBonus: Int = 3,

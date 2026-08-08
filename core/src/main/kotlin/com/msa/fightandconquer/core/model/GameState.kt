@@ -26,20 +26,12 @@ data class GameState(
         }
     }
 
-    fun tile(hex: Hex): Tile? = tiles[hex]
-
     fun unitAt(hex: Hex): GameUnit? = tiles[hex]?.unit?.let { units[it] }
 
     fun player(id: PlayerId): PlayerState = players[id.value]
 
-    fun ownedHexes(id: PlayerId): Set<Hex> =
-        tiles.filterValues { it.owner == id }.keys
-
     fun ownedHexCount(id: PlayerId): Int =
         tiles.values.count { it.owner == id }
-
-    fun unitsOf(id: PlayerId): List<GameUnit> =
-        units.values.filter { it.owner == id }
 
     fun farmCount(id: PlayerId): Int =
         tiles.values.count { it.owner == id && it.building == Building.FARM }

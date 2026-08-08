@@ -18,6 +18,8 @@ data class ReachResult(
     val embarkTargets: Set<Hex> = emptySet(),
     /** Frontier hexes within range whose defense currently beats this unit (UI chips). */
     val blockedTargets: Set<Hex> = emptySet(),
+    /** Own transports that would be boardable but already carry cargo (TRANSPORT_FULL). */
+    val fullTransports: Set<Hex> = emptySet(),
 ) {
     companion object {
         val EMPTY = ReachResult(emptySet(), emptySet(), emptySet())
@@ -161,6 +163,7 @@ object Rules {
         val capture = HashSet<Hex>()
         val merge = HashSet<Hex>()
         val embark = HashSet<Hex>()
+        val fullBoats = HashSet<Hex>()
         val visited = HashSet<Hex>().apply { add(unit.hex) }
         val blocked = HashSet<Hex>() // non-owned hexes already found too defended
         var frontier = listOf(unit.hex)
@@ -191,12 +194,12 @@ object Rules {
                             // and an enemy/neutral BRIDGE hex is dry ground to storm.
                             tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
                                 tile.building != Building.BRIDGE -> {
-                                if (n !in embark && rules.navalEnabled) {
+                                if (n !in embark && n !in fullBoats && rules.navalEnabled) {
                                     val boat = state.unitAt(n)
                                     if (boat != null && boat.owner == unit.owner &&
-                                        boat.type == UnitType.TRANSPORT && boat.cargo == null
+                                        boat.type == UnitType.TRANSPORT
                                     ) {
-                                        embark.add(n)
+                                        if (boat.cargo == null) embark.add(n) else fullBoats.add(n)
                                     }
                                 }
                             }
@@ -214,7 +217,7 @@ object Rules {
             frontier = next
             depth++
         }
-        return ReachResult(move, capture, merge, embark, blocked)
+        return ReachResult(move, capture, merge, embark, blocked, fullBoats)
     }
 
     /**
@@ -270,13 +273,6 @@ object Rules {
             depth++
         }
         return ReachResult(move, capture, mergeTargets = emptySet())
-    }
-
-    /** Owned hexes connected to the player's capital (the funded "main" territory). */
-    fun capitalConnected(state: GameState, player: PlayerId): Set<Hex> {
-        val capital = state.player(player).capital ?: return emptySet()
-        if (state.tiles[capital]?.owner != player) return emptySet()
-        return HexMath.floodFill(capital) { state.tiles[it]?.owner == player }
     }
 
     /** Cost of the player's NEXT farm: base + step per farm already owned. */
