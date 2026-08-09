@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -43,40 +42,25 @@ import com.msa.fightandconquer.ui.UiColors
 
 @Composable
 internal fun DiplomacyPanel(state: DiplomacyPanelState, viewModel: GameViewModel) {
-    Surface(
-        modifier = Modifier
-            .safeDrawingPadding()
-            .padding(start = HudGutter, top = TopBarHeight + HudGutter)
-            .width(270.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = UiColors.panel,
-        shadowElevation = 6.dp,
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                stringResource(R.string.diplomacy_title),
-                fontSize = 12.sp,
-                color = UiColors.inkMuted,
-                letterSpacing = 0.8.sp,
-            )
-            val visible = state.rows.filter { !it.eliminated }
-            visible.forEachIndexed { index, row ->
-                if (index > 0) HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
-                DiplomacyRow(row, state, viewModel)
-            }
-            Spacer(Modifier.height(2.dp))
-            HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
-            Spacer(Modifier.height(6.dp))
-            Text(
-                stringResource(
-                    R.string.diplomacy_footer,
-                    state.pactDurationRounds,
-                    state.breakPenaltyPercent,
-                ),
-                fontSize = 11.sp,
-                color = UiColors.inkFaint,
-            )
+    HudSidePanel {
+        PanelHeader(stringResource(R.string.diplomacy_title))
+        val visible = state.rows.filter { !it.eliminated }
+        visible.forEachIndexed { index, row ->
+            if (index > 0) HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
+            DiplomacyRow(row, state, viewModel)
         }
+        Spacer(Modifier.height(2.dp))
+        HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(
+                R.string.diplomacy_footer,
+                state.pactDurationRounds,
+                state.breakPenaltyPercent,
+            ),
+            fontSize = 11.sp,
+            color = UiColors.inkFaint,
+        )
     }
 }
 
@@ -94,11 +78,7 @@ private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel:
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                if (row.isHuman) {
-                    stringResource(R.string.hud_player, row.playerIndex + 1)
-                } else {
-                    stringResource(R.string.hud_ai_player, row.playerIndex + 1)
-                },
+                seatLabel(row.playerIndex, row.isHuman),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = UiColors.ink,
@@ -221,10 +201,13 @@ internal fun ProposalStrip(proposals: List<IncomingProposal>, viewModel: GameVie
                     Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val factionDescription =
+                        stringResource(R.string.cd_faction_color, proposal.fromIndex + 1)
                     Box(
                         Modifier
                             .size(12.dp)
-                            .background(UiColors.faction(proposal.fromIndex), CircleShape),
+                            .background(UiColors.faction(proposal.fromIndex), CircleShape)
+                            .semantics { contentDescription = factionDescription },
                     )
                     Spacer(Modifier.width(6.dp))
                     Icon(

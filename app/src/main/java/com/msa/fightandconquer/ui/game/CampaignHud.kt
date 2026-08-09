@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,7 +21,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,70 +46,60 @@ import com.msa.fightandconquer.ui.resolve
  */
 @Composable
 internal fun ObjectivesPanel(run: CampaignRunState) {
-    Surface(
-        modifier = Modifier
-            .safeDrawingPadding()
-            .padding(start = HudGutter, top = TopBarHeight + HudGutter)
-            .width(264.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = UiColors.panel,
-        shadowElevation = 6.dp,
-    ) {
-        Column(Modifier.padding(14.dp)) {
+    HudSidePanel(contentPadding = 14.dp) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                run.levelNameText ?: stringResource(run.levelName),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = UiColors.ink,
+            )
+            run.turnLimit?.let {
+                Text(
+                    stringResource(R.string.campaign_turn_limit, run.round, it),
+                    fontSize = 12.sp,
+                    color = if (run.round >= it - 3) UiColors.alert else UiColors.inkSecondary,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        run.objectives.forEach { line ->
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                Modifier.padding(vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    run.levelNameText ?: stringResource(run.levelName),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = UiColors.ink,
-                )
-                run.turnLimit?.let {
-                    Text(
-                        stringResource(R.string.campaign_turn_limit, run.round, it),
-                        fontSize = 12.sp,
-                        color = if (run.round >= it - 3) UiColors.alert else UiColors.inkSecondary,
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            run.objectives.forEach { line ->
-                Row(
-                    Modifier.padding(vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Box(
+                    Modifier
+                        .size(16.dp)
+                        .background(
+                            if (line.done) UiColors.faction(0) else UiColors.ink.copy(alpha = 0.12f),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Box(
-                        Modifier
-                            .size(16.dp)
-                            .background(
-                                if (line.done) UiColors.faction(0) else UiColors.ink.copy(alpha = 0.12f),
-                                CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (line.done) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                tint = UiColors.onFaction,
-                                modifier = Modifier.size(11.dp),
-                            )
-                        }
+                    if (line.done) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = UiColors.onFaction,
+                            modifier = Modifier.size(11.dp),
+                        )
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        line.text.resolve(),
-                        fontSize = 14.sp,
-                        color = if (line.done) UiColors.inkSecondary else UiColors.ink,
-                        textDecoration = if (line.done) TextDecoration.LineThrough else null,
-                        modifier = Modifier.weight(1f),
-                    )
-                    line.counter?.let {
-                        Text(it.resolve(), fontSize = 13.sp, color = UiColors.inkSecondary)
-                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    line.text.resolve(),
+                    fontSize = 14.sp,
+                    color = if (line.done) UiColors.inkSecondary else UiColors.ink,
+                    textDecoration = if (line.done) TextDecoration.LineThrough else null,
+                    modifier = Modifier.weight(1f),
+                )
+                line.counter?.let {
+                    Text(it.resolve(), fontSize = 13.sp, color = UiColors.inkSecondary)
                 }
             }
         }

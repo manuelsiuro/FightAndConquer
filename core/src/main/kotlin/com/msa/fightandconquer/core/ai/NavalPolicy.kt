@@ -7,6 +7,7 @@ import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.GameUnit
 import com.msa.fightandconquer.core.model.Terrain
@@ -48,17 +49,7 @@ internal object NavalPolicy {
         val me = state.currentPlayer
         val rules = state.config.rules
         val partners: Set<com.msa.fightandconquer.core.model.PlayerId> =
-            if (rules.diplomacyEnabled) {
-                state.diplomacy.pacts.mapNotNull {
-                    when (me) {
-                        it.a -> it.b
-                        it.b -> it.a
-                        else -> null
-                    }
-                }.toSet()
-            } else {
-                emptySet()
-            }
+            if (rules.diplomacyEnabled) state.diplomacy.partnersOf(me) else emptySet()
 
         val myUnits = state.units.values
             .filter { it.owner == me }
@@ -273,7 +264,7 @@ internal object NavalPolicy {
             if (prey.isNotEmpty()) {
                 val myWarships = myUnits.filter { it.type == UnitType.WARSHIP }
                 if (myWarships.isEmpty() && sustainable(rules.warshipCost, rules.warshipUpkeep)) {
-                    launchSpot(state)?.let { return GameAction.BuyUnit(1, it, UnitType.WARSHIP) }
+                    launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.WARSHIP) }
                 }
                 // Chase FERRIES only, and never pre-empt a kill the greedy loop
                 // can already take this turn — sailing spends the ship, and a
@@ -292,13 +283,17 @@ internal object NavalPolicy {
 
         // 3c. Empty boats steer to wherever the next passenger actually stands
         //     (a knight garrisoning a conquered island is fetched, not waited
-        //     for), else home.
+        //     for), else home. The goal is the passenger's whole walking range,
+        //     not just its own hex: an INLAND passenger has no sea neighbor to
+        //     seed the sail field with, but it can march to whatever shore the
+        //     boat parks at (embarkTargets works along its path) — without the
+        //     range, one stranded inland knight freezes the entire fetch loop.
         val passengers = myUnits
             .filter {
                 !it.spent && !Rules.isNaval(it.type) &&
                     (bestTier == null || Rules.strengthOf(it, rules) >= bestTier)
             }
-            .map { it.hex }
+            .flatMap { Rules.reachable(state, it.id).moveTargets + it.hex }
         for (boat in transports) {
             if (boat.spent || boat.cargo != null) continue
             val goals = passengers.ifEmpty { homeland.toList() }
@@ -344,7 +339,7 @@ internal object NavalPolicy {
             transports.none { it.cargo == null } &&
             sustainable(rules.transportCost, rules.transportUpkeep)
         ) {
-            launchSpot(state)?.let { return GameAction.BuyUnit(1, it, UnitType.TRANSPORT) }
+            launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.TRANSPORT) }
         }
 
         // 6. Found the first port on our best coastal hex.
@@ -454,9 +449,54 @@ internal object NavalPolicy {
         return if (bestDist < here) GameAction.MoveUnit(boat.id, best) else null
     }
 
-    /** Lowest-packed legal launch hex: open sea beside an own working port. */
-    private fun launchSpot(state: GameState): Hex? {
+    /**
+     * Lowest-packed legal launch hex: open sea beside an own working port.
+     * HARD only refuses water a visible enemy warship can strike before the
+     * hull ever acts (a launch beside a hunter is a donation; the sink-relaunch
+     * money pump is how symmetric HARD interdiction deadlocked mirror duels —
+     * with no safe water HARD hoards toward the war chest instead). Everyone
+     * else launches on the old rule: interdiction is Hard's edge, and a
+     * campaign AI on a one-port island must risk the hull or lose on the clock.
+     */
+    private fun launchSpot(state: GameState, difficulty: Difficulty): Hex? {
         val me = state.currentPlayer
+        val rules = state.config.rules
+        val visibleNow = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
+        val hunters = if (difficulty != Difficulty.HARD) {
+            emptyList()
+        } else {
+            state.units.values.filter {
+                it.owner != me && it.type == UnitType.WARSHIP &&
+                    (visibleNow == null || it.hex in visibleNow)
+            }
+        }
+        // The hunters' one-turn strike shadow by SAILED distance (islands block;
+        // cube distance would blanket whole archipelago coasts and stop all
+        // launches). +1 covers the adjacent-capture final step.
+        val shadow = HashSet<Hex>()
+        for (w in hunters) {
+            val range = Rules.moveRangeOf(w, rules) + 1
+            val dist = HashMap<Hex, Int>()
+            dist[w.hex] = 0
+            var frontier = listOf(w.hex)
+            var d = 0
+            while (frontier.isNotEmpty() && d < range) {
+                d++
+                val next = ArrayList<Hex>()
+                for (hex in frontier) {
+                    HexMath.forEachNeighbor(hex) { n ->
+                        val t = state.tiles[n]
+                        if (t != null && t.terrain == Terrain.SEA && t.building == null &&
+                            dist.putIfAbsent(n, d) == null
+                        ) {
+                            next.add(n)
+                        }
+                    }
+                }
+                frontier = next
+            }
+            shadow.addAll(dist.keys)
+        }
         val spots = HashSet<Hex>()
         for ((hex, tile) in state.tiles) {
             if (tile.owner != me || tile.building != Building.PORT || tile.starving) continue
@@ -467,7 +507,11 @@ internal object NavalPolicy {
                 }
             }
         }
-        return spots.minByOrNull { it.packed }
+        return if (difficulty == Difficulty.HARD) {
+            spots.filter { it !in shadow }.minByOrNull { it.packed }
+        } else {
+            spots.minByOrNull { it.packed }
+        }
     }
 
     /** Own buildable coastal hex with the most adjacent sea (ties: lowest packed). */

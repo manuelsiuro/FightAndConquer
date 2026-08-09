@@ -1,7 +1,6 @@
 package com.msa.fightandconquer.core.campaign
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** What the player has achieved on one mission. Best result only — never a regression. */
 @Serializable
@@ -63,7 +62,7 @@ data class CampaignProgress(val results: Map<String, LevelResult> = emptyMap()) 
 
 object CampaignProgressCodec {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = com.msa.fightandconquer.core.persist.CompatJson
 
     fun encode(progress: CampaignProgress): String =
         json.encodeToString(CampaignProgress.serializer(), progress)

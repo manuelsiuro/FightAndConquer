@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,94 +36,74 @@ import com.msa.fightandconquer.ui.UiColors
 
 @Composable
 internal fun EconomyPanel(economy: EconomyBreakdown) {
-    Surface(
-        modifier = Modifier
-            .safeDrawingPadding()
-            .padding(start = HudGutter, top = TopBarHeight + HudGutter)
-            .width(264.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = UiColors.panel,
-        shadowElevation = 6.dp,
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                stringResource(R.string.economy_income),
-                fontSize = 12.sp,
-                color = UiColors.inkMuted,
-                letterSpacing = 0.8.sp,
-            )
+    HudSidePanel {
+        PanelHeader(stringResource(R.string.economy_income))
+        EconomyRow(
+            stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
+            stringResource(R.string.economy_amount_positive, economy.hexIncome),
+            iconRes = R.drawable.ic_coin,
+            iconTint = UiColors.inkMuted,
+        )
+        if (economy.depositBonus > 0) {
             EconomyRow(
-                stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
-                stringResource(R.string.economy_amount_positive, economy.hexIncome),
-                iconRes = R.drawable.ic_coin,
-                iconTint = UiColors.inkMuted,
+                stringResource(R.string.economy_fertile_row),
+                stringResource(R.string.economy_amount_positive, economy.depositBonus),
+                iconRes = PieceIcons.fertile,
             )
-            if (economy.depositBonus > 0) {
+        }
+        for (row in economy.buildingRows) {
+            EconomyRow(
+                stringResource(R.string.economy_building_row, row.count, stringResource(row.nameRes)),
+                stringResource(R.string.economy_amount_positive, row.total),
+                iconRes = row.iconRes,
+            )
+        }
+        if (economy.starvingCount > 0) {
+            EconomyRow(
+                stringResource(R.string.economy_cut_off_row, economy.starvingCount),
+                stringResource(R.string.economy_cut_off_value),
+                valueColor = UiColors.alert,
+            )
+        }
+        if (economy.tiers.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            PanelHeader(stringResource(R.string.economy_upkeep))
+            for (row in economy.tiers) {
                 EconomyRow(
-                    stringResource(R.string.economy_fertile_row),
-                    stringResource(R.string.economy_amount_positive, economy.depositBonus),
-                    iconRes = PieceIcons.fertile,
-                )
-            }
-            for (row in economy.buildingRows) {
-                EconomyRow(
-                    stringResource(R.string.economy_building_row, row.count, stringResource(row.nameRes)),
-                    stringResource(R.string.economy_amount_positive, row.total),
+                    stringResource(
+                        R.string.economy_upkeep_row,
+                        row.count,
+                        stringResource(row.nameRes),
+                        row.each,
+                    ),
+                    stringResource(R.string.economy_amount_negative, row.total),
                     iconRes = row.iconRes,
                 )
             }
-            if (economy.starvingCount > 0) {
-                EconomyRow(
-                    stringResource(R.string.economy_cut_off_row, economy.starvingCount),
-                    stringResource(R.string.economy_cut_off_value),
-                    valueColor = UiColors.alert,
-                )
-            }
-            if (economy.tiers.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    stringResource(R.string.economy_upkeep),
-                    fontSize = 12.sp,
-                    color = UiColors.inkMuted,
-                    letterSpacing = 0.8.sp,
-                )
-                for (row in economy.tiers) {
-                    EconomyRow(
-                        stringResource(
-                            R.string.economy_upkeep_row,
-                            row.count,
-                            stringResource(row.nameRes),
-                            row.each,
-                        ),
-                        stringResource(R.string.economy_amount_negative, row.total),
-                        iconRes = row.iconRes,
-                    )
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
-            Spacer(Modifier.height(6.dp))
-            EconomyRow(
-                stringResource(R.string.economy_net),
-                if (economy.net >= 0) {
-                    stringResource(R.string.economy_amount_positive, economy.net)
-                } else {
-                    stringResource(R.string.economy_amount_negative, -economy.net)
-                },
-                bold = true,
-                valueColor = if (economy.net >= 0) UiColors.positive else UiColors.alert,
-            )
-            EconomyRow(
-                stringResource(R.string.economy_treasury, economy.treasury),
-                stringResource(R.string.economy_projection, economy.projected),
-                bold = true,
-            )
-            when {
-                economy.bankruptcyImminent ->
-                    WarningStrip(stringResource(R.string.economy_warn_bankruptcy), UiColors.alert, Color.White)
-                economy.upkeepRisk ->
-                    WarningStrip(stringResource(R.string.economy_warn_upkeep), UiColors.toastWarning, UiColors.ink)
-            }
+        }
+        Spacer(Modifier.height(6.dp))
+        HorizontalDivider(color = UiColors.ink.copy(alpha = 0.12f))
+        Spacer(Modifier.height(6.dp))
+        EconomyRow(
+            stringResource(R.string.economy_net),
+            if (economy.net >= 0) {
+                stringResource(R.string.economy_amount_positive, economy.net)
+            } else {
+                stringResource(R.string.economy_amount_negative, -economy.net)
+            },
+            bold = true,
+            valueColor = if (economy.net >= 0) UiColors.positive else UiColors.alert,
+        )
+        EconomyRow(
+            stringResource(R.string.economy_treasury, economy.treasury),
+            stringResource(R.string.economy_projection, economy.projected),
+            bold = true,
+        )
+        when {
+            economy.bankruptcyImminent ->
+                WarningStrip(stringResource(R.string.economy_warn_bankruptcy), UiColors.alert, UiColors.onAlert)
+            economy.upkeepRisk ->
+                WarningStrip(stringResource(R.string.economy_warn_upkeep), UiColors.toastWarning, UiColors.ink)
         }
     }
 }

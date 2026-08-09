@@ -133,6 +133,17 @@ precisely for this — tested), so tuning defaults never alters an in-progress g
 
 ## Known gaps / accepted trade-offs
 
+- **HARD's winrate vs EASY sits at ~60%** (measured over 30 seeds / 60 mirror
+  games) since the evaluator's day-one market bug was fixed (it credited a 6th
+  market neighbor that never pays income; `AiSimulationTest` documents the
+  recalibrated 55% bar). Diagnosed root cause for the follow-up: HARD's
+  retake-awareness penalty (`Evaluator`, `exposedBorderHexes`) vetoes expansion
+  whenever fresh borders would be threatened, so against an EASY swarm on open
+  maps HARD literally passes turns while being eaten — and a few HARD-vs-EASY
+  island games stall to the 400-round cap. Fixing the timidity (e.g. capping
+  the penalty relative to local force advantage) should restore the historical
+  ≥70% edge; rebalance all gates once when doing it.
+
 - **Tree-clear animation** is a generic sink, not the doc's "tip-over" (needs X/Z
   rotation support in `Transforms.trs`, which is translate+Y-rot+scale only).
 - **Capital silhouette** is gold-roof dominant; faction color shows mainly on walls

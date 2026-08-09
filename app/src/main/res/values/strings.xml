@@ -278,9 +278,7 @@
     <string name="guide_title">Field Guide</string>
     <string name="guide_subtitle">What each unit, building and resource does — and how to use it</string>
     <string name="guide_menu_entry">Guide</string>
-    <string name="guide_close">Close</string>
     <string name="cd_guide_close">Close the field guide</string>
-    <string name="cd_guide_open">Open the field guide</string>
     <string name="cd_guide_learn">Learn about %1$s</string>
     <string name="guide_how_label">How to use</string>
     <string name="guide_req_label">Requires</string>
@@ -399,7 +397,6 @@
     <string name="campaign_locked_academy">Clear three Academy missions first</string>
     <string name="campaign_progress">%1$d of %2$d complete</string>
     <string name="campaign_stars">%1$d of 3 stars</string>
-    <string name="campaign_level_number">Mission %1$d</string>
     <string name="campaign_best_rounds">Best: %1$d rounds</string>
     <string name="campaign_no_progress">Not attempted</string>
 
@@ -419,11 +416,8 @@
     <string name="outcome_campaign_complete">You have finished this campaign.</string>
 
     <!-- In-game campaign HUD -->
-    <string name="campaign_objectives_title">Objectives</string>
-    <string name="campaign_objectives_toggle">Mission objectives</string>
     <string name="campaign_coach_dismiss">Got it</string>
     <string name="campaign_turn_limit">Round %1$d of %2$d</string>
-    <string name="campaign_protect">Hold: %1$s</string>
 
     <!-- Objective lines (shared by every mission) -->
     <string name="objective_conquer_all">Be the last one standing</string>
@@ -626,7 +620,6 @@
     <string name="maps_new_default_name">Untitled map</string>
     <string name="maps_empty">No maps yet. Create one and shape the board yourself.</string>
     <string name="maps_meta">%1$d players · %2$d tiles</string>
-    <string name="maps_badge_playable">Playable</string>
     <string name="maps_badge_draft">Draft</string>
     <string name="maps_delete_title">Delete this map?</string>
     <string name="maps_delete_message">“%1$s” will be gone for good.</string>

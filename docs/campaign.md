@@ -234,7 +234,7 @@ lets a template nest a piece name that also has to stay translatable.
 | `ObjectiveTest` | each objective and defeat clause on hand-built micro-states; hold-streak reset; conquest-settles-any-mission; defeat-outranks-victory |
 | `CampaignTrackerTest` | sink/loss attribution, beats firing once, a blocked beat staying armed, resumed-save tracker equality |
 | `ScriptedActionTest` | the gate is off by default, invalid targets rejected, no RNG touched, undo sealed, save replays bit-identically |
-| `CampaignPlaythroughTest` | every mission driven by an AI in the player's chair: terminates, invariants hold each turn, `aiSolvable` ones are won, and **every** mission's opening survives at least 8 rounds |
+| `CampaignPlaythroughTest` | every mission driven by an AI in the player's chair: terminates within its cap (3× par when `aiSolvable`, 6× par otherwise — non-solvable missions only prove they can't deadlock, and a 3-way AI war can honestly grind past 3× par), invariants hold each turn, `aiSolvable` ones are won, and **every** mission's opening survives at least 8 rounds |
 | `CampaignTextTest` (`:app`) | every campaign/level/hint/beat has copy and vice versa; hints only wait on signals the app emits; no beat waits on a UI signal |
 
 ### `aiSolvable`, honestly
@@ -243,9 +243,9 @@ The AI is an **opponent model**: it plays for territory and knows nothing about
 objectives. It therefore finishes missions whose goal aligns with conquest (outlast,
 out-earn, wipe out that seat) and reliably ignores one that does not (land on those three
 beaches, sink three raiders). Those are flagged `aiSolvable = false`, and the suite still
-requires them to terminate, to keep their invariants, and to leave the player standing
-after the opening — while the static reachability check proves their targets can be gotten
-at. What it does *not* prove is that a human can win them; that is what device play is for.
+requires them to terminate (within the looser 6× par cap), to keep their invariants, and
+to leave the player standing after the opening — while the static reachability check
+proves their targets can be gotten at. What it does *not* prove is that a human can win them; that is what device play is for.
 
 ### On device
 

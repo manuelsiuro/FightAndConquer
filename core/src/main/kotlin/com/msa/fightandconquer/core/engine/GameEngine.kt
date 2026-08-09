@@ -156,20 +156,6 @@ class GameEngine private constructor(
         return s.diplomacy.proposals.filter { it.to == s.currentPlayer }
     }
 
-    fun outgoingProposals(player: PlayerId): List<com.msa.fightandconquer.core.model.PactProposal> =
-        _state.value.diplomacy.proposals.filter { it.from == player }
-
-    fun pactPartners(player: PlayerId): Set<PlayerId> =
-        _state.value.diplomacy.pacts.mapNotNull {
-            when (player) {
-                it.a -> it.b
-                it.b -> it.a
-                else -> null
-            }
-        }.toSet()
-
-    fun pactBreaksOf(player: PlayerId): Int = _state.value.diplomacy.breaksOf(player)
-
     // ----- persistence -----
 
     fun toSave(): SaveGame = SaveGame(

@@ -35,7 +35,8 @@ data class PairRound(val a: PlayerId, val b: PlayerId, val round: Int)
  * ([RuleConstants.pactProposalCooldownRounds]); [lastTributeRounds] is
  * advisory state for the AI's tribute pacing. [pactBreaks] counts lifetime
  * pact breaks per seat (index == PlayerId.value; an empty list means zeros) —
- * a reputation input for AI attitude.
+ * written on every break but not yet read by any AI: reserved for a future
+ * reputation/attitude input, and kept because it is serialized save state.
  */
 @Serializable
 data class DiplomacyState(
@@ -62,4 +63,14 @@ data class DiplomacyState(
         lastTributeRounds.firstOrNull { it.a == from && it.b == to }?.round
 
     fun breaksOf(p: PlayerId): Int = pactBreaks.getOrElse(p.value) { 0 }
+
+    /** Every seat [p] currently has a pact with. */
+    fun partnersOf(p: PlayerId): Set<PlayerId> =
+        pacts.mapNotNull {
+            when (p) {
+                it.a -> it.b
+                it.b -> it.a
+                else -> null
+            }
+        }.toSet()
 }

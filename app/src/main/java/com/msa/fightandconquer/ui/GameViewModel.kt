@@ -119,8 +119,6 @@ data class EconomyBreakdown(
     val depositBonus: Int,
     val buildingRows: List<IncomeRow>,
     val tiers: List<UpkeepRow>,
-    val income: Int,
-    val upkeep: Int,
     val net: Int,
     val treasury: Int,
     val projected: Int,
@@ -187,7 +185,6 @@ data class ShopInfo(
 )
 
 data class HudState(
-    val playerCount: Int,
     val currentPlayer: Int,
     val currentIsHuman: Boolean,
     val aiThinking: Boolean,
@@ -204,7 +201,6 @@ data class HudState(
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
     val banner: Int?,
     val winner: Int?,
-    val eliminated: List<Boolean>,
     val freshUnitCount: Int,
     val shopInfo: ShopInfo,
 )
@@ -262,8 +258,6 @@ data class CampaignOutcome(
  * which is how every existing HUD path stays exactly as it was.
  */
 data class CampaignRunState(
-    val campaignId: String,
-    val levelId: String,
     val levelName: Int,
     /** A custom map's user-typed title; campaign missions keep resource names. */
     val levelNameText: String? = null,
@@ -1122,8 +1116,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             depositBonus = depositBonus,
             buildingRows = buildingRows,
             tiers = tiers,
-            income = income,
-            upkeep = upkeep,
             net = net,
             treasury = treasury,
             projected = projected,
@@ -1712,7 +1704,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             emptyList()
         }
         _hud.value = HudState(
-            playerCount = state.players.size,
             currentPlayer = me.value,
             currentIsHuman = state.player(me).kind is PlayerKind.Human,
             aiThinking = aiThinking,
@@ -1726,7 +1717,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             canUndo = engine.canUndo(),
             banner = banner,
             winner = (state.phase as? GamePhase.Finished)?.winner?.value,
-            eliminated = state.players.map { it.eliminated },
             freshUnitCount = state.units.values.count { it.owner == me && !it.spent },
             shopInfo = ShopInfo(
                 unitUpkeep = rules.unitUpkeep,
@@ -1818,8 +1808,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (outcome != null && previousOutcome == null) onMissionSettled(level, outcome)
 
         _campaignRun.value = CampaignRunState(
-            campaignId = campaignId,
-            levelId = level.id,
             levelName = CampaignText.level(level.id)?.name ?: R.string.campaign_title,
             levelNameText = level.map.name.takeIf { campaignId == CUSTOM_CAMPAIGN },
             objectives = status.rows.map {

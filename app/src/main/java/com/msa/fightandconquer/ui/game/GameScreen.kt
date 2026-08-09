@@ -173,6 +173,5 @@ fun GameScreen(viewModel: GameViewModel) {
 private fun boardContentDescription(state: HudState): String = when {
     state.winner != null -> stringResource(R.string.game_over_winner, state.winner + 1)
     state.banner != null -> stringResource(R.string.banner_player, state.banner + 1)
-    !state.currentIsHuman -> stringResource(R.string.hud_ai_player, state.currentPlayer + 1)
-    else -> stringResource(R.string.hud_player, state.currentPlayer + 1)
+    else -> seatLabel(state.currentPlayer, state.currentIsHuman)
 }

@@ -29,13 +29,7 @@ object MoveGenerator {
         // for partners the betrayal policy has marked.
         val partners: Set<com.msa.fightandconquer.core.model.PlayerId> =
             if (rules.diplomacyEnabled && state.diplomacy.pacts.isNotEmpty()) {
-                val all = state.diplomacy.pacts.mapNotNull {
-                    when (me) {
-                        it.a -> it.b
-                        it.b -> it.a
-                        else -> null
-                    }
-                }.toSet()
+                val all = state.diplomacy.partnersOf(me)
                 if (difficulty == Difficulty.HARD) all - DiplomacyPolicy.betrayalTargets(state, me) else all
             } else {
                 emptySet()
@@ -137,7 +131,7 @@ object MoveGenerator {
             }
             // Clear trees rotting our income (managed camp trees are income, keep them).
             reach.moveTargets.sortedBy { it.packed }.forEach {
-                if (state.tiles.getValue(it).flora is Flora.Tree && !managedByOwnCamp(state, it, me)) {
+                if (state.tiles.getValue(it).flora is Flora.Tree && !Adjacency.nextToOwnCamp(state, it, me)) {
                     out.add(GameAction.MoveUnit(unit.id, it))
                 }
             }
@@ -161,7 +155,7 @@ object MoveGenerator {
         if (treasury >= rules.unitCost[0]) {
             for ((hex, tile) in state.tiles.entries.sortedBy { it.key.packed }) {
                 if (tile.owner == me && !tile.starving && tile.flora is Flora.Tree &&
-                    tile.unit == null && tile.building == null && !managedByOwnCamp(state, hex, me)
+                    tile.unit == null && tile.building == null && !Adjacency.nextToOwnCamp(state, hex, me)
                 ) {
                     out.add(GameAction.BuyUnit(1, hex))
                 }
@@ -247,11 +241,11 @@ object MoveGenerator {
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
                                 tile.unit == null && tile.flora == null && tile.deposit == null &&
-                                adjacentOwnTrees(state, hex, me) >= 2
+                                Adjacency.adjacentOwnTrees(state, hex, me) >= 2
                         }
                         .sortedWith(
                             compareByDescending<Map.Entry<Hex, com.msa.fightandconquer.core.model.Tile>> {
-                                adjacentOwnTrees(state, it.key, me)
+                                Adjacency.adjacentOwnTrees(state, it.key, me)
                             }.thenBy { it.key.packed },
                         )
                         .take(2)
@@ -412,21 +406,4 @@ object MoveGenerator {
         return gain
     }
 
-    private fun managedByOwnCamp(state: GameState, hex: Hex, me: com.msa.fightandconquer.core.model.PlayerId): Boolean {
-        var found = false
-        HexMath.forEachNeighbor(hex) { n ->
-            val t = state.tiles[n]
-            if (t != null && t.owner == me && t.building == com.msa.fightandconquer.core.model.Building.LUMBER_CAMP) found = true
-        }
-        return found
-    }
-
-    private fun adjacentOwnTrees(state: GameState, hex: Hex, me: com.msa.fightandconquer.core.model.PlayerId): Int {
-        var count = 0
-        HexMath.forEachNeighbor(hex) { n ->
-            val t = state.tiles[n]
-            if (t != null && t.owner == me && t.flora is Flora.Tree) count++
-        }
-        return count
-    }
 }

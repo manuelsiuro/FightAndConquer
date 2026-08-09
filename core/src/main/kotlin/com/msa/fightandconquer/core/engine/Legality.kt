@@ -131,6 +131,7 @@ object Legality {
         return when (action.to) {
             in reach.moveTargets, in reach.captureTargets, in reach.embarkTargets -> LegalityResult.Ok
             in reach.mergeTargets -> reject(RejectionReason.DESTINATION_HAS_UNIT)
+            in reach.fullTransports -> reject(RejectionReason.TRANSPORT_FULL)
             else -> reject(RejectionReason.DESTINATION_UNREACHABLE)
         }
     }

@@ -76,11 +76,7 @@ internal fun TopBar(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (state.currentIsHuman) {
-                        stringResource(R.string.hud_player, state.currentPlayer + 1)
-                    } else {
-                        stringResource(R.string.hud_ai_player, state.currentPlayer + 1)
-                    },
+                    seatLabel(state.currentPlayer, state.currentIsHuman),
                     fontWeight = FontWeight.SemiBold,
                     color = UiColors.ink,
                 )

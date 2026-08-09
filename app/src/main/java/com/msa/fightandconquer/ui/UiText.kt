@@ -66,6 +66,51 @@ fun unitNameRes(type: com.msa.fightandconquer.core.model.UnitType, tier: Int): I
     com.msa.fightandconquer.core.model.UnitType.WARSHIP -> R.string.unit_warship
 }
 
+/** Building -> display name resource. */
+@StringRes
+fun buildingNameRes(building: com.msa.fightandconquer.core.model.Building): Int = when (building) {
+    com.msa.fightandconquer.core.model.Building.CAPITAL -> R.string.building_capital
+    com.msa.fightandconquer.core.model.Building.FARM -> R.string.building_farm
+    com.msa.fightandconquer.core.model.Building.TOWER -> R.string.building_tower
+    com.msa.fightandconquer.core.model.Building.STRONG_TOWER -> R.string.building_castle
+    com.msa.fightandconquer.core.model.Building.MINE -> R.string.building_mine
+    com.msa.fightandconquer.core.model.Building.MARKET -> R.string.building_market
+    com.msa.fightandconquer.core.model.Building.LUMBER_CAMP -> R.string.building_lumber_camp
+    com.msa.fightandconquer.core.model.Building.WATCHTOWER -> R.string.building_watchtower
+    com.msa.fightandconquer.core.model.Building.PORT -> R.string.building_port
+    com.msa.fightandconquer.core.model.Building.FISHERY -> R.string.building_fishery
+    com.msa.fightandconquer.core.model.Building.BRIDGE -> R.string.building_bridge
+}
+
+/** Purchasable building type -> display name resource. */
+@StringRes
+fun buildingNameRes(type: com.msa.fightandconquer.core.model.BuildingType): Int =
+    buildingNameRes(type.building)
+
+/**
+ * A seat's colour name ("the Red", …), shared by objectives, the editor palette and
+ * anywhere else a seat is named rather than numbered.
+ */
+@StringRes
+fun seatNameRes(index: Int): Int = when (index) {
+    0 -> R.string.seat_name_1
+    1 -> R.string.seat_name_2
+    2 -> R.string.seat_name_3
+    3 -> R.string.seat_name_4
+    4 -> R.string.seat_name_5
+    else -> R.string.seat_name_6
+}
+
+/** AI difficulty -> label resource. */
+@StringRes
+fun difficultyLabelRes(difficulty: com.msa.fightandconquer.core.model.Difficulty): Int =
+    when (difficulty) {
+        com.msa.fightandconquer.core.model.Difficulty.EASY -> R.string.difficulty_easy
+        com.msa.fightandconquer.core.model.Difficulty.NORMAL -> R.string.difficulty_normal
+        com.msa.fightandconquer.core.model.Difficulty.HARD -> R.string.difficulty_hard
+        com.msa.fightandconquer.core.model.Difficulty.PASSIVE -> R.string.difficulty_passive
+    }
+
 /** Engine rejection code -> player-facing explanation. */
 fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.GAME_FINISHED -> UiText.of(R.string.reject_game_finished)

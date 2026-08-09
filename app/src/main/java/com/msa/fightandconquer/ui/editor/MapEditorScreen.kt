@@ -66,8 +66,12 @@ import com.msa.fightandconquer.render.FilamentHost
 import com.msa.fightandconquer.render.scene.BoardScene
 import com.msa.fightandconquer.ui.PieceIcons
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.buildingNameRes
 import com.msa.fightandconquer.ui.campaign.label
+import com.msa.fightandconquer.ui.difficultyLabelRes
 import com.msa.fightandconquer.ui.resolve
+import com.msa.fightandconquer.ui.seatNameRes
+import com.msa.fightandconquer.ui.unitNameRes
 
 private class SceneRef {
     var scene by mutableStateOf<BoardScene?>(null)
@@ -381,13 +385,13 @@ private fun EditorDock(
             for (building in EDITOR_BUILDINGS) {
                 IconChip(
                     ui, EditorSession.Brush.Structure(building),
-                    PieceIcons.building(building), buildingLabel(building), session,
+                    PieceIcons.building(building), buildingNameRes(building), session,
                 )
             }
             for (tier in 1..4) {
                 IconChip(
                     ui, EditorSession.Brush.UnitBrush(UnitType.SOLDIER, tier),
-                    PieceIcons.unit(UnitType.SOLDIER, tier), soldierNameRes(tier), session,
+                    PieceIcons.unit(UnitType.SOLDIER, tier), unitNameRes(tier), session,
                 )
             }
             IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.ARCHER), PieceIcons.unit(UnitType.ARCHER, 1), R.string.unit_archer, session)
@@ -470,7 +474,7 @@ private fun PlayersDialog(ui: EditorSession.Ui, session: EditorSession, onClose:
                                 FilterChip(
                                     selected = (kind as? SeatDef.Ai)?.difficulty == difficulty,
                                     onClick = { session.setSeatKind(seat, SeatDef.Ai(difficulty)) },
-                                    label = { Text(stringResource(difficultyRes(difficulty)), fontSize = 12.sp) },
+                                    label = { Text(stringResource(difficultyLabelRes(difficulty)), fontSize = 12.sp) },
                                 )
                             }
                         }
@@ -664,42 +668,6 @@ private fun goalValueRes(kind: GoalKind): Int = when (kind) {
     GoalKind.TREASURY -> R.string.editor_goal_value_coins
     GoalKind.OWN_HEXES -> R.string.editor_goal_value_hexes
     else -> R.string.editor_goal_value_rounds
-}
-
-private fun seatNameRes(seat: Int): Int = when (seat) {
-    0 -> R.string.seat_name_1
-    1 -> R.string.seat_name_2
-    2 -> R.string.seat_name_3
-    3 -> R.string.seat_name_4
-    4 -> R.string.seat_name_5
-    else -> R.string.seat_name_6
-}
-
-private fun difficultyRes(difficulty: Difficulty): Int = when (difficulty) {
-    Difficulty.EASY -> R.string.difficulty_easy
-    Difficulty.NORMAL -> R.string.difficulty_normal
-    Difficulty.HARD -> R.string.difficulty_hard
-    Difficulty.PASSIVE -> R.string.difficulty_passive
-}
-
-private fun soldierNameRes(tier: Int): Int = when (tier) {
-    1 -> R.string.unit_peasant
-    2 -> R.string.unit_spearman
-    3 -> R.string.unit_baron
-    else -> R.string.unit_knight
-}
-
-private fun buildingLabel(building: Building): Int = when (building) {
-    Building.FARM -> R.string.building_farm
-    Building.TOWER -> R.string.building_tower
-    Building.STRONG_TOWER -> R.string.building_castle
-    Building.MINE -> R.string.building_mine
-    Building.MARKET -> R.string.building_market
-    Building.LUMBER_CAMP -> R.string.building_lumber_camp
-    Building.WATCHTOWER -> R.string.building_watchtower
-    Building.PORT -> R.string.building_port
-    Building.FISHERY -> R.string.building_fishery
-    else -> R.string.building_farm // CAPITAL/BRIDGE never reach the palette
 }
 
 /** Every placeable building: capitals have their own tool, bridges are built in play. */

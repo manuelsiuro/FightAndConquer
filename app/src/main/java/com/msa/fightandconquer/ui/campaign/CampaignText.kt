@@ -7,6 +7,8 @@ import com.msa.fightandconquer.core.campaign.FailCondition
 import com.msa.fightandconquer.core.campaign.Objective
 import com.msa.fightandconquer.core.campaign.ObjectiveRow
 import com.msa.fightandconquer.ui.UiText
+import com.msa.fightandconquer.ui.buildingNameRes
+import com.msa.fightandconquer.ui.seatNameRes
 import com.msa.fightandconquer.ui.unitNameRes
 
 /**
@@ -238,7 +240,7 @@ fun ObjectiveRow.label(): UiText = when (val o = objective) {
     is Objective.OwnHexCount -> UiText.of(R.string.objective_own_hexes, o.count)
     is Objective.ReachTreasury -> UiText.of(R.string.objective_treasury, o.coins)
     is Objective.ReachIncome -> UiText.of(R.string.objective_income, o.coins)
-    is Objective.EliminatePlayer -> UiText.of(R.string.objective_eliminate, UiText.of(seatName(o.seat.value)))
+    is Objective.EliminatePlayer -> UiText.of(R.string.objective_eliminate, UiText.of(seatNameRes(o.seat.value)))
     is Objective.BuildCount ->
         UiText.of(R.string.objective_build, o.count, UiText.of(buildingNameRes(o.building)))
     is Objective.FieldUnits ->
@@ -254,7 +256,7 @@ fun FailCondition.label(): UiText = when (this) {
     is FailCondition.TurnLimit -> UiText.of(R.string.fail_turn_limit, rounds)
     is FailCondition.LoseHexes -> UiText.of(R.string.fail_lose_hexes)
     FailCondition.LoseAllUnits -> UiText.of(R.string.fail_lose_all_units)
-    is FailCondition.AllyEliminated -> UiText.of(R.string.fail_ally_lost, UiText.of(seatName(seat.value)))
+    is FailCondition.AllyEliminated -> UiText.of(R.string.fail_ally_lost, UiText.of(seatNameRes(seat.value)))
 }
 
 fun DefeatReason.label(): UiText = when (this) {
@@ -266,31 +268,3 @@ fun DefeatReason.label(): UiText = when (this) {
     DefeatReason.RIVAL_VICTORY -> UiText.of(R.string.defeat_rival_victory)
 }
 
-/**
- * A seat's colour name, so an objective can read "knock out the Red" rather than
- * "player 2". Callers wrap it as a nested [UiText] argument — passing the raw id would
- * format the integer itself (see [UiText.resolve]).
- */
-@StringRes
-private fun seatName(index: Int): Int = when (index) {
-    0 -> R.string.seat_name_1
-    1 -> R.string.seat_name_2
-    2 -> R.string.seat_name_3
-    3 -> R.string.seat_name_4
-    4 -> R.string.seat_name_5
-    else -> R.string.seat_name_6
-}
-
-@StringRes
-private fun buildingNameRes(type: com.msa.fightandconquer.core.model.BuildingType): Int = when (type) {
-    com.msa.fightandconquer.core.model.BuildingType.FARM -> R.string.building_farm
-    com.msa.fightandconquer.core.model.BuildingType.TOWER -> R.string.building_tower
-    com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER -> R.string.building_castle
-    com.msa.fightandconquer.core.model.BuildingType.MINE -> R.string.building_mine
-    com.msa.fightandconquer.core.model.BuildingType.MARKET -> R.string.building_market
-    com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> R.string.building_lumber_camp
-    com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> R.string.building_watchtower
-    com.msa.fightandconquer.core.model.BuildingType.PORT -> R.string.building_port
-    com.msa.fightandconquer.core.model.BuildingType.FISHERY -> R.string.building_fishery
-    com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> R.string.building_bridge
-}

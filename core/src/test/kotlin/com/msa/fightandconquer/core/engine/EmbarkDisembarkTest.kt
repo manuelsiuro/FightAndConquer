@@ -49,7 +49,13 @@ class EmbarkDisembarkTest {
             .withUnit(owner = 0, tier = 1, at = hex(2))
             .withUnit(owner = 0, tier = 1, at = hex(3), type = UnitType.TRANSPORT)
             .withCargo(at = hex(3), tier = 1)
-        assertTrue(Rules.reachable(s, s.unitIdAt(hex(2))).embarkTargets.isEmpty())
+        val soldier = s.unitIdAt(hex(2))
+        val reach = Rules.reachable(s, soldier)
+        assertTrue(reach.embarkTargets.isEmpty())
+        assertTrue(hex(3) in reach.fullTransports)
+        // The refusal names the actual problem, not a generic "unreachable".
+        val result = GameEngine(s).submit(GameAction.MoveUnit(soldier, hex(3)))
+        assertEquals(RejectionReason.TRANSPORT_FULL, (result as LegalityResult.Rejected).reason)
     }
 
     @Test

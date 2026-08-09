@@ -2,7 +2,6 @@ package com.msa.fightandconquer.core.engine
 
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Flora
-import com.msa.fightandconquer.core.model.GamePhase
 
 /**
  * Turn-boundary processing. On EndTurn the seat advances to the next living player Q,
@@ -183,5 +182,5 @@ internal object TurnPipeline {
         Rules.incomeFrom(b.tiles, b.rules, b.currentPlayer)
 
     private fun upkeepIn(b: StateBuilder): Int =
-        b.units.values.sumOf { if (it.owner == b.currentPlayer) Rules.unitUpkeepOf(it, b.rules) else 0 }
+        Rules.upkeepFrom(b.units.values, b.rules, b.currentPlayer)
 }
