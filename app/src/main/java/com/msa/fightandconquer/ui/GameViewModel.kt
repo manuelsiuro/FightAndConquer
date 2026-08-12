@@ -35,6 +35,7 @@ import com.msa.fightandconquer.core.map.MapGenerator
 import com.msa.fightandconquer.core.map.MapParams
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Terrain
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.Flora
@@ -81,6 +82,8 @@ data class GameSetup(
     val customMapId: String? = null,
     val specialUnits: Boolean = true,
     val diplomacy: Boolean = true,
+    /** Per-seat civilizations; seats beyond the list's end play [Civilization.DEFAULT]. */
+    val civs: List<Civilization> = emptyList(),
 )
 
 /** Fog of war render sets for the viewing seat; null everywhere means fog is off. */
@@ -203,6 +206,7 @@ data class ShopInfo(
 data class HudState(
     val currentPlayer: Int,
     val currentIsHuman: Boolean,
+    val currentCiv: Civilization,
     val aiThinking: Boolean,
     val treasury: Int,
     val income: Int,
@@ -408,6 +412,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     specialUnitsEnabled = setup.specialUnits,
                     diplomacyEnabled = setup.diplomacy,
                 ),
+                civs = List(setup.playerCount) { index ->
+                    setup.civs.getOrElse(index) { Civilization.DEFAULT }
+                },
             )
             withContext(Dispatchers.Main.immediate) {
                 startEngine(GameEngine(state), showOpeningBanner = setup.mode == GameMode.PASS_AND_PLAY)
@@ -1790,6 +1797,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _hud.value = HudState(
             currentPlayer = me.value,
             currentIsHuman = state.player(me).kind is PlayerKind.Human,
+            currentCiv = state.player(me).civ,
             aiThinking = aiThinking,
             treasury = summary.treasury,
             income = summary.income,

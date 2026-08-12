@@ -42,6 +42,11 @@ object CustomMapValidator {
                 violations.add(MapViolation.TreasurySizeMismatch(purses.size, level.seats.size))
             }
         }
+        level.civs?.let { civs ->
+            if (civs.size != level.seats.size) {
+                violations.add(MapViolation.CivsSizeMismatch(civs.size, level.seats.size))
+            }
+        }
 
         // Starting units — placeGarrison's requires, one code per defect.
         val tileByHex = level.map.tiles.associateBy { it.hex }

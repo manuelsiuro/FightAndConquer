@@ -3,6 +3,7 @@ package com.msa.fightandconquer.core.map
 import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GameConfig
@@ -61,8 +62,10 @@ data class MapDefinition(
         gameSeed: Long,
         kinds: List<PlayerKind>,
         rules: RuleConstants = RuleConstants(),
+        civs: List<Civilization> = List(kinds.size) { Civilization.DEFAULT },
     ): GameState {
         require(kinds.size == capitals.size) { "need ${capitals.size} player kinds" }
+        require(civs.size == kinds.size) { "need ${kinds.size} civilizations" }
         val tileMap = tiles.associate { def ->
             def.hex to Tile(
                 owner = def.owner?.let(::PlayerId),
@@ -82,7 +85,13 @@ data class MapDefinition(
         // special-casing terrain in live vision (units are still only seen in radius).
         val seaHexes = tileMap.filterValues { it.terrain == Terrain.SEA }.keys
         val players = kinds.mapIndexed { index, kind ->
-            val player = PlayerState(PlayerId(index), kind, rules.startingTreasury, capitals[index])
+            val player = PlayerState(
+                PlayerId(index),
+                kind,
+                rules.startingTreasury,
+                capitals[index],
+                civ = civs[index],
+            )
             if (!rules.fogOfWar) player
             else player.copy(
                 // Fog of war: seed explored memory with the starting vision.

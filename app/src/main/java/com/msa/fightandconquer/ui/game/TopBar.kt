@@ -3,6 +3,7 @@ package com.msa.fightandconquer.ui.game
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -44,6 +45,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.HudState
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.civNameRes
 
 private val MinTouchTarget = 48.dp
 
@@ -75,11 +77,21 @@ internal fun TopBar(
                         .semantics { contentDescription = factionDescription },
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    seatLabel(state.currentPlayer, state.currentIsHuman),
-                    fontWeight = FontWeight.SemiBold,
-                    color = UiColors.ink,
-                )
+                Column {
+                    Text(
+                        seatLabel(state.currentPlayer, state.currentIsHuman),
+                        fontWeight = FontWeight.SemiBold,
+                        color = UiColors.ink,
+                        fontSize = 14.sp,
+                        lineHeight = 16.sp,
+                    )
+                    Text(
+                        stringResource(civNameRes(state.currentCiv)),
+                        color = UiColors.inkMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 13.sp,
+                    )
+                }
                 Spacer(Modifier.width(12.dp))
                 Row(
                     modifier = Modifier

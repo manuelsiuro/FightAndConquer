@@ -36,6 +36,7 @@ fun MapViolation.toUiText(): UiText = when (this) {
     MapViolation.NoPlayerSeat -> UiText.of(R.string.editor_v_no_player_seat)
     MapViolation.MultiplePlayerSeats -> UiText.of(R.string.editor_v_multiple_player_seats)
     is MapViolation.TreasurySizeMismatch -> UiText.of(R.string.editor_v_treasury_size)
+    is MapViolation.CivsSizeMismatch -> UiText.of(R.string.editor_v_civs_size)
     is MapViolation.UnitOffMap -> UiText.of(R.string.editor_v_unit_off_map, coords(hex))
     is MapViolation.UnitStacked -> UiText.of(R.string.editor_v_unit_stacked, coords(hex))
     is MapViolation.UnitNotOnOwnedGround ->

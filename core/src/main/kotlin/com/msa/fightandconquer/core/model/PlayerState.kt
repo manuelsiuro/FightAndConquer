@@ -28,4 +28,6 @@ data class PlayerState(
      * [Hex.packed] so serialized state is byte-stable (determinism tests).
      */
     val discovered: Set<Hex> = emptySet(),
+    /** Defaulted so pre-civilization saves decode as all-Kingdom (LegacySaveTest). */
+    val civ: Civilization = Civilization.KINGDOM,
 )

@@ -1,6 +1,7 @@
 package com.msa.fightandconquer.core.campaign
 
 import com.msa.fightandconquer.core.engine.Rules
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.GameUnit
 import com.msa.fightandconquer.core.model.PlayerId
@@ -24,11 +25,17 @@ object LevelFactory {
         require(level.seats.size == level.map.capitals.size) {
             "level ${level.id}: ${level.seats.size} seats for ${level.map.capitals.size} capitals"
         }
+        level.civs?.let { civs ->
+            require(civs.size == level.seats.size) {
+                "level ${level.id}: ${civs.size} civilizations for ${level.seats.size} seats"
+            }
+        }
         val rules = level.rules.copy(scriptedEventsEnabled = level.scripts.isNotEmpty())
         var state = level.map.newGame(
             gameSeed = level.seed,
             kinds = level.seats.map { it.toKind() },
             rules = rules,
+            civs = level.civs ?: List(level.seats.size) { Civilization.DEFAULT },
         )
 
         level.startingTreasury?.let { purses ->

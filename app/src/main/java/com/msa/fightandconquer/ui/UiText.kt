@@ -101,6 +101,15 @@ fun seatNameRes(index: Int): Int = when (index) {
     else -> R.string.seat_name_6
 }
 
+/** Civilization -> display name resource. */
+@StringRes
+fun civNameRes(civ: com.msa.fightandconquer.core.model.Civilization): Int = when (civ) {
+    com.msa.fightandconquer.core.model.Civilization.KINGDOM -> R.string.civ_kingdom
+    com.msa.fightandconquer.core.model.Civilization.VIKINGS -> R.string.civ_vikings
+    com.msa.fightandconquer.core.model.Civilization.SULTANATE -> R.string.civ_sultanate
+    com.msa.fightandconquer.core.model.Civilization.SHOGUNATE -> R.string.civ_shogunate
+}
+
 /** AI difficulty -> label resource. */
 @StringRes
 fun difficultyLabelRes(difficulty: com.msa.fightandconquer.core.model.Difficulty): Int =
