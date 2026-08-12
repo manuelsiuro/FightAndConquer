@@ -92,8 +92,17 @@ def main():
         elif command == "exec":
             script = Path(sys.argv[2])
             code = script.read_text()
-            common = script.parent.parent / "_common.py"
-            if common.exists():
+            # _common.py sits at art/blender/; piece scripts live one level down
+            # (pieces/<kind>.py) or two for civ sets (pieces/<civ>/<kind>.py).
+            common = next(
+                (
+                    parent / "_common.py"
+                    for parent in script.resolve().parents
+                    if (parent / "_common.py").exists()
+                ),
+                None,
+            )
+            if common is not None:
                 code = common.read_text() + "\n\n" + code
             print(bridge.call("execute_blender_code", {"code": code}))
         elif command == "thumb":
