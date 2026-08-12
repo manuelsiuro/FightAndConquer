@@ -1359,20 +1359,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val unit = tile.unit?.let { state.units[it] }
         if (unit != null) {
             val own = unit.owner == me
-            val strength = Rules.strengthOf(unit, rules)
+            val strength = Rules.strengthOf(state, unit)
             val stats = buildList {
                 add(InfoStat(UiText.of(R.string.info_stat_strength), UiText.of(R.string.info_value_plain, strength)))
                 add(
                     InfoStat(
                         UiText.of(R.string.info_stat_upkeep),
-                        UiText.of(R.string.info_value_per_turn, Rules.unitUpkeepOf(unit, rules)),
+                        UiText.of(R.string.info_value_per_turn, Rules.unitUpkeepOf(state, unit)),
                     ),
                 )
                 when (unit.type) {
                     com.msa.fightandconquer.core.model.UnitType.SOLDIER -> add(
                         InfoStat(
                             UiText.of(R.string.info_stat_range),
-                            UiText.of(R.string.info_value_plain, Rules.moveRangeOf(unit, rules)),
+                            UiText.of(R.string.info_value_plain, Rules.moveRangeOf(state, unit)),
                         ),
                     )
                     com.msa.fightandconquer.core.model.UnitType.ARCHER -> {
@@ -1434,7 +1434,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 // Own spent units land here (fresh ones get selected instead) and
                 // can still be dismissed for a partial refund.
                 actions = if (own && state.player(me).kind is PlayerKind.Human) {
-                    listOf(InfoCardAction.Disband(unit.id, Rules.disbandRefund(unit, rules)))
+                    listOf(InfoCardAction.Disband(unit.id, Rules.disbandRefund(state, unit)))
                 } else {
                     emptyList()
                 },
@@ -1805,7 +1805,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             turnNumber = state.turnNumber,
             selectedUnitNameRes = selectedName,
             selectedUnitIconRes = selected?.let { PieceIcons.unit(it.type, it.tier) },
-            selectedUnitDisbandRefund = selected?.let { Rules.disbandRefund(it, rules) },
+            selectedUnitDisbandRefund = selected?.let { Rules.disbandRefund(state, it) },
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,
