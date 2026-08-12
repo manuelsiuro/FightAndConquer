@@ -48,6 +48,9 @@ internal object NavalPolicy {
         val easy = difficulty == com.msa.fightandconquer.core.model.Difficulty.EASY
         val me = state.currentPlayer
         val rules = state.config.rules
+        // Civ-modifiable prices (boats, ports) MUST come from here; the raw `rules`
+        // reads below are the universal soldier ladder and feature gates only.
+        val eff = Rules.effectiveRules(state, me)
         val partners: Set<com.msa.fightandconquer.core.model.PlayerId> =
             if (rules.diplomacyEnabled) state.diplomacy.partnersOf(me) else emptySet()
 
@@ -89,7 +92,7 @@ internal object NavalPolicy {
         //    (same landmass as the capital) are deliberately left to starve:
         //    port-rescuing every cut region would neutralize slicing entirely
         //    and stalemate land wars.
-        if (state.player(me).treasury >= rules.portCost &&
+        if (state.player(me).treasury >= eff.portCost &&
             state.tiles.values.any { it.owner == me && it.starving }
         ) {
             portSpot(state, starvingOnly = true)?.let { spot ->
@@ -216,7 +219,7 @@ internal object NavalPolicy {
         for (boat in transports) {
             if (boat.spent) continue
             val cargo = boat.cargo ?: continue
-            val strength = Rules.buyStrength(rules, cargo.tier, cargo.type)
+            val strength = Rules.buyStrength(state, me, cargo.tier, cargo.type)
             // Easy sails blunt: any coast looks good, hopeless fronts included,
             // and it never recycles a doomed marine — that blindness is the
             // difficulty gap at sea.
@@ -263,7 +266,7 @@ internal object NavalPolicy {
             }
             if (prey.isNotEmpty()) {
                 val myWarships = myUnits.filter { it.type == UnitType.WARSHIP }
-                if (myWarships.isEmpty() && sustainable(rules.warshipCost, rules.warshipUpkeep)) {
+                if (myWarships.isEmpty() && sustainable(eff.warshipCost, eff.warshipUpkeep)) {
                     launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.WARSHIP) }
                 }
                 // Chase FERRIES only, and never pre-empt a kill the greedy loop
@@ -291,7 +294,7 @@ internal object NavalPolicy {
         val passengers = myUnits
             .filter {
                 !it.spent && !Rules.isNaval(it.type) &&
-                    (bestTier == null || Rules.strengthOf(it, rules) >= bestTier)
+                    (bestTier == null || Rules.strengthOf(state, it) >= bestTier)
             }
             .flatMap { Rules.reachable(state, it.id).moveTargets + it.hex }
         for (boat in transports) {
@@ -307,7 +310,7 @@ internal object NavalPolicy {
         val boarder = myUnits
             .filter { !it.spent && !Rules.isNaval(it.type) }
             .sortedWith(
-                compareByDescending<GameUnit> { Rules.strengthOf(it, rules) }
+                compareByDescending<GameUnit> { Rules.strengthOf(state, it) }
                     .thenBy { it.id.value },
             )
             .firstNotNullOfOrNull { unit ->
@@ -317,7 +320,7 @@ internal object NavalPolicy {
         if (boarder != null) {
             val (unit, target) = boarder
             if (bestTier == null || musterSpot == null ||
-                Rules.strengthOf(unit, rules) >= bestTier
+                Rules.strengthOf(state, unit) >= bestTier
             ) {
                 return GameAction.MoveUnit(unit.id, target)
             }
@@ -327,7 +330,7 @@ internal object NavalPolicy {
         //     strong unit (boat en route home) never triggers duplicate buys.
         val emptyBoatWaiting = transports.any { it.cargo == null }
         val hasStrongFresh = bestTier != null && myUnits.any {
-            !it.spent && !Rules.isNaval(it.type) && Rules.strengthOf(it, rules) >= bestTier
+            !it.spent && !Rules.isNaval(it.type) && Rules.strengthOf(state, it) >= bestTier
         }
         if (emptyBoatWaiting && bestTier != null && !hasStrongFresh && musterSpot != null) {
             return GameAction.BuyUnit(bestTier, musterSpot)
@@ -337,14 +340,14 @@ internal object NavalPolicy {
         //    defended coast must not block the next, stronger wave).
         if (transports.size < MAX_TRANSPORTS &&
             transports.none { it.cargo == null } &&
-            sustainable(rules.transportCost, rules.transportUpkeep)
+            sustainable(eff.transportCost, eff.transportUpkeep)
         ) {
             launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.TRANSPORT) }
         }
 
         // 6. Found the first port on our best coastal hex.
         val hasPort = state.tiles.values.any { it.owner == me && it.building == Building.PORT }
-        if (!hasPort && state.player(me).treasury >= rules.portCost) {
+        if (!hasPort && state.player(me).treasury >= eff.portCost) {
             portSpot(state, starvingOnly = false)?.let {
                 return GameAction.BuyBuilding(com.msa.fightandconquer.core.model.BuildingType.PORT, it)
             }
@@ -475,7 +478,7 @@ internal object NavalPolicy {
         // launches). +1 covers the adjacent-capture final step.
         val shadow = HashSet<Hex>()
         for (w in hunters) {
-            val range = Rules.moveRangeOf(w, rules) + 1
+            val range = Rules.moveRangeOf(state, w) + 1
             val dist = HashMap<Hex, Int>()
             dist[w.hex] = 0
             var frontier = listOf(w.hex)

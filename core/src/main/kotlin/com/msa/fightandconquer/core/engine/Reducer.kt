@@ -142,7 +142,7 @@ object Reducer {
 
     private fun applyBuyUnit(state: GameState, b: StateBuilder, action: GameAction.BuyUnit) {
         val buyer = state.currentPlayer
-        val cost = Rules.unitCostOf(b.rules, action.tier, action.type)
+        val cost = Rules.unitCostOf(state, buyer, action.tier, action.type)
         b.updatePlayer(buyer) { it.copy(treasury = it.treasury - cost) }
 
         val tile = state.tiles.getValue(action.at)
@@ -221,7 +221,7 @@ object Reducer {
 
     private fun applyDisbandUnit(state: GameState, b: StateBuilder, action: GameAction.DisbandUnit) {
         val unit = state.units.getValue(action.unit)
-        val refund = Rules.disbandRefund(unit, b.rules)
+        val refund = Rules.disbandRefund(state, unit)
         b.killUnit(unit.id, DeathCause.DISBANDED)
         b.updatePlayer(unit.owner) { it.copy(treasury = it.treasury + refund) }
         b.events.add(GameEvent.RefundPaid(unit.owner, unit.hex, refund))

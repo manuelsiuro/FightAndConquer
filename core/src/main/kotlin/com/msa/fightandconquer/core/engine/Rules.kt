@@ -3,6 +3,7 @@ package com.msa.fightandconquer.core.engine
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.CivModifiers
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.GameUnit
 import com.msa.fightandconquer.core.model.PlayerId
@@ -39,12 +40,26 @@ object Rules {
     fun isNaval(type: UnitType): Boolean =
         type == UnitType.TRANSPORT || type == UnitType.WARSHIP
 
-    /** Attack/capture power of a unit: tier for soldiers, per-type for specials. */
-    fun strengthOf(unit: GameUnit, rules: RuleConstants): Int =
-        buyStrength(rules, unit.tier, unit.type)
+    /**
+     * The rules [player] actually plays with: the game's [RuleConstants] filtered
+     * through their civilization's delta table ([CivModifiers.effective] — identity
+     * for KINGDOM and when [RuleConstants.civBonusesEnabled] is off). Every
+     * owner-dependent accessor below resolves through this; the soldier ladder is
+     * universal by design, so raw `state.config.rules.unitCost`/`unitUpkeep`/
+     * `soldierMoveRanges`/`maxTier` reads stay valid everywhere.
+     */
+    fun effectiveRules(state: GameState, player: PlayerId): RuleConstants =
+        CivModifiers.effective(state.config.rules, state.player(player).civ)
 
-    /** [strengthOf] for a unit that doesn't exist yet (buy-capture legality). */
-    fun buyStrength(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
+    /** Attack/capture power of a unit: tier for soldiers, per-type (and per-civ) for specials. */
+    fun strengthOf(state: GameState, unit: GameUnit): Int =
+        strengthIn(effectiveRules(state, unit.owner), unit.tier, unit.type)
+
+    /** [strengthOf] for a [player]'s unit that doesn't exist yet (buy-capture legality, cargo). */
+    fun buyStrength(state: GameState, player: PlayerId, tier: Int, type: UnitType): Int =
+        strengthIn(effectiveRules(state, player), tier, type)
+
+    private fun strengthIn(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
         UnitType.SOLDIER -> tier
         UnitType.ARCHER -> rules.archerStrength
         UnitType.CATAPULT -> rules.catapultStrength
@@ -52,7 +67,11 @@ object Rules {
         UnitType.WARSHIP -> rules.warshipStrength
     }
 
-    fun unitCostOf(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
+    /** What [player] pays for a fresh unit (civ-priced for specials; soldiers universal). */
+    fun unitCostOf(state: GameState, player: PlayerId, tier: Int, type: UnitType): Int =
+        costIn(effectiveRules(state, player), tier, type)
+
+    private fun costIn(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
         UnitType.SOLDIER -> rules.unitCost[tier - 1]
         UnitType.ARCHER -> rules.archerCost
         UnitType.CATAPULT -> rules.catapultCost
@@ -61,10 +80,14 @@ object Rules {
     }
 
     /**
-     * Per-turn upkeep of a unit — the single source shared with TurnPipeline.
+     * Per-turn upkeep of a unit, at its owner's effective rules.
      * A transport also pays its cargo's upkeep: no free army parking at sea.
      */
-    fun unitUpkeepOf(unit: GameUnit, rules: RuleConstants): Int {
+    fun unitUpkeepOf(state: GameState, unit: GameUnit): Int =
+        upkeepIn(unit, effectiveRules(state, unit.owner))
+
+    /** [unitUpkeepOf] against pre-resolved effective [rules] — the single source shared with [upkeepFrom]. */
+    private fun upkeepIn(unit: GameUnit, rules: RuleConstants): Int {
         val own = when (unit.type) {
             UnitType.SOLDIER -> rules.unitUpkeep[unit.tier - 1]
             UnitType.ARCHER -> rules.archerUpkeep
@@ -85,15 +108,16 @@ object Rules {
         }
 
     /**
-     * What a unit contributes to the defense of its hex and adjacent own hexes.
-     * The archer's aura slots into the existing max-based model exactly like tower
-     * coverage — no additive special case. Boats are ships, not garrisons: they
-     * defend nothing (and being at sea, never neighbor an OWN hex anyway).
+     * What a unit contributes to the defense of its hex and adjacent own hexes,
+     * at its OWNER's effective rules. The archer's aura slots into the existing
+     * max-based model exactly like tower coverage — no additive special case.
+     * Boats are ships, not garrisons: they defend nothing (and being at sea,
+     * never neighbor an OWN hex anyway).
      */
-    internal fun defenseContribution(unit: GameUnit, rules: RuleConstants): Int = when (unit.type) {
-        UnitType.ARCHER -> rules.archerAuraDefense
+    internal fun defenseContribution(state: GameState, unit: GameUnit): Int = when (unit.type) {
+        UnitType.ARCHER -> effectiveRules(state, unit.owner).archerAuraDefense
         UnitType.TRANSPORT, UnitType.WARSHIP -> 0
-        else -> strengthOf(unit, rules)
+        else -> strengthOf(state, unit)
     }
 
     /**
@@ -107,35 +131,45 @@ object Rules {
     fun defenseOf(state: GameState, hex: Hex, attackerType: UnitType? = null): Int {
         val tile = state.tiles[hex] ?: return 0
         val owner = tile.owner ?: return 0
-        val rules = state.config.rules
         val siege = attackerType == UnitType.CATAPULT
-        var defense = if (siege) 0 else buildingDefense(state, tile.building)
-        state.unitAt(hex)?.let { defense = maxOf(defense, defenseContribution(it, rules)) }
+        var defense = if (siege) 0 else buildingDefense(state, owner, tile.building)
+        state.unitAt(hex)?.let { defense = maxOf(defense, defenseContribution(state, it)) }
         HexMath.forEachNeighbor(hex) { n ->
             val neighborTile = state.tiles[n]
             if (neighborTile?.owner == owner) {
-                state.unitAt(n)?.let { defense = maxOf(defense, defenseContribution(it, rules)) }
-                if (!siege) defense = maxOf(defense, buildingDefense(state, neighborTile.building))
+                state.unitAt(n)?.let { defense = maxOf(defense, defenseContribution(state, it)) }
+                if (!siege) defense = maxOf(defense, buildingDefense(state, owner, neighborTile.building))
             }
         }
         return defense
     }
 
-    private fun buildingDefense(state: GameState, building: Building?): Int = when (building) {
-        Building.TOWER -> state.config.rules.towerDefense
-        Building.STRONG_TOWER -> state.config.rules.strongTowerDefense
-        Building.CAPITAL -> state.config.rules.capitalDefense
-        Building.FARM, Building.MINE, Building.MARKET,
-        Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT,
-        Building.FISHERY, Building.BRIDGE, null,
-        -> 0
+    /** Defensive value of the DEFENDER's building, at the defender's effective rules. */
+    private fun buildingDefense(state: GameState, owner: PlayerId, building: Building?): Int {
+        if (building == null) return 0
+        val rules = effectiveRules(state, owner)
+        return when (building) {
+            Building.TOWER -> rules.towerDefense
+            Building.STRONG_TOWER -> rules.strongTowerDefense
+            Building.CAPITAL -> rules.capitalDefense
+            Building.FARM, Building.MINE, Building.MARKET,
+            Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT,
+            Building.FISHERY, Building.BRIDGE,
+            -> 0
+        }
     }
 
-    /** Movement range of a land unit: max BFS steps through own territory per action. */
-    fun moveRangeOf(unit: GameUnit, rules: RuleConstants): Int = when (unit.type) {
-        UnitType.CATAPULT -> rules.catapultMoveRange
-        UnitType.ARCHER -> rules.archerMoveRange
-        else -> rules.soldierMoveRanges.getOrElse(unit.tier - 1) { rules.soldierMoveRanges.last() }
+    /** Movement range of a unit per action, at its owner's effective rules. */
+    fun moveRangeOf(state: GameState, unit: GameUnit): Int {
+        val rules = effectiveRules(state, unit.owner)
+        return when (unit.type) {
+            UnitType.CATAPULT -> rules.catapultMoveRange
+            UnitType.ARCHER -> rules.archerMoveRange
+            UnitType.TRANSPORT -> rules.transportMoveRange
+            UnitType.WARSHIP -> rules.warshipMoveRange
+            UnitType.SOLDIER ->
+                rules.soldierMoveRanges.getOrElse(unit.tier - 1) { rules.soldierMoveRanges.last() }
+        }
     }
 
     /**
@@ -157,8 +191,8 @@ object Rules {
         if (unit.spent || state.phase !is com.msa.fightandconquer.core.model.GamePhase.Playing) return ReachResult.EMPTY
         if (isNaval(unit.type)) return seaReachable(state, unit)
         val rules = state.config.rules
-        val strength = strengthOf(unit, rules)
-        val maxRange = moveRangeOf(unit, rules)
+        val strength = strengthOf(state, unit)
+        val maxRange = moveRangeOf(state, unit)
         val move = HashSet<Hex>()
         val capture = HashSet<Hex>()
         val merge = HashSet<Hex>()
@@ -228,12 +262,8 @@ object Rules {
      * sink each other and island games would stalemate. Boats never merge.
      */
     private fun seaReachable(state: GameState, unit: GameUnit): ReachResult {
-        val rules = state.config.rules
-        if (!rules.navalEnabled) return ReachResult.EMPTY
-        val maxRange = when (unit.type) {
-            UnitType.TRANSPORT -> rules.transportMoveRange
-            else -> rules.warshipMoveRange
-        }
+        if (!state.config.rules.navalEnabled) return ReachResult.EMPTY
+        val maxRange = moveRangeOf(state, unit)
         fun openSea(hex: Hex): Boolean {
             val t = state.tiles[hex] ?: return false
             return t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
@@ -245,7 +275,7 @@ object Rules {
         val visited = HashSet<Hex>().apply { add(unit.hex) }
         var frontier = listOf(unit.hex)
         var depth = 0
-        val strength = strengthOf(unit, rules)
+        val strength = strengthOf(state, unit)
         while (depth < maxRange && frontier.isNotEmpty()) {
             val next = ArrayList<Hex>()
             for (hex in frontier) {
@@ -261,7 +291,7 @@ object Rules {
                             if (defender != null && defender.owner != unit.owner &&
                                 isNaval(defender.type) &&
                                 state.tiles[n]?.building == null &&
-                                strength >= strengthOf(defender, rules)
+                                strength >= strengthOf(state, defender)
                             ) {
                                 capture.add(n)
                             }
@@ -275,23 +305,28 @@ object Rules {
         return ReachResult(move, capture, mergeTargets = emptySet())
     }
 
-    /** Cost of the player's NEXT farm: base + step per farm already owned. */
-    fun nextFarmCost(state: GameState, player: PlayerId): Int =
-        state.config.rules.farmCostBase + state.config.rules.farmCostStep * state.farmCount(player)
+    /** Cost of the player's NEXT farm: base + step per farm already owned (civ-priced). */
+    fun nextFarmCost(state: GameState, player: PlayerId): Int {
+        val rules = effectiveRules(state, player)
+        return rules.farmCostBase + rules.farmCostStep * state.farmCount(player)
+    }
 
-    fun buildingCost(state: GameState, player: PlayerId, type: com.msa.fightandconquer.core.model.BuildingType): Int =
-        when (type) {
+    /** What [player] pays for a fresh building, at their effective rules. */
+    fun buildingCost(state: GameState, player: PlayerId, type: com.msa.fightandconquer.core.model.BuildingType): Int {
+        val rules = effectiveRules(state, player)
+        return when (type) {
             com.msa.fightandconquer.core.model.BuildingType.FARM -> nextFarmCost(state, player)
-            com.msa.fightandconquer.core.model.BuildingType.TOWER -> state.config.rules.towerCost
-            com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER -> state.config.rules.strongTowerCost
-            com.msa.fightandconquer.core.model.BuildingType.MINE -> state.config.rules.mineCost
-            com.msa.fightandconquer.core.model.BuildingType.MARKET -> state.config.rules.marketCost
-            com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> state.config.rules.lumberCampCost
-            com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> state.config.rules.watchtowerCost
-            com.msa.fightandconquer.core.model.BuildingType.PORT -> state.config.rules.portCost
-            com.msa.fightandconquer.core.model.BuildingType.FISHERY -> state.config.rules.fisheryCost
-            com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> state.config.rules.bridgeCost
+            com.msa.fightandconquer.core.model.BuildingType.TOWER -> rules.towerCost
+            com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER -> rules.strongTowerCost
+            com.msa.fightandconquer.core.model.BuildingType.MINE -> rules.mineCost
+            com.msa.fightandconquer.core.model.BuildingType.MARKET -> rules.marketCost
+            com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> rules.lumberCampCost
+            com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> rules.watchtowerCost
+            com.msa.fightandconquer.core.model.BuildingType.PORT -> rules.portCost
+            com.msa.fightandconquer.core.model.BuildingType.FISHERY -> rules.fisheryCost
+            com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> rules.bridgeCost
         }
+    }
 
     /**
      * Treasury credit for demolishing an own [building]:
@@ -301,7 +336,7 @@ object Rules {
      * CAPITAL never reaches here (Legality forbids demolishing it).
      */
     fun demolishRefund(state: GameState, player: PlayerId, building: Building): Int {
-        val rules = state.config.rules
+        val rules = effectiveRules(state, player)
         val cost = when (building) {
             Building.CAPITAL -> return 0
             Building.FARM ->
@@ -322,22 +357,25 @@ object Rules {
 
     /**
      * Treasury credit for disbanding [unit]: [RuleConstants.demolishRefundPercent]
-     * of its cost, cargo included (the cargo goes down with the transport).
+     * of its owner's cost for it, cargo included (the cargo goes down with the
+     * transport).
      */
-    fun disbandRefund(unit: GameUnit, rules: RuleConstants): Int {
-        val own = unitCostOf(rules, unit.tier, unit.type)
-        val cargo = unit.cargo?.let { unitCostOf(rules, it.tier, it.type) } ?: 0
+    fun disbandRefund(state: GameState, unit: GameUnit): Int {
+        val rules = effectiveRules(state, unit.owner)
+        val own = costIn(rules, unit.tier, unit.type)
+        val cargo = unit.cargo?.let { costIn(rules, it.tier, it.type) } ?: 0
         return (own + cargo) * rules.demolishRefundPercent / 100
     }
 
     /** Income the player will collect at turn start: producing hexes, deposits, buildings. */
     fun incomeOf(state: GameState, player: PlayerId): Int =
-        incomeFrom(state.tiles, state.config.rules, player)
+        incomeFrom(state.tiles, effectiveRules(state, player), player)
 
     /**
      * Single source of truth for income, shared with TurnPipeline. A tile produces only
      * when owned, non-starving and flora-free; deposit bonuses and building income stack
-     * on top of [RuleConstants.hexIncome].
+     * on top of [RuleConstants.hexIncome]. [rules] must be [player]'s EFFECTIVE rules
+     * (both callers resolve them; only [player]'s own tiles are read).
      */
     internal fun incomeFrom(
         tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
@@ -393,14 +431,17 @@ object Rules {
     }
 
     fun upkeepOf(state: GameState, player: PlayerId): Int =
-        upkeepFrom(state.units.values, state.config.rules, player)
+        upkeepFrom(state.units.values, effectiveRules(state, player), player)
 
-    /** Single source of truth for upkeep, shared with TurnPipeline (mirrors [incomeFrom]). */
+    /**
+     * Single source of truth for upkeep, shared with TurnPipeline (mirrors [incomeFrom]).
+     * [rules] must be [player]'s EFFECTIVE rules (only [player]'s own units are summed).
+     */
     internal fun upkeepFrom(
         units: Collection<GameUnit>,
         rules: RuleConstants,
         player: PlayerId,
-    ): Int = units.sumOf { if (it.owner == player) unitUpkeepOf(it, rules) else 0 }
+    ): Int = units.sumOf { if (it.owner == player) upkeepIn(it, rules) else 0 }
 
     /**
      * Fog-of-war live vision: union of radius ranges around the player's owned hexes,

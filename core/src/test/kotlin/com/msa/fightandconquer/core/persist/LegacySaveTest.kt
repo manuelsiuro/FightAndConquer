@@ -62,6 +62,8 @@ class LegacySaveTest {
         "demolishRefundPercent",
         // PlayerState (civilizations)
         "civ",
+        // RuleConstants (civilizations, phase 2)
+        "civBonusesEnabled",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {
