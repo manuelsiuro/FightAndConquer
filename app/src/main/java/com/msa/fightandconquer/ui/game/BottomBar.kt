@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.engine.PurchaseOption
 import com.msa.fightandconquer.core.model.BuildingType
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.UnitType
 import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.HudState
@@ -132,6 +133,7 @@ internal fun BottomBar(
                     PurchaseCard(
                         option,
                         state.shopInfo,
+                        civ = state.currentCiv,
                         affordable = option.cost <= state.treasury,
                         onLearn = onOpenGuide,
                         onBuy = { viewModel.buy(option) },
@@ -295,6 +297,7 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
 private fun PurchaseCard(
     option: PurchaseOption,
     shop: ShopInfo,
+    civ: Civilization,
     affordable: Boolean,
     onLearn: (String?) -> Unit,
     onBuy: () -> Unit,
@@ -311,8 +314,8 @@ private fun PurchaseCard(
         is PurchaseOption.Structure -> buildingNameRes(option.type)
     }
     val iconRes = when (option) {
-        is PurchaseOption.Unit -> PieceIcons.unit(option.type, option.tier)
-        is PurchaseOption.Structure -> PieceIcons.building(option.type.building)
+        is PurchaseOption.Unit -> PieceIcons.unit(civ, option.type, option.tier)
+        is PurchaseOption.Structure -> PieceIcons.building(civ, option.type.building)
     }
     val detail = when (option) {
         is PurchaseOption.Unit -> stringResource(

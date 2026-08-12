@@ -1057,6 +1057,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun computeEconomy(): EconomyBreakdown? {
         val state = engine?.state?.value ?: return null
         val me = state.currentPlayer
+        val myCiv = state.player(me).civ
         val rules = state.config.rules
         var hexCount = 0
         var starving = 0
@@ -1118,17 +1119,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         val buildingRows = listOfNotNull(
-            IncomeRow(R.string.building_farm, farmCount, farmTotal, PieceIcons.building(Building.FARM))
+            IncomeRow(R.string.building_farm, farmCount, farmTotal, PieceIcons.building(myCiv, Building.FARM))
                 .takeIf { farmCount > 0 },
-            IncomeRow(R.string.building_mine, mineCount, mineTotal, PieceIcons.building(Building.MINE))
+            IncomeRow(R.string.building_mine, mineCount, mineTotal, PieceIcons.building(myCiv, Building.MINE))
                 .takeIf { mineCount > 0 },
-            IncomeRow(R.string.building_market, marketCount, marketTotal, PieceIcons.building(Building.MARKET))
+            IncomeRow(R.string.building_market, marketCount, marketTotal, PieceIcons.building(myCiv, Building.MARKET))
                 .takeIf { marketCount > 0 },
-            IncomeRow(R.string.building_lumber_camp, campCount, campTotal, PieceIcons.building(Building.LUMBER_CAMP))
+            IncomeRow(R.string.building_lumber_camp, campCount, campTotal, PieceIcons.building(myCiv, Building.LUMBER_CAMP))
                 .takeIf { campCount > 0 },
-            IncomeRow(R.string.building_port, portCount, portTotal, PieceIcons.building(Building.PORT))
+            IncomeRow(R.string.building_port, portCount, portTotal, PieceIcons.building(myCiv, Building.PORT))
                 .takeIf { portCount > 0 },
-            IncomeRow(R.string.building_fishery, fisheryCount, fisheryTotal, PieceIcons.building(Building.FISHERY))
+            IncomeRow(R.string.building_fishery, fisheryCount, fisheryTotal, PieceIcons.building(myCiv, Building.FISHERY))
                 .takeIf { fisheryCount > 0 },
         )
         // Cargo riding a transport still pays its own upkeep — count it with its
@@ -1151,7 +1152,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     count,
                     rules.unitUpkeep[tier - 1],
                     count * rules.unitUpkeep[tier - 1],
-                    PieceIcons.unit(com.msa.fightandconquer.core.model.UnitType.SOLDIER, tier),
+                    PieceIcons.unit(myCiv, com.msa.fightandconquer.core.model.UnitType.SOLDIER, tier),
                 )
             }
         }
@@ -1169,7 +1170,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     0
                 }
-            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each, PieceIcons.unit(type, 1))
+            if (count == 0) null else UpkeepRow(nameRes, count, each, count * each, PieceIcons.unit(myCiv, type, 1))
         }
         val tiers = soldierRows + specialRows
         val income = Rules.incomeOf(state, me)
@@ -1430,7 +1431,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 },
                 stats = stats,
                 factionIndex = unit.owner.value,
-                iconRes = PieceIcons.unit(unit.type, unit.tier),
+                iconRes = PieceIcons.unit(state.player(unit.owner).civ, unit.type, unit.tier),
                 // Own spent units land here (fresh ones get selected instead) and
                 // can still be dismissed for a partial refund.
                 actions = if (own && state.player(me).kind is PlayerKind.Human) {
@@ -1442,6 +1443,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
         tile.building?.let { building ->
             val ownerIndex = tile.owner?.value
+            val ownerCiv = tile.owner?.let { state.player(it).civ } ?: Civilization.KINGDOM
             val card = when (building) {
                 Building.CAPITAL -> InfoCard(
                     UiText.of(R.string.building_capital),
@@ -1453,7 +1455,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.TOWER -> InfoCard(
                     UiText.of(R.string.building_tower),
@@ -1465,7 +1467,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.STRONG_TOWER -> InfoCard(
                     UiText.of(R.string.building_castle),
@@ -1477,7 +1479,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.FARM -> InfoCard(
                     UiText.of(R.string.building_farm),
@@ -1492,7 +1494,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.MINE -> InfoCard(
                     UiText.of(R.string.building_mine),
@@ -1504,7 +1506,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.MARKET -> InfoCard(
                     UiText.of(R.string.building_market),
@@ -1519,7 +1521,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.LUMBER_CAMP -> InfoCard(
                     UiText.of(R.string.building_lumber_camp),
@@ -1534,7 +1536,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.WATCHTOWER -> InfoCard(
                     UiText.of(R.string.building_watchtower),
@@ -1546,7 +1548,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.PORT -> InfoCard(
                     UiText.of(R.string.building_port),
@@ -1558,7 +1560,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.FISHERY -> InfoCard(
                     UiText.of(R.string.building_fishery),
@@ -1573,13 +1575,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     ),
                     ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
                 Building.BRIDGE -> InfoCard(
                     UiText.of(R.string.building_bridge),
                     UiText.of(R.string.info_bridge),
                     factionIndex = ownerIndex,
-                    iconRes = PieceIcons.building(building),
+                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
             }
             // Owner's buildings act from their card: bridges rotate, and anything
@@ -1804,7 +1806,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             upkeep = summary.upkeep,
             turnNumber = state.turnNumber,
             selectedUnitNameRes = selectedName,
-            selectedUnitIconRes = selected?.let { PieceIcons.unit(it.type, it.tier) },
+            selectedUnitIconRes = selected?.let {
+                PieceIcons.unit(state.player(it.owner).civ, it.type, it.tier)
+            },
             selectedUnitDisbandRefund = selected?.let { Rules.disbandRefund(state, it) },
             purchases = purchases,
             canUndo = engine.canUndo(),

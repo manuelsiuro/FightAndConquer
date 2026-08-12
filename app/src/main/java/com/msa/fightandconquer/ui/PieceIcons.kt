@@ -22,13 +22,17 @@ object PieceIcons {
     @DrawableRes
     fun unit(civ: Civilization, type: UnitType, tier: Int): Int = when (civ) {
         Civilization.KINGDOM -> kingdomUnit(type, tier)
-        // Replace an entry with its piece_vikings_* drawable as each icon is delivered.
         Civilization.VIKINGS -> when (type) {
-            UnitType.ARCHER -> R.drawable.piece_archer
-            UnitType.CATAPULT -> R.drawable.piece_catapult
-            UnitType.TRANSPORT -> R.drawable.piece_boat
-            UnitType.WARSHIP -> R.drawable.piece_warship
-            UnitType.SOLDIER -> kingdomSoldier(tier)
+            UnitType.ARCHER -> R.drawable.piece_vikings_archer
+            UnitType.CATAPULT -> R.drawable.piece_vikings_catapult
+            UnitType.TRANSPORT -> R.drawable.piece_vikings_boat
+            UnitType.WARSHIP -> R.drawable.piece_vikings_warship
+            UnitType.SOLDIER -> when (tier) {
+                1 -> R.drawable.piece_vikings_unit_t1
+                2 -> R.drawable.piece_vikings_unit_t2
+                3 -> R.drawable.piece_vikings_unit_t3
+                else -> R.drawable.piece_vikings_unit_t4
+            }
         }
         // Replace an entry with its piece_sultanate_* drawable as each icon is delivered.
         Civilization.SULTANATE -> when (type) {
@@ -51,19 +55,18 @@ object PieceIcons {
     @DrawableRes
     fun building(civ: Civilization, building: Building): Int = when (civ) {
         Civilization.KINGDOM -> kingdomBuilding(building)
-        // Replace an entry with its piece_vikings_* drawable as each icon is delivered.
         Civilization.VIKINGS -> when (building) {
-            Building.CAPITAL -> R.drawable.piece_capital
-            Building.FARM -> R.drawable.piece_farm
-            Building.TOWER -> R.drawable.piece_tower
-            Building.STRONG_TOWER -> R.drawable.piece_strong_tower
-            Building.MINE -> R.drawable.piece_mine
-            Building.MARKET -> R.drawable.piece_market
-            Building.LUMBER_CAMP -> R.drawable.piece_lumber_camp
-            Building.WATCHTOWER -> R.drawable.piece_watchtower
-            Building.PORT -> R.drawable.piece_port
-            Building.FISHERY -> R.drawable.piece_fishery
-            Building.BRIDGE -> R.drawable.piece_bridge
+            Building.CAPITAL -> R.drawable.piece_vikings_capital
+            Building.FARM -> R.drawable.piece_vikings_farm
+            Building.TOWER -> R.drawable.piece_vikings_tower
+            Building.STRONG_TOWER -> R.drawable.piece_vikings_strong_tower
+            Building.MINE -> R.drawable.piece_vikings_mine
+            Building.MARKET -> R.drawable.piece_vikings_market
+            Building.LUMBER_CAMP -> R.drawable.piece_vikings_lumber_camp
+            Building.WATCHTOWER -> R.drawable.piece_vikings_watchtower
+            Building.PORT -> R.drawable.piece_vikings_port
+            Building.FISHERY -> R.drawable.piece_vikings_fishery
+            Building.BRIDGE -> R.drawable.piece_vikings_bridge
         }
         // Replace an entry with its piece_sultanate_* drawable as each icon is delivered.
         Civilization.SULTANATE -> when (building) {
