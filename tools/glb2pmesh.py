@@ -17,6 +17,9 @@ are merged into one part.
 
 Usage: glb2pmesh.py <in.glb> <out.pmesh>
        glb2pmesh.py --all <models_dir> <assets_dir>
+
+--all also walks ONE level of civilization subdirectories: models_dir/<civ>/x.glb
+bakes to assets_dir/<civ>/x.pmesh (same budgets). Flat files stay the Kingdom set.
 """
 
 import json
@@ -176,10 +179,10 @@ def write_pmesh(by_role, out_path):
     return len(blob)
 
 
-def convert(src, dst):
+def convert(src, dst, label=None):
     gltf, binary = parse_glb(src)
     by_role = collect_triangles(gltf, binary)
-    name = Path(src).stem
+    name = label or Path(src).stem
     total, radius, height = validate(name, by_role)
     size = write_pmesh(by_role, dst)
     roles = ", ".join(f"{r}:{len(t)}" for r, t in sorted(by_role.items()))
@@ -189,13 +192,24 @@ def convert(src, dst):
 def main():
     args = sys.argv[1:]
     if len(args) == 3 and args[0] == "--all":
-        models = sorted(Path(args[1]).glob("*.glb"))
-        if not models:
+        models_dir = Path(args[1])
+        assets_dir = Path(args[2])
+        jobs = [
+            (glb, assets_dir / (glb.stem + ".pmesh"), glb.stem)
+            for glb in sorted(models_dir.glob("*.glb"))
+        ]
+        # One level of civ subdirectories: models/<civ>/x.glb -> pieces/<civ>/x.pmesh.
+        for sub in sorted(p for p in models_dir.iterdir() if p.is_dir()):
+            jobs += [
+                (glb, assets_dir / sub.name / (glb.stem + ".pmesh"), f"{sub.name}/{glb.stem}")
+                for glb in sorted(sub.glob("*.glb"))
+            ]
+        if not jobs:
             print(f"no .glb files in {args[1]}", file=sys.stderr)
             return 1
-        Path(args[2]).mkdir(parents=True, exist_ok=True)
-        for glb in models:
-            convert(glb, Path(args[2]) / (glb.stem + ".pmesh"))
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        for glb, out, label in jobs:
+            convert(glb, out, label)
         return 0
     if len(args) == 2:
         convert(args[0], args[1])

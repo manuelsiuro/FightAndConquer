@@ -61,7 +61,10 @@ object PieceMeshLoader {
         return parts
     }
 
-    /** Loads pieces/<name>.pmesh from assets and uploads it; null if the asset is absent. */
+    /**
+     * Loads pieces/<name>.pmesh from assets and uploads it; null if the asset is absent.
+     * [name] may carry a civ subdirectory (e.g. "vikings/unit_t1") — Kingdom stays flat.
+     */
     fun load(context: Context, engine: Engine, name: String): List<Part>? {
         val bytes = try {
             context.assets.open("pieces/$name.pmesh").use { it.readBytes() }
