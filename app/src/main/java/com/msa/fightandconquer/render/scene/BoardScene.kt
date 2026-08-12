@@ -853,6 +853,7 @@ class BoardScene(
                     val to = event.into.hex
                     consumed.animFrom = from
                     consumed.setHidden(FogRules.segmentHidden(fogVisible, from, to))
+                    val startYaw = consumed.yaw
                     animator.tween(0.25f, Easings::easeOutCubic, onEnd = {
                         destroyPiece(consumed)
                         finish()
@@ -860,6 +861,7 @@ class BoardScene(
                         consumed.xz = lerpHex(from, to, t)
                         consumed.yOffset = Easings.hop(t) * 0.3f
                         consumed.scale = 1f - 0.5f * t
+                        faceHeading(consumed, startYaw, from, to, t)
                         consumed.updateTransform()
                     }
                 } else {
@@ -879,6 +881,19 @@ class BoardScene(
             is GameEvent.BuildingDestroyed -> {
                 val piece = buildingPieces.remove(event.hex) ?: return
                 sinkAway(piece)
+            }
+
+            is GameEvent.BuildingRotated -> {
+                val piece = buildingPieces[event.hex] ?: return
+                val from = piece.yaw
+                val to = bridgeYaw(event.hex) // latestState already holds the new axis
+                animator.tween(0.25f, Easings::easeOutCubic, onEnd = {
+                    piece.yaw = to // exact value, so reconcile sees no drift
+                    piece.updateTransform()
+                }) { t ->
+                    piece.yaw = PieceHeadings.lerpAngle(from, to, t)
+                    piece.updateTransform()
+                }
             }
 
             is GameEvent.TreeGrown -> growTree(event.hex, replaceGrave = true)
@@ -914,10 +929,12 @@ class BoardScene(
                 piece.animFrom = event.from
                 piece.setHidden(FogRules.segmentHidden(fogVisible, event.from, event.at))
                 val from = event.from
+                val startYaw = piece.yaw
                 animator.tween(0.25f, Easings::easeOutCubic, onEnd = { destroyPiece(piece) }) { t ->
                     piece.xz = lerpHex(from, event.at, t)
                     piece.yOffset = Easings.hop(t) * 0.25f
                     piece.scale = 1f - 0.6f * t
+                    faceHeading(piece, startYaw, from, event.at, t)
                     piece.updateTransform()
                 }
             }
@@ -955,7 +972,7 @@ class BoardScene(
             is GameEvent.PactProposed, is GameEvent.PactAccepted, is GameEvent.PactDeclined,
             is GameEvent.PactExpired, is GameEvent.PactProposalExpired,
             is GameEvent.PactBroken, is GameEvent.TributeSent,
-            is GameEvent.ScriptFired,
+            is GameEvent.ScriptFired, is GameEvent.RefundPaid,
             -> Unit
         }
     }
@@ -985,6 +1002,7 @@ class BoardScene(
         piece.hex = to
         piece.animFrom = from
         piece.setHidden(FogRules.segmentHidden(fogVisible, from, to))
+        val startYaw = piece.yaw
         animator.tween(0.25f, Easings::easeOutCubic, onEnd = {
             piece.animFrom = null
             piece.xz = null
@@ -995,6 +1013,7 @@ class BoardScene(
         }) { t ->
             piece.xz = lerpHex(from, to, t)
             piece.yOffset = Easings.hop(t) * height
+            faceHeading(piece, startYaw, from, to, t)
             piece.updateTransform()
         }
     }
@@ -1059,6 +1078,7 @@ class BoardScene(
             piece.setHidden(FogRules.segmentHidden(fogVisible, a, b))
             val yDelta = tileTopY(a) - tileTopY(b)
             val height = if (glide) 0f else if (last) 0.3f else 0.2f
+            val startYaw = piece.yaw
             animator.tween(perHex, if (last) Easings::easeOutCubic else Easings::linear, onEnd = {
                 if (last) {
                     piece.animFrom = null
@@ -1073,6 +1093,7 @@ class BoardScene(
             }) { t ->
                 piece.xz = lerpHex(a, b, t)
                 piece.yOffset = Easings.hop(t) * height + (1f - t) * yDelta
+                faceHeading(piece, startYaw, a, b, t)
                 piece.updateTransform()
             }
         }
@@ -1173,29 +1194,31 @@ class BoardScene(
     }
 
     /**
-     * A bridge deck (authored along Z) turns toward its first LAND or BRIDGE
-     * neighbor — a pure function of the board, so create and reconcile always
-     * agree and the yaw never counts as a correction.
+     * A bridge deck (authored along Z) aims along the player-stored orientation,
+     * or auto-aligns with the chain's through-axis — a pure function of the board
+     * (see [PieceHeadings.bridgeYaw]), so create and reconcile always agree and
+     * the yaw never counts as a correction.
      */
-    private fun bridgeYaw(hex: Hex): Float {
-        var yaw = 0f
-        var found = false
-        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
-            if (!found) {
-                val t = latestState.tiles[n]
-                if (t != null && (
-                        t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND ||
-                            t.building == Building.BRIDGE
-                        )
-                ) {
-                    val dx = HexWorld.centerX(n) - HexWorld.centerX(hex)
-                    val dz = HexWorld.centerZ(n) - HexWorld.centerZ(hex)
-                    yaw = kotlin.math.atan2(dx, dz)
-                    found = true
-                }
-            }
-        }
-        return yaw
+    private fun bridgeYaw(hex: Hex): Float = PieceHeadings.bridgeYaw(
+        hex,
+        latestState.tiles[hex]?.bridgeOrientation,
+    ) { n ->
+        val t = latestState.tiles[n]
+        t != null && (
+            t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND ||
+                t.building == Building.BRIDGE
+            )
+    }
+
+    /**
+     * Turns [piece] toward the travel direction [from] → [to] over the first
+     * [HEADING_TURN_FRACTION] of a motion tween ([t] is the tween's progress).
+     * Shortest arc, so a reversal is a 180° about-face, never a 350° spin.
+     */
+    private fun faceHeading(piece: Piece, startYaw: Float, from: Hex, to: Hex, t: Float) {
+        if (from == to) return
+        val target = PieceHeadings.headingYaw(from, to)
+        piece.yaw = PieceHeadings.lerpAngle(startYaw, target, minOf(1f, t / HEADING_TURN_FRACTION))
     }
 
     /**
@@ -1445,8 +1468,19 @@ class BoardScene(
                 piece.updateTransform()
                 corrections++
             }
+            val current = pieces.getValue(hex)
+            // Bridge yaw is a pure function of state (player axis or auto-align),
+            // so existing spans re-aim here as their chain grows and rotations
+            // survive undo/load — silently, like fog (never a correction).
+            if (current.kind == PieceKind.BRIDGE) {
+                val expectedYaw = bridgeYaw(hex)
+                if (current.yaw != expectedYaw) {
+                    current.yaw = expectedYaw
+                    current.updateTransform()
+                }
+            }
             // Fog is a view annotation — sync silently (never a correction).
-            pieces.getValue(hex).setHidden(isFogged(hex))
+            current.setHidden(isFogged(hex))
         }
         return corrections
     }
@@ -1503,6 +1537,8 @@ class BoardScene(
         private const val FOG_EXPLORED_FACTOR = 0.45f
         private const val FOG_HIDDEN_FACTOR = 0.12f
         private const val MAX_PATH_LEN = 24
+        /** Units turn toward their heading over this leading fraction of each motion segment. */
+        private const val HEADING_TURN_FRACTION = 0.25f
         /** Label anchor height: above the tallest piece (capital banner ~0.70). */
         private const val ANCHOR_LIFT = 0.8f
         /** Water shimmer wrap: 20pi is a whole period of both sine bands (x0.9, x0.6). */
