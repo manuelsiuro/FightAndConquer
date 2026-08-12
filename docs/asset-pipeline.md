@@ -125,6 +125,33 @@ never clip them).
 `PieceMeshLoaderTest` re-validates every checked-in `.pmesh` against the converter
 budgets and fails if a shipped kind loses its bake.
 
+## Civilization sub-sets
+
+The flat set above IS the Kingdom set. Other civilizations fork it one directory
+level down, same pipeline end to end (full feature spec:
+[civilizations.md](civilizations.md)):
+
+- **Authoring**: `art/blender/pieces/<civ>/<kind>.py` with `KIND = "<CIV>_<KIND>"`
+  (collection name — keeps every civ's collections distinct in one .blend) but the
+  same `PIECE = "<kind>"`, exported via `export_piece(PIECE, coll, subdir="<civ>")`
+  → `art/models/<civ>/<kind>.glb`. All flat-set conventions apply unchanged: roles,
+  budgets, front faces −Y, and **identical unit tier heights (0.30 / 0.41 / 0.48 /
+  0.54) + `add_pips` rings across civs** — tier readability is a cross-civ contract.
+- **Bake**: `glb2pmesh.py --all` walks one level of civ subdirectories —
+  `art/models/<civ>/x.glb` → `assets/pieces/<civ>/x.pmesh` — with the same
+  validation.
+- **Icons**: addressed as `<civ>/<kind>` (e.g.
+  `python3 tools/render_piece_icons.py vikings/capital`), producing
+  `piece_<civ>_<kind>.png` in `art/icons/` + `drawable-nodpi/`; mapped by the
+  (civ, kind) tables in `ui/PieceIcons.kt`.
+- **Scope**: only the 19 player-owned kinds fork (`PieceMeshes.CIV_FORKED_KINDS`);
+  neutral markers (tree, gravestone, deposits) never fork — don't author them.
+- **Fallback**: `PieceMeshes` resolves (civilization, kind) lazily per civ present
+  in the game; a forked kind without a baked asset shares the Kingdom `Part`s
+  instance (loaded once, freed once — `PieceMeshLoaderTest` exercises the exact
+  logic), and a missing icon points at the Kingdom drawable. Civ art therefore
+  ships incrementally: an unfinished set renders as Kingdom, never crashes.
+
 ## Adding or changing a piece — checklist
 
 1. Edit/create `art/blender/pieces/<name>.py` (respect roles, budgets, heights).

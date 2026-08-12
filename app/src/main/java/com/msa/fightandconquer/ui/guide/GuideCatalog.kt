@@ -309,7 +309,41 @@ object GuideCatalog {
         ),
     )
 
-    val sections: List<GuideSection> = listOf(basics, units, buildings, resources)
+    private val civs = GuideSection(
+        R.string.guide_section_civs,
+        listOf(
+            GuideEntry(
+                id = "civ_kingdom",
+                iconRes = R.drawable.piece_capital,
+                nameRes = R.string.civ_kingdom,
+                descRes = R.string.guide_desc_civ_kingdom,
+                howToRes = R.string.guide_how_civ,
+            ),
+            GuideEntry(
+                id = "civ_vikings",
+                iconRes = R.drawable.piece_vikings_capital,
+                nameRes = R.string.civ_vikings,
+                descRes = R.string.guide_desc_civ_vikings,
+                howToRes = null,
+            ),
+            GuideEntry(
+                id = "civ_sultanate",
+                iconRes = R.drawable.piece_sultanate_capital,
+                nameRes = R.string.civ_sultanate,
+                descRes = R.string.guide_desc_civ_sultanate,
+                howToRes = null,
+            ),
+            GuideEntry(
+                id = "civ_shogunate",
+                iconRes = R.drawable.piece_shogunate_capital,
+                nameRes = R.string.civ_shogunate,
+                descRes = R.string.guide_desc_civ_shogunate,
+                howToRes = null,
+            ),
+        ),
+    )
+
+    val sections: List<GuideSection> = listOf(basics, civs, units, buildings, resources)
 
     /** The guide entry for a purchasable building, so a purchase card can link to it. */
     fun forStructure(type: BuildingType): GuideEntry = when (type) {

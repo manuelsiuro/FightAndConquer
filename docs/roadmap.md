@@ -58,6 +58,26 @@ and the AI are untouched. Levels are ASCII-art sources baked to JSON assets by
 (`disabledBuildings`, `maxTier`, the feature flags) rather than by gating actions.
 Full spec: [campaign.md](campaign.md).
 
+## Shipped: civilizations
+
+The `feature/civilizations` work (per-seat identity: art set + light rule deltas)
+landed in three save-compatible phases, same discipline as above (defaulted fields —
+pre-civ saves decode as all-Kingdom; `LegacySaveTest`-guarded):
+
+1. **Identity** — the `Civilization` enum (KINGDOM baseline / VIKINGS / SULTANATE /
+   SHOGUNATE) on `PlayerState.civ`, per-seat picker in `SetupScreen`,
+   `LevelDef.civs` for campaign/custom maps (`MapViolation.CivsSizeMismatch`).
+2. **Modifiers** — the `CivModifiers` delta table resolved through
+   `Rules.effectiveRules(state, player)` so no rule site branches on a civ; the
+   soldier ladder stays universal (AI `MoveGenerator`/`NavalPolicy` assumptions);
+   AI affordability reads effective rules.
+3. **Art** — per-civ Blender sets (`art/blender/pieces/<civ>/`, 19 player-owned
+   kinds each; neutral markers never fork), (civ, kind)-keyed `PieceMeshes` +
+   `PieceIcons` with lazy per-civ preload and shared-instance Kingdom fallback.
+
+Feature gate: `civBonusesEnabled` (default on; off = art only). Full spec in
+[civilizations.md](civilizations.md).
+
 ## Designed-for, not yet built
 
 ### Map editor — SHIPPED
@@ -111,6 +131,15 @@ purchase-card copy in `GameScreen`, info card in `GameViewModel.infoCardFor`.
 `tier - 1` indexing site, AI `MoveGenerator` cheapest-breaker logic handles it
 automatically; add `PieceKind.UNIT_T5` + model + `PieceMeshes.unitKind`; keep the
 height progression strictly increasing and pips countable.
+
+**New civilization**: add the `Civilization` entry (name-serialized — no new save
+keys), its delta arm in `CivModifiers.modified` (never the soldier ladder), strings +
+`civNameRes`/guide mapping, the `PieceIcons` branch (Kingdom drawables until icons
+ship), then 19 Blender scripts under `art/blender/pieces/<name>/` + `glb2pmesh.py
+--all` + `render_piece_icons.py <name>/<kind>` — art lands incrementally over the
+Kingdom fallback. Tests: `CivModifiersTest`, `CampaignCodecTest` round-trip,
+`PieceMeshLoaderTest`, an `AiSimulationTest` mixed-civ run (`civs` param). Full
+recipe in [civilizations.md](civilizations.md#adding-a-fifth-civilization).
 
 **New AI difficulty**: add to `Difficulty` (and to `Difficulty.selectable` if players may
 pick it), weight branch in `Evaluator.score`, candidate filtering in `MoveGenerator`, seat
