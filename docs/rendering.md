@@ -61,9 +61,15 @@ match the filament-android runtime** — recompile on every Filament upgrade.
 - **Pieces**: registry `unitPieces[UnitId]`, `buildingPieces[Hex]`, `floraPieces[Hex]`.
   A `Piece` = N part entities sharing one transform (`Transforms.trs`: translate +
   Y-rotation + uniform scale only), its roles + ownerIndex (for re-tinting),
-  `setDimmed()` (spent units ×0.72 on every part), and a `yaw` — bridges rotate
-  toward their first land/bridge neighbor (`bridgeYaw`, a pure function of the
-  board so create and reconcile always agree).
+  `setDimmed()` (spent units ×0.72 on every part), and a `yaw`. Bridge yaw is a
+  pure function of state (`PieceHeadings.bridgeYaw`): the player-stored
+  `Tile.bridgeOrientation` wins, else the chain's through-axis (both deck ends
+  touching land/bridge), else any connected end — so create and reconcile
+  always agree, and reconcile silently re-aims existing spans as their chain
+  grows (never a correction, same class as fog). Unit yaw is **view-only**
+  heading: motion segments turn the piece toward its travel direction over
+  their first quarter (`PieceHeadings.headingYaw` + shortest-arc `lerpAngle`),
+  the heading persists at rest, and reconcile deliberately ignores it.
 - **Event queue / director**: `apply(state, events)` enqueues; `onFrame` starts the
   next beat only when the `Animator` is idle, so beats play strictly in order.
   Handlers (spawn bounce easeOutBack + camera rumble, multi-hex path hops via

@@ -60,7 +60,12 @@ post-action hook in `Reducer.reduce`; live vision is always derived via
 `GameAction` (all implicitly by `currentPlayer`): `MoveUnit(unit, to)` (move OR
 capture, one action), `BuyUnit(tier, at, type)` (place / buy-merge / buy-capture;
 `type` defaults to SOLDIER so old logs replay unchanged), `BuyBuilding(type, at)`,
-`MergeUnits(a, b)` (a is the fresh mover), `Disembark(boat, to)`,
+`MergeUnits(a, b)` (a is the fresh mover), `RotateBuilding(at, orientation)`
+(sets an own bridge's deck axis 0..2 on `Tile.bridgeOrientation` — cosmetic,
+free, but engine state so saves and replays agree), `DemolishBuilding(at)` /
+`DisbandUnit(unit)` (raze an own non-capital building / dismiss an own unit for
+a `demolishRefundPercent` refund; a demolished bridge reverts to neutral sea,
+and both recompute starvation where relevant), `Disembark(boat, to)`,
 `Bombard(unit, target)`, `ProposePact(to, durationRounds)`,
 `RespondPact(from, accept)`, `SendTribute(to, amount)`, `EndTurn`, `Surrender`, and
 `RunScript(tag, spawns, grants)` — the campaign director's story beat (docs/campaign.md):
@@ -77,11 +82,15 @@ mid-turn autosaves — regression-tested in `persist/LegacySaveTest`).
 
 `GameEvent` — ordered facts for animation/tests: `ActionRejected`, `UnitSpawned`,
 `UnitMoved(unit, from, to)`, `HexCaptured(hex, newOwner, oldOwner)`,
-`UnitDied(unit, hex, cause KILLED|STARVED|BANKRUPTCY|SUNK)`, `UnitsMerged(into, consumed)`,
+`UnitDied(unit, hex, cause KILLED|STARVED|BANKRUPTCY|SUNK|DISBANDED)` (DISBANDED
+leaves no gravestone and is excluded from the campaign "units lost" tally),
+`UnitsMerged(into, consumed)`,
 `UnitEmbarked(unit, transport, from, at)`, `UnitDisembarked(transport, unit, to)`,
 `Bombarded(by, target)`,
 `ScriptFired(tag)` (campaign narration; the renderer needs no case for it),
-`BuildingBuilt/Destroyed`, `TreeGrown`, `TreeSpread(from, to)`, `TreeCleared(hex,
+`BuildingBuilt/Destroyed`, `BuildingRotated(hex, orientation)`,
+`RefundPaid(player, hex, amount)` (HUD-only "+N" popup; the board renders
+nothing), `TreeGrown`, `TreeSpread(from, to)`, `TreeCleared(hex,
 bonus)`, `GravestoneTrampled`, `TurnStarted(player, income, upkeep)`, `Bankruptcy`,
 `CapitalMoved(player, from, to, loot)`, `PlayerEliminated`, `GameOver(winner)`,
 plus HUD-only diplomacy facts: `PactProposed/Accepted/Declined/Expired`,
@@ -90,6 +99,7 @@ plus HUD-only diplomacy facts: `PactProposed/Accepted/Declined/Expired`,
 Flow: `Reducer.reduce` → `Legality.check` (returns a `RejectionReason` code plus an
 optional `amount` — the UI maps it to a localized toast) → apply on an internal mutable `StateBuilder`
 (shared ops: `spawnUnit`, `killUnit`, `clearFloraAt`, `captureHex`,
+`razeBuilding` (bombard + demolish; a bridge collapses to neutral open water),
 `recomputeStarving`, `checkElimination`) → freeze to `ReduceResult(state, events)`.
 `TurnPipeline` implements the turn-start ordering (see game-rules.md).
 
@@ -306,3 +316,9 @@ is the last obstacle, which keeps pacted duels from deadlocking.
   full invasion loop), `SeaEconomyTest`, `FishShoalGenerationTest`, and
   `NavalAiTest` (two-island conquest within bounded rounds + random-island
   termination; the Hard-mirror winrate gate covers island maps too).
+- Demolition & rotation suites: `RotateBridgeTest` (axis stored + event,
+  rejections, undo, bombard clears the orientation) and `DemolishDisbandTest`
+  (refund arithmetic incl. the last-farm price, capital/enemy/occupied-bridge
+  rejections, bridge→neutral-sea + restarve, port demolition restarves the
+  colony, no gravestone on disband, loaded-transport cargo refund, undo,
+  campaign units-lost exclusion).

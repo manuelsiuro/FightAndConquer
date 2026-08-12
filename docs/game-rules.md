@@ -38,6 +38,7 @@ per game without breaking old saves.
 | Beachhead grace | 3 turns | Sea-captured hexes carry landing stores; the starving region skips unit deaths while stocked |
 | Fishery | cost 18, +3 per adjacent fish shoal (cap 3) | Own coastal land next to fish shoals |
 | Bridge | cost 15 per hex | Built on sea touching own land/bridge; walkable ground, blocks boats |
+| Demolish refund | 50 % of cost | Razing an own building / disbanding an own unit returns half its price (`demolishRefundPercent`) |
 | Fish shoal (deposit) | 1 per player (band 2–6 from capital) + 1 neutral per 150 land hexes | Sea-only deposit; only a Fishery harvests it |
 | Pact duration | 2–10 rounds (proposals default to 6) | Unanswered proposals lapse after 1 full round |
 | Pact proposal cooldown | 6 rounds per pair | Anti-spam, enforced by Legality |
@@ -90,6 +91,22 @@ negative, treasury is set to 0 and **all** of that player's units die (graveston
 
 **Victory.** Last non-eliminated color wins. Surrender reverts territory to neutral,
 kills the quitter's units, and passes the turn.
+
+**Demolition & disbanding.** The current player may raze any own building except
+the Capital (`DemolishBuilding`) and dismiss any own unit, fresh or spent
+(`DisbandUnit`). Both refund `demolishRefundPercent` (50 %) of the piece's cost —
+for a Farm, of the **last** farm's price (base + step × (farms − 1)), so
+build-then-demolish always loses money; a loaded transport's refund includes its
+cargo (which goes down with the boat). Demolishing a bridge reverts the hex to
+open neutral water (refused while a unit stands on the span) and, like razing a
+Port, immediately recomputes starvation — cutting your own supply line is legal
+and instant. Disbanded units leave **no** gravestone and do not count as campaign
+"units lost". Both actions are undoable within the turn like any other.
+
+**Bridge rotation.** A bridge's deck is cosmetic but persistent: `RotateBuilding`
+stores one of 3 axes on the tile (`Tile.bridgeOrientation`; the deck is
+180°-symmetric), free of charge. Unrotated spans auto-align with their chain's
+through-axis and re-aim as the chain grows; a stored axis is a sticky override.
 
 **Terrain deposits.** Gold veins and fertile ground are permanent terrain placed at
 map generation (fair by construction: each capital gets its own inside its Voronoi
