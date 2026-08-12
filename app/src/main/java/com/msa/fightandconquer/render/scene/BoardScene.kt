@@ -9,6 +9,7 @@ import com.msa.fightandconquer.core.engine.DeathCause
 import com.msa.fightandconquer.core.engine.GameEvent
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.UnitId
@@ -110,6 +111,9 @@ class BoardScene(
 
     private inner class Piece(
         val kind: PieceKind,
+        /** The art set actually rendering — [PieceMeshes.artCivFor] of the owner's civ.
+         *  Part of piece identity: reconcile recreates on a mismatch, like a kind change. */
+        val civ: Civilization,
         val entities: IntArray,
         val instances: List<MaterialInstance>,
         val roles: List<com.msa.fightandconquer.render.mesh.ColorRole>,
@@ -329,6 +333,10 @@ class BoardScene(
         boardSpanZ = maxZ - minZ + 2f
         rig.boundsFromBoard(minX, maxX, minZ, maxZ)
 
+        // Load only the art sets this game can show; absent civs stay unloaded.
+        pieceMeshes.preload(
+            initialState.players.mapTo(HashSet()) { it.civ } + Civilization.KINGDOM,
+        )
         reconcile(initialState, log = false)
     }
 
@@ -790,6 +798,22 @@ class BoardScene(
 
             is GameEvent.HexCaptured -> {
                 val te = tiles[event.hex] ?: return
+                // A captured building swaps art when the new owner's civ renders a
+                // different set — done here so the reconcile that follows the queue
+                // sees the swap already made (never a correction). Tint rules are
+                // unchanged: createPiece re-derives colors from the same roles.
+                buildingPieces[event.hex]?.let { standing ->
+                    val newCiv = artCivFor(event.newOwner.value, standing.kind)
+                    if (standing.civ != newCiv) {
+                        destroyPiece(standing)
+                        val fresh = createPiece(standing.kind, event.hex, event.newOwner.value)
+                        if (fresh.kind == PieceKind.BRIDGE) {
+                            fresh.yaw = bridgeYaw(event.hex)
+                            fresh.updateTransform()
+                        }
+                        buildingPieces[event.hex] = fresh
+                    }
+                }
                 // Sea stays water: a captured bridge hex shows ownership on the piece,
                 // never on the tile (no raise, no wave).
                 if (te.sea) return
@@ -1118,8 +1142,17 @@ class BoardScene(
         ColorRole.PIP -> Palette.INK
     }
 
+    /** The owner's civilization; null owner (neutral pieces, deposits) renders Kingdom. */
+    private fun civFor(ownerIndex: Int?): Civilization =
+        ownerIndex?.let { latestState.players.getOrNull(it)?.civ } ?: Civilization.KINGDOM
+
+    /** The art identity for a piece: collapses fallback shares onto KINGDOM. */
+    private fun artCivFor(ownerIndex: Int?, kind: PieceKind): Civilization =
+        pieceMeshes.artCivFor(civFor(ownerIndex), kind)
+
     private fun createPiece(kind: PieceKind, hex: Hex, ownerIndex: Int?): Piece {
-        val parts = pieceMeshes.partsFor(kind)
+        val civ = artCivFor(ownerIndex, kind)
+        val parts = pieceMeshes.partsFor(civ, kind)
         val pieceMaterial = materials.material("piece")
         val entities = IntArray(parts.size)
         val instances = ArrayList<MaterialInstance>(parts.size)
@@ -1141,7 +1174,7 @@ class BoardScene(
             entities[index] = entity
             instances.add(instance)
         }
-        return Piece(kind, entities, instances, parts.map { it.role }, ownerIndex, hex)
+        return Piece(kind, civ, entities, instances, parts.map { it.role }, ownerIndex, hex)
             .also {
                 it.updateTransform()
                 // Fog: hide in the same pass so a fogged piece never flashes for a frame.
@@ -1344,7 +1377,10 @@ class BoardScene(
         for (unit in state.units.values) {
             val expectedKind = pieceMeshes.unitKind(unit)
             val piece = unitPieces[unit.id]
-            if (piece == null || piece.kind != expectedKind) {
+            // A differing art civ is an identity change like a kind change: recreate.
+            if (piece == null || piece.kind != expectedKind ||
+                piece.civ != artCivFor(unit.owner.value, expectedKind)
+            ) {
                 piece?.let { destroyPiece(it) }
                 unitPieces[unit.id] = createPiece(expectedKind, unit.hex, unit.owner.value)
                 if (piece != null || pendingState != null) corrections++
@@ -1430,7 +1466,11 @@ class BoardScene(
         for ((hex, tile) in state.tiles) {
             val kind = expected(tile) ?: continue
             val piece = pieces[hex]
-            if (piece == null || piece.kind != kind) {
+            // An owner whose civ renders different art (captures, elimination-neutral
+            // bridges) is an identity change like a kind change: recreate.
+            if (piece == null || piece.kind != kind ||
+                piece.civ != artCivFor(tile.owner?.value, kind)
+            ) {
                 piece?.let { destroyPiece(it) }
                 val fresh = createPiece(kind, hex, tile.owner?.value)
                 if (kind == PieceKind.BRIDGE) {
