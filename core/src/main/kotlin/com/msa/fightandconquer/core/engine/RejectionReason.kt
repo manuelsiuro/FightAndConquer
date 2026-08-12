@@ -90,4 +90,12 @@ enum class RejectionReason {
     SCRIPTED_EVENTS_DISABLED,
     /** A scripted spawn/grant names a hex or player the state cannot honor. */
     INVALID_SCRIPT_TARGET,
+    /** Only bridges can be rotated. */
+    NOT_A_BRIDGE,
+    /** Bridge orientation must be an axis index 0..2. */
+    INVALID_ORIENTATION,
+    /** Nothing standing on that hex to demolish. */
+    NO_BUILDING_THERE,
+    /** The capital can never be demolished. */
+    CANNOT_DEMOLISH_CAPITAL,
 }

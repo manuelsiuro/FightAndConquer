@@ -23,6 +23,9 @@ object Reducer {
             is GameAction.BuyUnit -> applyBuyUnit(state, b, action)
             is GameAction.BuyBuilding -> applyBuyBuilding(state, b, action)
             is GameAction.MergeUnits -> applyMerge(state, b, action)
+            is GameAction.RotateBuilding -> applyRotateBuilding(b, action)
+            is GameAction.DemolishBuilding -> applyDemolishBuilding(state, b, action)
+            is GameAction.DisbandUnit -> applyDisbandUnit(state, b, action)
             is GameAction.Disembark -> applyDisembark(state, b, action)
             is GameAction.Bombard -> applyBombard(state, b, action)
             is GameAction.ProposePact -> applyProposePact(b, action)
@@ -130,11 +133,7 @@ object Reducer {
         val building = target.building
         if (building != null && building != com.msa.fightandconquer.core.model.Building.CAPITAL) {
             // A bombarded bridge collapses back into open neutral water.
-            val bridge = building == com.msa.fightandconquer.core.model.Building.BRIDGE
-            b.updateTile(action.target) {
-                it.copy(building = null, owner = if (bridge) null else it.owner, starving = false)
-            }
-            b.events.add(GameEvent.BuildingDestroyed(action.target, building))
+            b.razeBuilding(action.target)
         }
         b.units[ship.id] = ship.copy(spent = true)
         // Destroying a PORT can starve an overseas colony on the spot.
@@ -201,6 +200,31 @@ object Reducer {
         if (action.type == com.msa.fightandconquer.core.model.BuildingType.PORT) {
             b.recomputeStarving()
         }
+    }
+
+    private fun applyRotateBuilding(b: StateBuilder, action: GameAction.RotateBuilding) {
+        b.updateTile(action.at) { it.copy(bridgeOrientation = action.orientation) }
+        b.events.add(GameEvent.BuildingRotated(action.at, action.orientation))
+    }
+
+    private fun applyDemolishBuilding(state: GameState, b: StateBuilder, action: GameAction.DemolishBuilding) {
+        val owner = state.currentPlayer
+        // Refund BEFORE mutating — the farm refund reads the still-standing farm count.
+        val building = state.tiles.getValue(action.at).building!!
+        val refund = Rules.demolishRefund(state, owner, building)
+        b.razeBuilding(action.at)
+        b.updatePlayer(owner) { it.copy(treasury = it.treasury + refund) }
+        b.events.add(GameEvent.RefundPaid(owner, action.at, refund))
+        // Removing a PORT or BRIDGE can cut a region off on the spot.
+        b.recomputeStarving()
+    }
+
+    private fun applyDisbandUnit(state: GameState, b: StateBuilder, action: GameAction.DisbandUnit) {
+        val unit = state.units.getValue(action.unit)
+        val refund = Rules.disbandRefund(unit, b.rules)
+        b.killUnit(unit.id, DeathCause.DISBANDED)
+        b.updatePlayer(unit.owner) { it.copy(treasury = it.treasury + refund) }
+        b.events.add(GameEvent.RefundPaid(unit.owner, unit.hex, refund))
     }
 
     private fun applyMerge(state: GameState, b: StateBuilder, action: GameAction.MergeUnits) {

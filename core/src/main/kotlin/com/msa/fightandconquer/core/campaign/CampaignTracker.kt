@@ -73,7 +73,8 @@ data class CampaignTracker(
                 when (event) {
                     is GameEvent.UnitDied -> {
                         val dead = before.units[event.unit] ?: continue
-                        if (dead.owner == seat) {
+                        // A voluntary disband is not a loss the objective should count.
+                        if (dead.owner == seat && event.cause != DeathCause.DISBANDED) {
                             unitsLost++
                         } else if (event.cause == DeathCause.SUNK && Rules.isNaval(dead.type)) {
                             boatsSunk++

@@ -20,6 +20,11 @@ import kotlinx.serialization.Serializable
  * rules are unaffected. Zeroed the moment the hex is fed normally.
  *
  * [deposit]: permanent terrain resource (see [Deposit]); survives capture.
+ *
+ * [bridgeOrientation]: player-chosen deck axis for a BRIDGE — an index 0..2 into
+ * [com.msa.fightandconquer.core.hex.HexMath.DIRECTIONS] (the deck is 180°-symmetric,
+ * so direction k and k+3 are the same axis). null = the renderer auto-orients.
+ * Only meaningful while [building] is BRIDGE; cleared when the span is destroyed.
  */
 @Serializable
 data class Tile(
@@ -31,4 +36,5 @@ data class Tile(
     val graceTurns: Int = 0,
     val deposit: Deposit? = null,
     val terrain: Terrain = Terrain.LAND,
+    val bridgeOrientation: Int? = null,
 )

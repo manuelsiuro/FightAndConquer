@@ -293,6 +293,43 @@ object Rules {
             com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> state.config.rules.bridgeCost
         }
 
+    /**
+     * Treasury credit for demolishing an own [building]:
+     * [RuleConstants.demolishRefundPercent] of its cost, integer division.
+     * A FARM refunds against the LAST farm's price (base + step × (count − 1)),
+     * never [nextFarmCost] — otherwise build-then-demolish would turn a profit.
+     * CAPITAL never reaches here (Legality forbids demolishing it).
+     */
+    fun demolishRefund(state: GameState, player: PlayerId, building: Building): Int {
+        val rules = state.config.rules
+        val cost = when (building) {
+            Building.CAPITAL -> return 0
+            Building.FARM ->
+                rules.farmCostBase +
+                    rules.farmCostStep * (state.farmCount(player) - 1).coerceAtLeast(0)
+            Building.TOWER -> rules.towerCost
+            Building.STRONG_TOWER -> rules.strongTowerCost
+            Building.MINE -> rules.mineCost
+            Building.MARKET -> rules.marketCost
+            Building.LUMBER_CAMP -> rules.lumberCampCost
+            Building.WATCHTOWER -> rules.watchtowerCost
+            Building.PORT -> rules.portCost
+            Building.FISHERY -> rules.fisheryCost
+            Building.BRIDGE -> rules.bridgeCost
+        }
+        return cost * rules.demolishRefundPercent / 100
+    }
+
+    /**
+     * Treasury credit for disbanding [unit]: [RuleConstants.demolishRefundPercent]
+     * of its cost, cargo included (the cargo goes down with the transport).
+     */
+    fun disbandRefund(unit: GameUnit, rules: RuleConstants): Int {
+        val own = unitCostOf(rules, unit.tier, unit.type)
+        val cargo = unit.cargo?.let { unitCostOf(rules, it.tier, it.type) } ?: 0
+        return (own + cargo) * rules.demolishRefundPercent / 100
+    }
+
     /** Income the player will collect at turn start: producing hexes, deposits, buildings. */
     fun incomeOf(state: GameState, player: PlayerId): Int =
         incomeFrom(state.tiles, state.config.rules, player)

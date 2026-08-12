@@ -63,16 +63,37 @@ internal class StateBuilder(private val base: GameState) {
         return unit
     }
 
-    /** Removes a unit; combat kills leave no gravestone (the hex is being occupied), starvation/bankruptcy do. */
+    /** Removes a unit; combat kills and disbands leave no gravestone, starvation/bankruptcy do. */
     fun killUnit(unitId: UnitId, cause: DeathCause) {
         val unit = units.remove(unitId) ?: return
         updateTile(unit.hex) { tile ->
-            // No gravestones at sea — the dead sink.
-            val grave = cause != DeathCause.KILLED &&
+            // No gravestones at sea — the dead sink. Disbanded units just march home.
+            val grave = cause != DeathCause.KILLED && cause != DeathCause.DISBANDED &&
                 tile.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
             tile.copy(unit = null, flora = if (grave) Flora.Gravestone(turnNumber) else tile.flora)
         }
         events.add(GameEvent.UnitDied(unitId, unit.hex, cause))
+    }
+
+    /**
+     * Removes the non-capital building at [hex] and emits [GameEvent.BuildingDestroyed].
+     * A BRIDGE collapses back into open neutral water (open sea is never owned).
+     * Shared by bombardment and demolition; the caller recomputes starving —
+     * removing a PORT or BRIDGE can cut a region off on the spot.
+     */
+    fun razeBuilding(hex: Hex) {
+        val building = tiles.getValue(hex).building ?: return
+        val bridge = building == Building.BRIDGE
+        updateTile(hex) {
+            it.copy(
+                building = null,
+                owner = if (bridge) null else it.owner,
+                starving = if (bridge) false else it.starving,
+                graceTurns = if (bridge) 0 else it.graceTurns,
+                bridgeOrientation = null,
+            )
+        }
+        events.add(GameEvent.BuildingDestroyed(hex, building))
     }
 
     /** Clears flora under an arriving/placed unit. Returns true if a tree was cleared (spends the unit). */
