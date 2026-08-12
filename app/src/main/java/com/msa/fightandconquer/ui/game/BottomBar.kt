@@ -316,7 +316,8 @@ private fun PurchaseCard(
     Box {
         Card(
             modifier = Modifier
-                .width(92.dp)
+                .width(128.dp)
+                .height(128.dp)
                 .clickable(enabled = affordable, role = Role.Button, onClick = onBuy)
                 .semantics { contentDescription = description },
             shape = RoundedCornerShape(12.dp),

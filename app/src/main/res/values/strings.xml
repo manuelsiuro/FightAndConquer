@@ -73,7 +73,7 @@
     </plurals>
 
     <!-- Purchase tray -->
-    <string name="shop_upkeep_per_turn">%d/turn</string>
+    <string name="shop_upkeep_per_turn">-%d/turn</string>
     <string name="shop_income_per_turn">+%d/turn</string>
     <string name="shop_income_up_to">up to +%d/turn</string>
     <string name="shop_defense">Def %d</string>
