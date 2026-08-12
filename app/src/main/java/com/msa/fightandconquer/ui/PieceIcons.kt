@@ -34,21 +34,29 @@ object PieceIcons {
                 else -> R.drawable.piece_vikings_unit_t4
             }
         }
-        // Replace an entry with its piece_sultanate_* drawable as each icon is delivered.
         Civilization.SULTANATE -> when (type) {
-            UnitType.ARCHER -> R.drawable.piece_archer
-            UnitType.CATAPULT -> R.drawable.piece_catapult
-            UnitType.TRANSPORT -> R.drawable.piece_boat
-            UnitType.WARSHIP -> R.drawable.piece_warship
-            UnitType.SOLDIER -> kingdomSoldier(tier)
+            UnitType.ARCHER -> R.drawable.piece_sultanate_archer
+            UnitType.CATAPULT -> R.drawable.piece_sultanate_catapult
+            UnitType.TRANSPORT -> R.drawable.piece_sultanate_boat
+            UnitType.WARSHIP -> R.drawable.piece_sultanate_warship
+            UnitType.SOLDIER -> when (tier) {
+                1 -> R.drawable.piece_sultanate_unit_t1
+                2 -> R.drawable.piece_sultanate_unit_t2
+                3 -> R.drawable.piece_sultanate_unit_t3
+                else -> R.drawable.piece_sultanate_unit_t4
+            }
         }
-        // Replace an entry with its piece_shogunate_* drawable as each icon is delivered.
         Civilization.SHOGUNATE -> when (type) {
-            UnitType.ARCHER -> R.drawable.piece_archer
-            UnitType.CATAPULT -> R.drawable.piece_catapult
-            UnitType.TRANSPORT -> R.drawable.piece_boat
-            UnitType.WARSHIP -> R.drawable.piece_warship
-            UnitType.SOLDIER -> kingdomSoldier(tier)
+            UnitType.ARCHER -> R.drawable.piece_shogunate_archer
+            UnitType.CATAPULT -> R.drawable.piece_shogunate_catapult
+            UnitType.TRANSPORT -> R.drawable.piece_shogunate_boat
+            UnitType.WARSHIP -> R.drawable.piece_shogunate_warship
+            UnitType.SOLDIER -> when (tier) {
+                1 -> R.drawable.piece_shogunate_unit_t1
+                2 -> R.drawable.piece_shogunate_unit_t2
+                3 -> R.drawable.piece_shogunate_unit_t3
+                else -> R.drawable.piece_shogunate_unit_t4
+            }
         }
     }
 
@@ -68,33 +76,31 @@ object PieceIcons {
             Building.FISHERY -> R.drawable.piece_vikings_fishery
             Building.BRIDGE -> R.drawable.piece_vikings_bridge
         }
-        // Replace an entry with its piece_sultanate_* drawable as each icon is delivered.
         Civilization.SULTANATE -> when (building) {
-            Building.CAPITAL -> R.drawable.piece_capital
-            Building.FARM -> R.drawable.piece_farm
-            Building.TOWER -> R.drawable.piece_tower
-            Building.STRONG_TOWER -> R.drawable.piece_strong_tower
-            Building.MINE -> R.drawable.piece_mine
-            Building.MARKET -> R.drawable.piece_market
-            Building.LUMBER_CAMP -> R.drawable.piece_lumber_camp
-            Building.WATCHTOWER -> R.drawable.piece_watchtower
-            Building.PORT -> R.drawable.piece_port
-            Building.FISHERY -> R.drawable.piece_fishery
-            Building.BRIDGE -> R.drawable.piece_bridge
+            Building.CAPITAL -> R.drawable.piece_sultanate_capital
+            Building.FARM -> R.drawable.piece_sultanate_farm
+            Building.TOWER -> R.drawable.piece_sultanate_tower
+            Building.STRONG_TOWER -> R.drawable.piece_sultanate_strong_tower
+            Building.MINE -> R.drawable.piece_sultanate_mine
+            Building.MARKET -> R.drawable.piece_sultanate_market
+            Building.LUMBER_CAMP -> R.drawable.piece_sultanate_lumber_camp
+            Building.WATCHTOWER -> R.drawable.piece_sultanate_watchtower
+            Building.PORT -> R.drawable.piece_sultanate_port
+            Building.FISHERY -> R.drawable.piece_sultanate_fishery
+            Building.BRIDGE -> R.drawable.piece_sultanate_bridge
         }
-        // Replace an entry with its piece_shogunate_* drawable as each icon is delivered.
         Civilization.SHOGUNATE -> when (building) {
-            Building.CAPITAL -> R.drawable.piece_capital
-            Building.FARM -> R.drawable.piece_farm
-            Building.TOWER -> R.drawable.piece_tower
-            Building.STRONG_TOWER -> R.drawable.piece_strong_tower
-            Building.MINE -> R.drawable.piece_mine
-            Building.MARKET -> R.drawable.piece_market
-            Building.LUMBER_CAMP -> R.drawable.piece_lumber_camp
-            Building.WATCHTOWER -> R.drawable.piece_watchtower
-            Building.PORT -> R.drawable.piece_port
-            Building.FISHERY -> R.drawable.piece_fishery
-            Building.BRIDGE -> R.drawable.piece_bridge
+            Building.CAPITAL -> R.drawable.piece_shogunate_capital
+            Building.FARM -> R.drawable.piece_shogunate_farm
+            Building.TOWER -> R.drawable.piece_shogunate_tower
+            Building.STRONG_TOWER -> R.drawable.piece_shogunate_strong_tower
+            Building.MINE -> R.drawable.piece_shogunate_mine
+            Building.MARKET -> R.drawable.piece_shogunate_market
+            Building.LUMBER_CAMP -> R.drawable.piece_shogunate_lumber_camp
+            Building.WATCHTOWER -> R.drawable.piece_shogunate_watchtower
+            Building.PORT -> R.drawable.piece_shogunate_port
+            Building.FISHERY -> R.drawable.piece_shogunate_fishery
+            Building.BRIDGE -> R.drawable.piece_shogunate_bridge
         }
     }
 
