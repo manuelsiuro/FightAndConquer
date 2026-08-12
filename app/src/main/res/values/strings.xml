@@ -273,6 +273,18 @@
     <string name="reject_building_not_available">Not available in this mission</string>
     <string name="reject_scripted_events_disabled">This game has no scripted events</string>
     <string name="reject_invalid_script_target">A scripted event could not take place</string>
+    <string name="reject_not_a_bridge">Only bridges can be rotated</string>
+    <string name="reject_invalid_orientation">That is not a valid bridge orientation</string>
+    <string name="reject_no_building_there">Nothing there to demolish</string>
+    <string name="reject_cannot_demolish_capital">Your capital cannot be demolished</string>
+
+    <!-- Info-card actions (rotate / demolish / disband) -->
+    <string name="info_action_rotate">Rotate</string>
+    <string name="info_action_destroy">Destroy (+%d 🪙)</string>
+    <string name="hud_disband">Disband (+%d 🪙)</string>
+    <string name="cd_info_action_rotate">Rotate this bridge</string>
+    <string name="cd_info_action_destroy">Destroy this building for a partial refund</string>
+    <string name="cd_hud_disband">Disband this unit for a partial refund</string>
 
     <!-- Field guide (browsable reference for every unit, building and resource) -->
     <string name="guide_title">Field Guide</string>

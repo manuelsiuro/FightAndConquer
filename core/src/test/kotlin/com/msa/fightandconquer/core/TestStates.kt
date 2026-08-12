@@ -162,6 +162,10 @@ object TestStates {
             tile.unit?.let { id ->
                 assertEquals("units map entry for tile $hex", hex, state.units[id]?.hex)
             }
+            tile.bridgeOrientation?.let { orientation ->
+                assertEquals("orientation only on bridges: $hex", Building.BRIDGE, tile.building)
+                assertTrue("orientation is an axis index: $hex", orientation in 0..2)
+            }
             if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
                 // Open sea stays neutral and bare; only a bridge makes a sea hex
                 // ownable (and, like any territory, cut-off-able).

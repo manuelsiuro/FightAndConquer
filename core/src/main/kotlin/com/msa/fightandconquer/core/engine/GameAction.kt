@@ -45,6 +45,35 @@ sealed interface GameAction {
         val at: Hex,
     ) : GameAction
 
+    /**
+     * Set an own BRIDGE's deck axis to [orientation] (0..2, see
+     * [com.msa.fightandconquer.core.model.Tile.bridgeOrientation]). Cosmetic and
+     * free — no cost, nothing spent — but engine state so saves and replays agree.
+     * The target axis is explicit (not "cycle") for deterministic replay.
+     */
+    @Serializable
+    @SerialName("rotateBuilding")
+    data class RotateBuilding(val at: Hex, val orientation: Int) : GameAction
+
+    /**
+     * Raze the own non-capital building at [at], refunding
+     * [com.msa.fightandconquer.core.model.RuleConstants.demolishRefundPercent] of its
+     * cost. A demolished BRIDGE reverts its hex to neutral open sea, so a span
+     * carrying a unit refuses (never strand anyone).
+     */
+    @Serializable
+    @SerialName("demolishBuilding")
+    data class DemolishBuilding(val at: Hex) : GameAction
+
+    /**
+     * Dismiss own unit [unit], refunding
+     * [com.msa.fightandconquer.core.model.RuleConstants.demolishRefundPercent] of its
+     * cost (a loaded transport's cargo is included). Leaves no gravestone.
+     */
+    @Serializable
+    @SerialName("disbandUnit")
+    data class DisbandUnit(val unit: UnitId) : GameAction
+
     /** Merge unit [a] (the mover, must be fresh) into same-tier unit [b]. */
     @Serializable
     @SerialName("merge")

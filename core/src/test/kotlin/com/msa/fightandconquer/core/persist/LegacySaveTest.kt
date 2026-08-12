@@ -57,6 +57,9 @@ class LegacySaveTest {
         // RuleConstants / SaveGame (campaign)
         "scriptedEventsEnabled", "disabledBuildings",
         "campaign",
+        // Tile / RuleConstants (rotation + demolition)
+        "bridgeOrientation",
+        "demolishRefundPercent",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {
@@ -80,6 +83,9 @@ class LegacySaveTest {
                     hex(1),
                 ),
                 GameAction.BuyUnit(1, hex(2), com.msa.fightandconquer.core.model.UnitType.ARCHER),
+                GameAction.RotateBuilding(hex(3), 2),
+                GameAction.DemolishBuilding(hex(4)),
+                GameAction.DisbandUnit(com.msa.fightandconquer.core.model.UnitId(7)),
             ),
         )
         assertEquals(save, SaveCodec.decode(SaveCodec.encode(save)))

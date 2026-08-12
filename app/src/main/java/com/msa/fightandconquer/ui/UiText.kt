@@ -164,4 +164,8 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     // level with a stale trigger can — surfacing them beats a silent no-op.
     RejectionReason.SCRIPTED_EVENTS_DISABLED -> UiText.of(R.string.reject_scripted_events_disabled)
     RejectionReason.INVALID_SCRIPT_TARGET -> UiText.of(R.string.reject_invalid_script_target)
+    RejectionReason.NOT_A_BRIDGE -> UiText.of(R.string.reject_not_a_bridge)
+    RejectionReason.INVALID_ORIENTATION -> UiText.of(R.string.reject_invalid_orientation)
+    RejectionReason.NO_BUILDING_THERE -> UiText.of(R.string.reject_no_building_there)
+    RejectionReason.CANNOT_DEMOLISH_CAPITAL -> UiText.of(R.string.reject_cannot_demolish_capital)
 }

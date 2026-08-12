@@ -8,7 +8,11 @@ import com.msa.fightandconquer.core.model.UnitId
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class DeathCause { KILLED, STARVED, BANKRUPTCY, SUNK }
+enum class DeathCause {
+    KILLED, STARVED, BANKRUPTCY, SUNK,
+    /** Dismissed by its own player for a refund; leaves no gravestone. */
+    DISBANDED,
+}
 
 /**
  * Facts emitted by the reducer, in order. The renderer consumes them as animation
@@ -28,6 +32,10 @@ sealed interface GameEvent {
     @Serializable data class UnitsMerged(val into: GameUnit, val consumed: UnitId) : GameEvent
     @Serializable data class BuildingBuilt(val hex: Hex, val building: Building) : GameEvent
     @Serializable data class BuildingDestroyed(val hex: Hex, val building: Building) : GameEvent
+    /** An own BRIDGE's deck axis was set (see [com.msa.fightandconquer.core.model.Tile.bridgeOrientation]). */
+    @Serializable data class BuildingRotated(val hex: Hex, val orientation: Int) : GameEvent
+    /** Treasury credit from a demolish/disband — HUD-only ("+N" popup at [hex]); the board renders nothing. */
+    @Serializable data class RefundPaid(val player: PlayerId, val hex: Hex, val amount: Int) : GameEvent
     @Serializable data class TreeGrown(val hex: Hex) : GameEvent
     @Serializable data class TreeSpread(val from: Hex, val to: Hex) : GameEvent
     @Serializable data class TreeCleared(val hex: Hex, val bonus: Int) : GameEvent

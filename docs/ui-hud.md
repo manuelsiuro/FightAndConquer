@@ -63,6 +63,10 @@ select(hex):
     bare sea hex with buyables  → purchase selection too (bridge/boat tray on water)
     anything else               → InfoCard (unit > building > flora > deposit >
                                   sea > starving tile)
+                                  own pieces carry action buttons: Rotate +
+                                  Destroy on an own bridge, Destroy on any own
+                                  non-capital building, Disband on an own spent
+                                  unit (performInfoAction; refunds shown inline)
                                   fog on: fogged hex → generic "unexplored" card if
                                   explored, nothing if never seen — stats never leak
 tap off-board (picker miss)     → cancelSelection (via BoardScene.onTapMiss)
@@ -77,10 +81,14 @@ internal `select()` (never submits), and emits a camera jump.
 ## Event feedback
 
 A second collector on `engine.events` (ViewModel scope, restarted per engine) drives:
-tree-clear popups (human actor only), loot toasts (both sides), "territory cut off"
-warning (diffed starving sets, debounced per round), "AI took N of your hexes"
-(accumulated during AI turns, flushed at the human's `TurnStarted`), bankruptcy
-alert, and `ActionRejected` reasons as info toasts.
+tree-clear and demolish/disband refund popups (human actor only), loot toasts (both
+sides), "territory cut off" warning (diffed starving sets, debounced per round),
+"AI took N of your hexes" (accumulated during AI turns, flushed at the human's
+`TurnStarted`), bankruptcy alert, and `ActionRejected` reasons as info toasts.
+
+The selected-unit strip additionally hosts a "Disband (+N)" button for the held
+fresh unit (`HudState.selectedUnitDisbandRefund` → `disbandSelectedUnit()`); all
+destroy paths rely on the ordinary Undo button rather than a confirm dialog.
 
 ## GameScreen layers (root Box, bottom → top)
 

@@ -59,7 +59,9 @@ import com.msa.fightandconquer.core.model.UnitType
 import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.HudState
 import com.msa.fightandconquer.ui.InfoCard
+import com.msa.fightandconquer.ui.InfoCardAction
 import com.msa.fightandconquer.ui.PieceIcons
+import com.msa.fightandconquer.ui.label
 import com.msa.fightandconquer.ui.ShopInfo
 import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.buildingNameRes
@@ -77,7 +79,7 @@ internal fun BottomBar(
 ) {
     Column(Modifier.padding(HudGutter)) {
         infoCard?.let { info ->
-            InfoCardView(info)
+            InfoCardView(info, onAction = viewModel::performInfoAction)
             Spacer(Modifier.height(8.dp))
         }
         state.selectedUnitNameRes?.let { nameRes ->
@@ -94,7 +96,7 @@ internal fun BottomBar(
                         }
                         Spacer(Modifier.width(10.dp))
                     }
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(
                             stringResource(nameRes),
                             fontWeight = FontWeight.SemiBold,
@@ -106,6 +108,16 @@ internal fun BottomBar(
                             fontSize = 12.sp,
                             color = UiColors.inkSecondary,
                         )
+                    }
+                    state.selectedUnitDisbandRefund?.let { refund ->
+                        val description = stringResource(R.string.cd_hud_disband)
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.disbandSelectedUnit() },
+                            modifier = Modifier.semantics { contentDescription = description },
+                        ) {
+                            Text(stringResource(R.string.hud_disband, refund), color = UiColors.ink)
+                        }
                     }
                 }
             }
@@ -192,7 +204,7 @@ internal fun BottomBar(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun InfoCardView(info: InfoCard) {
+private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
     Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             info.iconRes?.let { icon ->
@@ -250,6 +262,26 @@ private fun InfoCardView(info: InfoCard) {
                                     fontWeight = FontWeight.Medium,
                                     color = UiColors.inkSecondary,
                                 )
+                            }
+                        }
+                    }
+                }
+                if (info.actions.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (action in info.actions) {
+                            val description = stringResource(
+                                when (action) {
+                                    is InfoCardAction.RotateBridge -> R.string.cd_info_action_rotate
+                                    is InfoCardAction.Demolish -> R.string.cd_info_action_destroy
+                                    is InfoCardAction.Disband -> R.string.cd_hud_disband
+                                },
+                            )
+                            OutlinedButton(
+                                onClick = { onAction(action) },
+                                modifier = Modifier.semantics { contentDescription = description },
+                            ) {
+                                Text(action.label().resolve(), color = UiColors.ink)
                             }
                         }
                     }

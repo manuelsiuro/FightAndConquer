@@ -145,6 +145,12 @@ data class RuleConstants(
     val fisheryShoalCap: Int = 3,
     /** Flat cost per bridge hex (chains grow hex by hex; no income, no upkeep). */
     val bridgeCost: Int = 15,
+    /**
+     * Percent of a piece's cost refunded when its owner demolishes a building or
+     * disbands a unit (integer division). Below 100 so build-then-demolish always
+     * loses money; a demolished FARM refunds against the LAST farm's price.
+     */
+    val demolishRefundPercent: Int = 50,
     /** Fair fish shoals near each capital's coast (0 disables). */
     val fishShoalsPerPlayer: Int = 1,
     val fishShoalBandMin: Int = 2,

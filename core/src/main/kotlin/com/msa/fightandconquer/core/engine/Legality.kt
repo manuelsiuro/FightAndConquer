@@ -25,6 +25,9 @@ object Legality {
             is GameAction.BuyUnit -> checkBuyUnit(state, action)
             is GameAction.BuyBuilding -> checkBuyBuilding(state, action)
             is GameAction.MergeUnits -> checkMerge(state, action)
+            is GameAction.RotateBuilding -> checkRotateBuilding(state, action)
+            is GameAction.DemolishBuilding -> checkDemolishBuilding(state, action)
+            is GameAction.DisbandUnit -> checkDisbandUnit(state, action)
             is GameAction.Disembark -> checkDisembark(state, action)
             is GameAction.Bombard -> checkBombard(state, action)
             is GameAction.ProposePact -> checkProposePact(state, action)
@@ -318,6 +321,38 @@ object Legality {
             }
             if (!adjacentToChain) return reject(RejectionReason.FARM_NEEDS_ADJACENCY)
         }
+        return LegalityResult.Ok
+    }
+
+    /** Cosmetic and free: any own bridge may be re-aimed at any of the 3 deck axes. */
+    private fun checkRotateBuilding(state: GameState, action: GameAction.RotateBuilding): LegalityResult {
+        val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)
+        if (tile.building != Building.BRIDGE) return reject(RejectionReason.NOT_A_BRIDGE)
+        if (tile.owner != state.currentPlayer) return reject(RejectionReason.NOT_YOUR_HEX)
+        if (action.orientation !in 0..2) return reject(RejectionReason.INVALID_ORIENTATION)
+        return LegalityResult.Ok
+    }
+
+    /**
+     * Any own non-capital building may be razed for a partial refund — even on a
+     * starving tile (razing needs no supply). A BRIDGE reverts its hex to open sea,
+     * so a span carrying a unit refuses rather than stranding it.
+     */
+    private fun checkDemolishBuilding(state: GameState, action: GameAction.DemolishBuilding): LegalityResult {
+        val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)
+        if (tile.owner != state.currentPlayer) return reject(RejectionReason.NOT_YOUR_HEX)
+        val building = tile.building ?: return reject(RejectionReason.NO_BUILDING_THERE)
+        if (building == Building.CAPITAL) return reject(RejectionReason.CANNOT_DEMOLISH_CAPITAL)
+        if (building == Building.BRIDGE && tile.unit != null) {
+            return reject(RejectionReason.HEX_HAS_UNIT)
+        }
+        return LegalityResult.Ok
+    }
+
+    /** Any own unit — fresh or spent — may be dismissed for a partial refund. */
+    private fun checkDisbandUnit(state: GameState, action: GameAction.DisbandUnit): LegalityResult {
+        val unit = state.units[action.unit] ?: return reject(RejectionReason.NO_SUCH_UNIT)
+        if (unit.owner != state.currentPlayer) return reject(RejectionReason.NOT_YOUR_UNIT)
         return LegalityResult.Ok
     }
 
