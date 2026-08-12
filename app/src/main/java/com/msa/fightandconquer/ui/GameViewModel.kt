@@ -157,6 +157,20 @@ data class CoinPopup(val id: Long, val hex: Hex, val text: UiText)
 
 /** Bottom card describing a tapped piece that isn't selectable. */
 data class InfoStat(val label: UiText, val value: UiText)
+
+/** A button on an [InfoCard] — the card describes, the action acts. */
+sealed interface InfoCardAction {
+    data class RotateBridge(val hex: Hex) : InfoCardAction
+    data class Demolish(val hex: Hex, val refund: Int) : InfoCardAction
+    data class Disband(val unit: com.msa.fightandconquer.core.model.UnitId, val refund: Int) : InfoCardAction
+}
+
+fun InfoCardAction.label(): UiText = when (this) {
+    is InfoCardAction.RotateBridge -> UiText.of(R.string.info_action_rotate)
+    is InfoCardAction.Demolish -> UiText.of(R.string.info_action_destroy, refund)
+    is InfoCardAction.Disband -> UiText.of(R.string.hud_disband, refund)
+}
+
 data class InfoCard(
     val title: UiText,
     val subtitle: UiText,
@@ -164,6 +178,8 @@ data class InfoCard(
     val factionIndex: Int? = null,
     /** Pre-rendered piece thumbnail; null for abstract cards (fog, cut-off). */
     val iconRes: Int? = null,
+    /** Contextual buttons (rotate a bridge, destroy a building, disband a spent unit). */
+    val actions: List<InfoCardAction> = emptyList(),
 )
 
 /** Rules snapshot the purchase tray needs for upkeep/defense lines. */
@@ -196,6 +212,8 @@ data class HudState(
     val selectedUnitNameRes: Int?,
     /** Baked render of the selected unit for the hint card, null when none. */
     val selectedUnitIconRes: Int?,
+    /** Coins returned if the selected unit is disbanded; null when nothing is selected. */
+    val selectedUnitDisbandRefund: Int?,
     val purchases: List<PurchaseOption>,
     val canUndo: Boolean,
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
@@ -791,6 +809,49 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _infoCard.value = null
     }
 
+    /** A button on the info card was pressed (rotate / destroy / disband). */
+    fun performInfoAction(action: InfoCardAction) {
+        val engine = engine ?: return
+        when (action) {
+            is InfoCardAction.RotateBridge -> {
+                val state = engine.state.value
+                val tile = state.tiles[action.hex] ?: return
+                // Cycle from the axis currently on screen (stored or auto), so the
+                // very first tap always visibly turns the deck.
+                val current = tile.bridgeOrientation
+                    ?: com.msa.fightandconquer.render.scene.PieceHeadings.bridgeAutoAxis(action.hex) { n ->
+                        val t = state.tiles[n]
+                        t != null && (
+                            t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND ||
+                                t.building == Building.BRIDGE
+                            )
+                    }
+                submit(GameAction.RotateBuilding(action.hex, (current + 1) % 3))
+                // Keep the card open so repeated taps keep cycling.
+                val after = engine.state.value
+                _infoCard.value = after.tiles[action.hex]?.let { infoCardFor(after, action.hex, it) }
+            }
+            is InfoCardAction.Demolish -> {
+                submit(GameAction.DemolishBuilding(action.hex))
+                clearSelection()
+                refreshHud()
+            }
+            is InfoCardAction.Disband -> {
+                submit(GameAction.DisbandUnit(action.unit))
+                clearSelection()
+                refreshHud()
+            }
+        }
+    }
+
+    /** Disband the currently selected (fresh) unit for a partial refund. */
+    fun disbandSelectedUnit() {
+        val unit = selectedUnit ?: return
+        submit(GameAction.DisbandUnit(unit))
+        clearSelection()
+        refreshHud()
+    }
+
     fun buy(option: PurchaseOption) {
         val hex = selectedHex ?: return
         when (option) {
@@ -1151,6 +1212,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (actorIsHuman) pushPopup(event.hex, UiText.of(R.string.popup_coins, event.bonus))
             }
 
+            is GameEvent.RefundPaid -> {
+                if (actorIsHuman) pushPopup(event.hex, UiText.of(R.string.popup_coins, event.amount))
+            }
+
             is GameEvent.CapitalMoved -> {
                 if (event.loot > 0) {
                     if (actorIsHuman) {
@@ -1359,11 +1424,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 stats = stats,
                 factionIndex = unit.owner.value,
                 iconRes = PieceIcons.unit(unit.type, unit.tier),
+                // Own spent units land here (fresh ones get selected instead) and
+                // can still be dismissed for a partial refund.
+                actions = if (own && state.player(me).kind is PlayerKind.Human) {
+                    listOf(InfoCardAction.Disband(unit.id, Rules.disbandRefund(unit, rules)))
+                } else {
+                    emptyList()
+                },
             )
         }
         tile.building?.let { building ->
             val ownerIndex = tile.owner?.value
-            return when (building) {
+            val card = when (building) {
                 Building.CAPITAL -> InfoCard(
                     UiText.of(R.string.building_capital),
                     UiText.of(R.string.info_capital, rules.capitalLootPercent),
@@ -1503,6 +1575,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     iconRes = PieceIcons.building(building),
                 )
             }
+            // Owner's buildings act from their card: bridges rotate, and anything
+            // but the capital can be razed for a partial refund. (A bridge carrying
+            // a unit shows the unit's card instead, so no stranding case arises.)
+            val actions = buildList {
+                if (tile.owner == me && state.player(me).kind is PlayerKind.Human &&
+                    building != Building.CAPITAL
+                ) {
+                    if (building == Building.BRIDGE) add(InfoCardAction.RotateBridge(hex))
+                    add(InfoCardAction.Demolish(hex, Rules.demolishRefund(state, me, building)))
+                }
+            }
+            return card.copy(actions = actions)
         }
         when (tile.flora) {
             is Flora.Tree -> return InfoCard(
@@ -1713,6 +1797,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             turnNumber = state.turnNumber,
             selectedUnitNameRes = selectedName,
             selectedUnitIconRes = selected?.let { PieceIcons.unit(it.type, it.tier) },
+            selectedUnitDisbandRefund = selected?.let { Rules.disbandRefund(it, rules) },
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,
