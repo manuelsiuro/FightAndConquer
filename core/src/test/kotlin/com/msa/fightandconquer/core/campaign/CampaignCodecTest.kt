@@ -63,6 +63,10 @@ class CampaignCodecTest {
         val level = TestLevels.strip(
             objectives = everyObjective,
             failures = everyFailure,
+            civs = listOf(
+                com.msa.fightandconquer.core.model.Civilization.VIKINGS,
+                com.msa.fightandconquer.core.model.Civilization.SHOGUNATE,
+            ),
             hints = everyCondition.mapIndexed { i, c -> HintStep("h$i", c, listOf(hex(1))) },
             scripts = everyCondition.mapIndexed { i, c ->
                 ScriptTrigger(

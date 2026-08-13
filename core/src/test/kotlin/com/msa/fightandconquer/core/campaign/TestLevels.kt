@@ -4,6 +4,7 @@ import com.msa.fightandconquer.core.TestStates.hex
 import com.msa.fightandconquer.core.map.MapDefinition
 import com.msa.fightandconquer.core.map.TileDef
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.RuleConstants
 
@@ -20,6 +21,7 @@ object TestLevels {
         hints: List<HintStep> = emptyList(),
         scripts: List<ScriptTrigger> = emptyList(),
         parRounds: Int? = null,
+        civs: List<Civilization>? = null,
     ): LevelDef = LevelDef(
         id = "test_strip",
         seed = 42L,
@@ -40,6 +42,7 @@ object TestLevels {
         ),
         seats = listOf(SeatDef.Player, SeatDef.Ai(Difficulty.PASSIVE)),
         rules = RuleConstants(),
+        civs = civs,
         objectives = objectives,
         failures = failures,
         hints = hints,

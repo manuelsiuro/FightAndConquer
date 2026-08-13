@@ -58,6 +58,7 @@ import com.msa.fightandconquer.core.campaign.Objective
 import com.msa.fightandconquer.core.campaign.ObjectiveRow
 import com.msa.fightandconquer.core.campaign.SeatDef
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.PlayerId
@@ -68,6 +69,7 @@ import com.msa.fightandconquer.ui.PieceIcons
 import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.buildingNameRes
 import com.msa.fightandconquer.ui.campaign.label
+import com.msa.fightandconquer.ui.civNameRes
 import com.msa.fightandconquer.ui.difficultyLabelRes
 import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.seatNameRes
@@ -475,6 +477,19 @@ private fun PlayersDialog(ui: EditorSession.Ui, session: EditorSession, onClose:
                                     selected = (kind as? SeatDef.Ai)?.difficulty == difficulty,
                                     onClick = { session.setSeatKind(seat, SeatDef.Ai(difficulty)) },
                                     label = { Text(stringResource(difficultyLabelRes(difficulty)), fontSize = 12.sp) },
+                                )
+                            }
+                        }
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            val seatCiv = level.civs?.getOrNull(seat) ?: Civilization.DEFAULT
+                            for (civ in Civilization.entries) {
+                                FilterChip(
+                                    selected = seatCiv == civ,
+                                    onClick = { session.setSeatCiv(seat, civ) },
+                                    label = { Text(stringResource(civNameRes(civ)), fontSize = 12.sp) },
                                 )
                             }
                         }

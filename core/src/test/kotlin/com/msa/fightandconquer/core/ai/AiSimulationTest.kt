@@ -7,6 +7,7 @@ import com.msa.fightandconquer.core.map.MapGenerator
 import com.msa.fightandconquer.core.map.MapParams
 import com.msa.fightandconquer.core.map.MapShape
 import com.msa.fightandconquer.core.map.MapSize
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
@@ -25,6 +26,7 @@ class AiSimulationTest {
         difficulties: List<Difficulty>,
         size: MapSize = MapSize.SMALL,
         rules: RuleConstants = RuleConstants(),
+        civs: List<Civilization>? = null,
     ): GameState {
         val params = MapParams(
             seed = seed,
@@ -36,6 +38,7 @@ class AiSimulationTest {
             gameSeed = seed * 31 + 7,
             kinds = difficulties.map { PlayerKind.Ai(it) },
             rules = rules,
+            civs = civs ?: List(difficulties.size) { Civilization.DEFAULT },
         )
     }
 
@@ -199,6 +202,45 @@ class AiSimulationTest {
             worstMs = maxOf(worstMs, (System.nanoTime() - startNs) / 1_000_000)
         }
         assertTrue("worst fog AI turn took ${worstMs}ms", worstMs < 1000)
+    }
+
+    @Test
+    fun `mixed-civ AI games terminate with a winner and invariants intact`() {
+        // No winrate bands for civs (deterministic gates reshuffle chaotically —
+        // balance is calibrated once on the final rule set): termination + invariants only.
+        val civs = listOf(Civilization.VIKINGS, Civilization.SULTANATE, Civilization.SHOGUNATE)
+        for (seed in 1L..3L) {
+            var state = newAiGame(seed, List(3) { Difficulty.NORMAL }, civs = civs)
+            val ais = List(3) { AiPlayer(Difficulty.NORMAL) }
+            while (state.phase is GamePhase.Playing && state.turnNumber < 400) {
+                state = playTurn(state, ais)
+                assertInvariants(state)
+            }
+            assertTrue(
+                "civ seed $seed did not finish (round ${state.turnNumber})",
+                state.phase is GamePhase.Finished,
+            )
+        }
+    }
+
+    @Test
+    fun `mixed-civ ai games are fully deterministic`() {
+        val json = Json
+        fun run(): String {
+            var state = newAiGame(
+                5L,
+                listOf(Difficulty.NORMAL, Difficulty.HARD),
+                civs = listOf(Civilization.VIKINGS, Civilization.SHOGUNATE),
+            )
+            val ais = listOf(AiPlayer(Difficulty.NORMAL), AiPlayer(Difficulty.HARD))
+            var rounds = 0
+            while (state.phase is GamePhase.Playing && rounds < 30) {
+                state = playTurn(state, ais)
+                rounds++
+            }
+            return json.encodeToString(GameState.serializer(), state)
+        }
+        assertEquals(run(), run())
     }
 
     @Test

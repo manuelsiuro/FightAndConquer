@@ -157,7 +157,7 @@ object Legality {
         }
         // Amphibious assault: the cargo captures the beach with its own strength.
         val defense = Rules.defenseOf(state, action.to, cargo.type)
-        if (Rules.buyStrength(state.config.rules, cargo.tier, cargo.type) <= defense) {
+        if (Rules.buyStrength(state, boat.owner, cargo.tier, cargo.type) <= defense) {
             return reject(RejectionReason.DEFENSE_TOO_HIGH, defense)
         }
         return LegalityResult.Ok
@@ -183,7 +183,7 @@ object Legality {
             (tile.building != null && tile.building != Building.CAPITAL)
         if (!hasTarget) return reject(RejectionReason.INVALID_BOMBARD_TARGET)
         val defense = Rules.defenseOf(state, action.target)
-        if (Rules.strengthOf(ship, state.config.rules) <= defense) {
+        if (Rules.strengthOf(state, ship) <= defense) {
             return reject(RejectionReason.DEFENSE_TOO_HIGH, defense)
         }
         return LegalityResult.Ok
@@ -194,7 +194,7 @@ object Legality {
         val rules = state.config.rules
         if (!rules.navalEnabled) return reject(RejectionReason.NAVAL_DISABLED)
         if (action.tier != 1) return reject(RejectionReason.INVALID_TIER)
-        val cost = Rules.unitCostOf(rules, 1, action.type)
+        val cost = Rules.unitCostOf(state, state.currentPlayer, 1, action.type)
         if (state.player(state.currentPlayer).treasury < cost) {
             return reject(RejectionReason.CANNOT_AFFORD, cost)
         }
@@ -218,7 +218,7 @@ object Legality {
             if (action.tier != 1) return reject(RejectionReason.INVALID_TIER)
         }
         if (action.tier !in 1..rules.maxTier) return reject(RejectionReason.INVALID_TIER)
-        val cost = Rules.unitCostOf(rules, action.tier, action.type)
+        val cost = Rules.unitCostOf(state, state.currentPlayer, action.tier, action.type)
         val player = state.player(state.currentPlayer)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)
         val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)
@@ -243,7 +243,7 @@ object Legality {
         }
         if (!adjacentToFunded) return reject(RejectionReason.NOT_ADJACENT_TO_TERRITORY)
         val defense = Rules.defenseOf(state, action.at, action.type)
-        if (Rules.buyStrength(rules, action.tier, action.type) <= defense) {
+        if (Rules.buyStrength(state, state.currentPlayer, action.tier, action.type) <= defense) {
             return reject(RejectionReason.DEFENSE_TOO_HIGH, defense)
         }
         return LegalityResult.Ok

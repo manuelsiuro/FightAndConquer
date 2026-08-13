@@ -178,8 +178,8 @@ object Evaluator {
                     u.owner != me && !Rules.isNaval(u.type) &&
                         (visible == null || u.hex in visible) &&
                         com.msa.fightandconquer.core.hex.HexMath.distance(u.hex, capital) <=
-                        Rules.moveRangeOf(u, state.config.rules) &&
-                        Rules.strengthOf(u, state.config.rules) > capDefense
+                        Rules.moveRangeOf(state, u) &&
+                        Rules.strengthOf(state, u) > capDefense
                 }
                 if (threatened) score -= 30.0
             }
@@ -269,7 +269,7 @@ object Evaluator {
                 if (visible == null || n in visible) {
                     val enemy = state.unitAt(n)
                     if (enemy != null && enemy.owner != me) {
-                        threat = maxOf(threat, Rules.strengthOf(enemy, state.config.rules))
+                        threat = maxOf(threat, Rules.strengthOf(state, enemy))
                     }
                 }
             }

@@ -169,6 +169,15 @@ data class RuleConstants(
     /** Percent of the breaker's treasury paid to the victim on a pact break. */
     val pactBreakPenaltyPercent: Int = 25,
 
+    // --- Civilizations (expansion) ---
+    /**
+     * Master gate for per-civilization rule deltas (see [CivModifiers]). Off, every
+     * civilization plays with these base rules (the civ picks art only). Defaulted on —
+     * pre-civilization saves decode as all-[Civilization.KINGDOM], whose delta is the
+     * identity, so legacy replays stay bit-identical either way.
+     */
+    val civBonusesEnabled: Boolean = true,
+
     // --- Campaign ---
     /**
      * Buildings this game does not offer at all. Empty in skirmish; a campaign level

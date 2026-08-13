@@ -21,6 +21,9 @@ object MoveGenerator {
     fun candidates(state: GameState, difficulty: Difficulty): List<GameAction> {
         val me = state.currentPlayer
         val rules = state.config.rules
+        // Civ-modifiable prices/stats (special units, buildings) MUST come from here;
+        // the raw `rules` reads below are the universal soldier ladder only.
+        val eff = Rules.effectiveRules(state, me)
         val treasury = state.player(me).treasury
         val out = ArrayList<GameAction>()
 
@@ -69,10 +72,10 @@ object MoveGenerator {
             capitalThreat = state.units.values
                 .filter { u ->
                     u.owner != me && !Rules.isNaval(u.type) &&
-                        HexMath.distance(u.hex, capital) <= Rules.moveRangeOf(u, rules) &&
-                        Rules.strengthOf(u, rules) > capDefense
+                        HexMath.distance(u.hex, capital) <= Rules.moveRangeOf(state, u) &&
+                        Rules.strengthOf(state, u) > capDefense
                 }
-                .maxOfOrNull { Rules.strengthOf(it, rules) } ?: 0
+                .maxOfOrNull { Rules.strengthOf(state, it) } ?: 0
             capitalGuardHexes = if (capitalThreat == 0) {
                 emptySet()
             } else {
@@ -167,7 +170,7 @@ object MoveGenerator {
         val structuresAllowed = difficulty != Difficulty.EASY || income > 15
         if (structuresAllowed) {
             // Towers on border hexes touching ENEMY territory that lack coverage.
-            if (treasury >= rules.towerCost) {
+            if (treasury >= eff.towerCost) {
                 val towerSpots = state.tiles.entries
                     .filter { (hex, tile) ->
                         tile.owner == me && !tile.starving && tile.building == null &&
@@ -206,7 +209,7 @@ object MoveGenerator {
             }
 
             // Mines: a vein without a mine is dead weight at every difficulty.
-            if (treasury >= rules.mineCost) {
+            if (treasury >= eff.mineCost) {
                 state.tiles.entries
                     .filter { (_, tile) ->
                         tile.owner == me && !tile.starving && tile.building == null &&
@@ -224,7 +227,7 @@ object MoveGenerator {
                 val myMarkets = state.tiles.values.count {
                     it.owner == me && it.building == com.msa.fightandconquer.core.model.Building.MARKET
                 }
-                if (myMarkets < MAX_AI_MARKETS && treasury >= rules.marketCost + 10) {
+                if (myMarkets < MAX_AI_MARKETS && treasury >= eff.marketCost + 10) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
@@ -236,7 +239,7 @@ object MoveGenerator {
                         .forEach { out.add(GameAction.BuyBuilding(BuildingType.MARKET, it.key)) }
                 }
                 // Lumber camps where at least two own trees make them beat clearing.
-                if (treasury >= rules.lumberCampCost + 10) {
+                if (treasury >= eff.lumberCampCost + 10) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
@@ -257,11 +260,11 @@ object MoveGenerator {
             if (rules.specialUnitsEnabled && difficulty != Difficulty.EASY) {
                 // Catapults where BUILDING defense is the blocker: the cheapest-tier
                 // logic can't crack defense >= maxTier, a catapult ignores it.
-                if (treasury >= rules.catapultCost) {
+                if (treasury >= eff.catapultCost) {
                     frontier.entries
                         .filter { (hex, defense) ->
                             val siegeDefense = Rules.defenseOf(state, hex, com.msa.fightandconquer.core.model.UnitType.CATAPULT)
-                            defense > siegeDefense && siegeDefense < rules.catapultStrength
+                            defense > siegeDefense && siegeDefense < eff.catapultStrength
                         }
                         .sortedWith(
                             compareByDescending<Map.Entry<Hex, Int>> { it.value }.thenBy { it.key.packed },
@@ -273,7 +276,7 @@ object MoveGenerator {
                 }
                 // Archers to harden threatened borders: rank by how many own hexes the
                 // aura would actually raise.
-                if (treasury >= rules.archerCost) {
+                if (treasury >= eff.archerCost) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
@@ -295,7 +298,7 @@ object MoveGenerator {
 
             if (rules.navalEnabled && difficulty != Difficulty.EASY) {
                 // Ports: the gateway asset of sea maps (income + boat yard + supply).
-                if (treasury >= rules.portCost + 10) {
+                if (treasury >= eff.portCost + 10) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
@@ -315,7 +318,7 @@ object MoveGenerator {
                         .forEach { out.add(GameAction.BuyBuilding(BuildingType.PORT, it.key)) }
                 }
                 // Fisheries where shoals glitter off the coast.
-                if (treasury >= rules.fisheryCost + 10) {
+                if (treasury >= eff.fisheryCost + 10) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
@@ -332,7 +335,7 @@ object MoveGenerator {
                 }
                 // Warships answer visible enemy boats (the -4/boat evaluator term
                 // makes the hunt worthwhile once one is afloat).
-                if (treasury >= rules.warshipCost) {
+                if (treasury >= eff.warshipCost) {
                     val visible = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
                     val enemyBoats = state.units.values.any {
                         it.owner != me && Rules.isNaval(it.type) && (visible == null || it.hex in visible)
@@ -360,7 +363,7 @@ object MoveGenerator {
 
             // Watchtowers: Hard only, fog games only, and only with a healthy economy.
             if (difficulty == Difficulty.HARD && rules.fogOfWar &&
-                treasury >= rules.watchtowerCost + 10 && income - Rules.upkeepOf(state, me) >= 4
+                treasury >= eff.watchtowerCost + 10 && income - Rules.upkeepOf(state, me) >= 4
             ) {
                 val discovered = state.player(me).discovered
                 // Score by never-seen POSITIONS in range, from pure hex geometry: probing

@@ -295,6 +295,12 @@
     <string name="guide_how_label">How to use</string>
     <string name="guide_req_label">Requires</string>
     <string name="guide_section_basics">Basics</string>
+    <string name="guide_section_civs">Civilizations</string>
+    <string name="guide_how_civ">Pick a civilization for every seat on the New game screen. All civilizations field the same units and buildings — only these light bonuses differ.</string>
+    <string name="guide_desc_civ_kingdom">The baseline realm. No bonuses and no penalties — the yardstick the other civilizations are measured against.</string>
+    <string name="guide_desc_civ_vikings">Sea raiders. Warships strike at strength 3, and transports and ports cost 5 less. Farms grow dearer faster and archers cost 4 more.</string>
+    <string name="guide_desc_civ_sultanate">Desert merchants. Markets cost 4 less, mines pay 1 more, and the first farms come cheap. Warships cost 5 more and lumber camps pay 1 less per tree.</string>
+    <string name="guide_desc_civ_shogunate">Defensive discipline. Towers and watchtowers cost 3 less, archers keep 1 coin of upkeep, and catapults march with range 3. Ports and transports cost 5 more.</string>
     <string name="guide_section_units">Units</string>
     <string name="guide_section_buildings">Buildings</string>
     <string name="guide_section_resources">Resources &amp; terrain</string>
@@ -458,6 +464,15 @@
     <string name="defeat_no_units">Not a soldier left standing.</string>
     <string name="defeat_ally_lost">Your ally was knocked out of the war.</string>
     <string name="defeat_rival_victory">A rival took the whole board.</string>
+
+    <!-- Civilizations -->
+    <string name="civ_kingdom">Kingdom</string>
+    <string name="civ_vikings">Vikings</string>
+    <string name="civ_sultanate">Sultanate</string>
+    <string name="civ_shogunate">Shogunate</string>
+    <string name="menu_section_civ_yours">Your civilization</string>
+    <string name="menu_section_civ_player">Player %1$d civilization</string>
+    <string name="menu_section_civ_ai">AI %1$d civilization</string>
 
     <!-- Faction names used by objectives that point at a seat -->
     <string name="seat_name_1">Blue</string>
@@ -662,6 +677,7 @@
     <string name="editor_v_no_player_seat">No seat is set to human</string>
     <string name="editor_v_multiple_player_seats">More than one seat is set to human</string>
     <string name="editor_v_treasury_size">Starting gold is not set for every player</string>
+    <string name="editor_v_civs_size">A civilization is not set for every player</string>
     <string name="editor_v_unit_off_map">A starting unit stands off the map at %1$s</string>
     <string name="editor_v_unit_stacked">Two starting units share the hex %1$s</string>
     <string name="editor_v_unit_ground">Player %1$d’s starting unit at %2$s is not on their own ground</string>

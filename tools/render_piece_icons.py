@@ -117,20 +117,26 @@ _bg.inputs[0].default_value = (0.913, 0.897, 0.869, 1.0)
 """
 
 
+def icon_name(name: str) -> str:
+    """Piece id -> icon base name: "capital" -> "capital", "vikings/capital" ->
+    "vikings_capital" (drawable resources cannot nest)."""
+    return name.replace("/", "_")
+
+
 def bake(name: str) -> bool:
     script = PIECES_DIR / f"{name}.py"
     code = (
         (PIECES_DIR.parent / "_common.py").read_text()
         + "\n\n" + script.read_text()
-        + "\n\n" + ICON_EPILOGUE.replace("{name}", name)
+        + "\n\n" + ICON_EPILOGUE.replace("{name}", icon_name(name))
     )
     bridge = Bridge()  # one bridge per piece: stays under the 180s watchdog
     try:
         reply = bridge.call("execute_blender_code", {"code": code})
     finally:
         bridge.close()
-    master = MASTER_DIR / f"piece_{name}.png"
-    drawable = DRAWABLE_DIR / f"piece_{name}.png"
+    master = MASTER_DIR / f"piece_{icon_name(name)}.png"
+    drawable = DRAWABLE_DIR / f"piece_{icon_name(name)}.png"
     ok = (
         reply.count("ICON_OK") >= 2
         and master.is_file() and master.stat().st_size > 0
@@ -144,7 +150,13 @@ def bake(name: str) -> bool:
 
 
 def main() -> int:
-    all_pieces = sorted(p.stem for p in PIECES_DIR.glob("*.py"))
+    # Flat scripts are the Kingdom set; one directory level below are civ sets,
+    # addressed as "<civ>/<kind>" (e.g. `render_piece_icons.py vikings/capital`).
+    all_pieces = sorted(
+        str(p.relative_to(PIECES_DIR).with_suffix(""))
+        for pattern in ("*.py", "*/*.py")
+        for p in PIECES_DIR.glob(pattern)
+    )
     targets = sys.argv[1:] or all_pieces
     unknown = [t for t in targets if t not in all_pieces]
     if unknown:

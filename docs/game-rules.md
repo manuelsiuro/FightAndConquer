@@ -43,6 +43,7 @@ per game without breaking old saves.
 | Pact duration | 2–10 rounds (proposals default to 6) | Unanswered proposals lapse after 1 full round |
 | Pact proposal cooldown | 6 rounds per pair | Anti-spam, enforced by Legality |
 | Pact break penalty | 25 % of the breaker's treasury, paid to the victim | Breaking = capturing a partner's hex (no explicit action) |
+| Civilization bonuses | on by default | Per-civ rule deltas (`civBonusesEnabled`); see [civilizations.md](civilizations.md) |
 | Scripted events | off by default | Campaign-only (`scriptedEventsEnabled`); see [campaign.md](campaign.md) |
 | Disabled buildings | none by default | Campaign-only per-structure gate (`disabledBuildings`) |
 
@@ -189,6 +190,24 @@ one — but live vision stays pure radius, so enemy boats appear only when seen.
 No action can target an unseen hex (radius-2 guarantee on land; at sea every
 naval move range is ≤ `visionRadiusUnit`), the AI honors fog symmetrically, and
 the fog lifts when the game ends. Full spec: [fog-of-war.md](fog-of-war.md).
+
+**Civilizations.** Each seat plays a civilization (`PlayerState.civ`; Setup picks it,
+campaign/custom maps may author it via `LevelDef.civs`). Kingdom is the baseline; the
+others apply a light delta table (`CivModifiers`) to the game's rules snapshot,
+resolved through `Rules.effectiveRules(state, player)` — so every price, income,
+upkeep and special-unit stat above is read at the **owner's** effective rules. The
+soldier ladder (tier cost/upkeep/strength/move ranges) is universal by design.
+
+| Civ | Deltas from the table above |
+|---|---|
+| Kingdom | none (identity) |
+| Vikings | Warship strength 3; Transport 10; Port 15 — Farm step 3; Archer 18 |
+| Sultanate | Market 21; Mine +7; Farm base 10 — Warship 30; Lumber camp +1/tree |
+| Shogunate | Tower 12; Watchtower 5; Archer upkeep 3; Catapult range 3 — Port 25; Transport 20 |
+
+`civBonusesEnabled` (default on) gates the whole table: off, civs pick art only.
+Pre-civilization saves decode as all-Kingdom and replay bit-identically. Full spec
+(engine resolution, art sets, extension recipe): [civilizations.md](civilizations.md).
 
 **Campaign missions.** Authored levels reuse every rule above, and add nothing to them.
 They restrict: a mission's `RuleConstants` snapshot can cap `maxTier`, switch whole systems

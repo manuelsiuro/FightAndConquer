@@ -27,6 +27,7 @@ object TestStates {
         treasury: Int = 100,
         seed: Long = 42L,
         rules: com.msa.fightandconquer.core.model.RuleConstants = com.msa.fightandconquer.core.model.RuleConstants(),
+        civs: List<com.msa.fightandconquer.core.model.Civilization>? = null,
     ): GameState {
         val tiles = owners.mapValues { (_, owner) -> Tile(owner = owner?.let(::PlayerId)) }.toMutableMap()
         tiles[capital0] = tiles.getValue(capital0).copy(building = Building.CAPITAL)
@@ -36,13 +37,16 @@ object TestStates {
             tiles = tiles,
             units = emptyMap(),
             players = listOf(
-                PlayerState(PlayerId(0), PlayerKind.Human, treasury, capital0),
-                PlayerState(PlayerId(1), PlayerKind.Human, treasury, capital1),
+                PlayerState(PlayerId(0), PlayerKind.Human, treasury, capital0, civ = civOf(civs, 0)),
+                PlayerState(PlayerId(1), PlayerKind.Human, treasury, capital1, civ = civOf(civs, 1)),
             ),
             currentPlayer = PlayerId(0),
             rngState = seed,
         )
     }
+
+    private fun civOf(civs: List<com.msa.fightandconquer.core.model.Civilization>?, seat: Int) =
+        civs?.get(seat) ?: com.msa.fightandconquer.core.model.Civilization.KINGDOM
 
     /**
      * A 1-row strip of [length] hexes at r=0. P0 owns [p0] (capital at its first hex),
@@ -55,6 +59,7 @@ object TestStates {
         treasury: Int = 100,
         seed: Long = 42L,
         rules: com.msa.fightandconquer.core.model.RuleConstants = com.msa.fightandconquer.core.model.RuleConstants(),
+        civs: List<com.msa.fightandconquer.core.model.Civilization>? = null,
     ): GameState {
         val tiles = HashMap<Hex, Tile>()
         for (q in 0 until length) {
@@ -74,8 +79,8 @@ object TestStates {
             tiles = tiles,
             units = emptyMap(),
             players = listOf(
-                PlayerState(PlayerId(0), PlayerKind.Human, treasury, cap0),
-                PlayerState(PlayerId(1), PlayerKind.Human, treasury, cap1),
+                PlayerState(PlayerId(0), PlayerKind.Human, treasury, cap0, civ = civOf(civs, 0)),
+                PlayerState(PlayerId(1), PlayerKind.Human, treasury, cap1, civ = civOf(civs, 1)),
             ),
             currentPlayer = PlayerId(0),
             rngState = seed,

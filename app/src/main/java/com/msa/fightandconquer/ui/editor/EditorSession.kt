@@ -13,6 +13,7 @@ import com.msa.fightandconquer.core.hex.HexMath
 import com.msa.fightandconquer.core.map.MapViolation
 import com.msa.fightandconquer.core.map.TileDef
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.Flora
@@ -138,6 +139,31 @@ class EditorSession(
             def.copy(
                 level = level.copy(
                     startingTreasury = purses.mapIndexed { i, c -> if (i == seat) coins else c },
+                ),
+            )
+        }
+    }
+
+    /** The civ a seat plays, [Civilization.DEFAULT] when the level carries no choices. */
+    fun seatCiv(seat: Int): Civilization =
+        _ui.value.def.level.civs?.getOrNull(seat) ?: Civilization.DEFAULT
+
+    /**
+     * Sets a seat's civilization, materializing [com.msa.fightandconquer.core.campaign.LevelDef.civs]
+     * on demand — and normalizing an all-default list back to `null`, so maps without civ
+     * choices serialize compactly and share codes stay small (the treasury precedent).
+     */
+    fun setSeatCiv(seat: Int, civ: Civilization) {
+        mutate { def ->
+            val level = def.level
+            if (seat !in level.seats.indices) return@mutate null
+            // Materialize per seat: this also heals a mismatched-arity draft list.
+            val civs = List(level.seats.size) { i -> level.civs?.getOrNull(i) ?: Civilization.DEFAULT }
+            if (civs[seat] == civ && civs.size == (level.civs?.size ?: civs.size)) return@mutate null
+            val updated = civs.mapIndexed { i, c -> if (i == seat) civ else c }
+            def.copy(
+                level = level.copy(
+                    civs = updated.takeUnless { list -> list.all { it == Civilization.DEFAULT } },
                 ),
             )
         }
@@ -388,11 +414,15 @@ class EditorSession(
         val treasury = level.startingTreasury?.let { purses ->
             if (growing) purses + level.rules.startingTreasury else purses
         }
+        val civs = level.civs?.let { chosen ->
+            if (growing) chosen + Civilization.DEFAULT else chosen
+        }
         return def.copy(
             level = level.copy(
                 map = map.copy(tiles = tiles.sortedBy { it.hex.packed }, capitals = capitals),
                 seats = seats,
                 startingTreasury = treasury,
+                civs = civs,
             ),
         )
     }

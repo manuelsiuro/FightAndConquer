@@ -60,6 +60,10 @@ class LegacySaveTest {
         // Tile / RuleConstants (rotation + demolition)
         "bridgeOrientation",
         "demolishRefundPercent",
+        // PlayerState (civilizations)
+        "civ",
+        // RuleConstants (civilizations, phase 2)
+        "civBonusesEnabled",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

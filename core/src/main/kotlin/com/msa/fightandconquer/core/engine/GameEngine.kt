@@ -134,7 +134,7 @@ class GameEngine private constructor(
             com.msa.fightandconquer.core.model.UnitType.WARSHIP,
         )) {
             if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
-                options.add(PurchaseOption.Unit(1, Rules.unitCostOf(s.config.rules, 1, special), special))
+                options.add(PurchaseOption.Unit(1, Rules.unitCostOf(s, s.currentPlayer, 1, special), special))
             }
         }
         for (type in BuildingType.entries) {

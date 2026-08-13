@@ -162,10 +162,17 @@ def join_roles(coll, piece):
     return coll
 
 
-def export_piece(piece, coll):
-    """Export the collection to art/models/<piece>.glb (repo path)."""
+def export_piece(piece, coll, subdir=None):
+    """Export the collection to art/models/[<subdir>/]<piece>.glb (repo path).
+
+    Civilization sets pass their lowercase civ name as *subdir* (e.g. "vikings"),
+    mirroring the shipped layout assets/pieces/<civ>/<kind>.pmesh; the Kingdom
+    set keeps the historical flat layout (subdir=None).
+    """
     import os
     out_dir = os.path.expanduser("~/AndroidStudioProjects/FightAndConquer/art/models")
+    if subdir:
+        out_dir = os.path.join(out_dir, subdir)
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"{piece}.glb")
     bpy.ops.object.select_all(action='DESELECT')

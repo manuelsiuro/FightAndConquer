@@ -41,6 +41,7 @@ sealed interface MapViolation {
     data object NoPlayerSeat : MapViolation
     data object MultiplePlayerSeats : MapViolation
     data class TreasurySizeMismatch(val purses: Int, val seats: Int) : MapViolation
+    data class CivsSizeMismatch(val civs: Int, val seats: Int) : MapViolation
     data class UnitOffMap(val hex: Hex) : MapViolation
     data class UnitStacked(val hex: Hex) : MapViolation
     data class UnitNotOnOwnedGround(val seat: Int, val hex: Hex) : MapViolation
@@ -83,6 +84,7 @@ sealed interface MapViolation {
         NoPlayerSeat -> "no player seat"
         MultiplePlayerSeats -> "more than one player seat"
         is TreasurySizeMismatch -> "$purses purses for $seats seats"
+        is CivsSizeMismatch -> "$civs civilizations for $seats seats"
         is UnitOffMap -> "starting unit on off-map hex $hex"
         is UnitStacked -> "two starting units on $hex"
         is UnitNotOnOwnedGround -> "seat $seat's starting unit at $hex is not on its owner's ground"

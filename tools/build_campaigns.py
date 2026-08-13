@@ -221,6 +221,17 @@ def build_level(src: dict) -> dict:
         level["rules"] = src["rules"]
     if src.get("treasury"):
         level["startingTreasury"] = src["treasury"]
+    if src.get("civs"):
+        civs = src["civs"]
+        valid = {"KINGDOM", "VIKINGS", "SULTANATE", "SHOGUNATE"}
+        if len(civs) != len(level["seats"]):
+            raise BuildError(
+                f"{level_id}: {len(civs)} civs but {len(level['seats'])} seats"
+            )
+        unknown = [c for c in civs if c not in valid]
+        if unknown:
+            raise BuildError(f"{level_id}: unknown civ(s) {unknown}")
+        level["civs"] = civs
     for key, field in (
         ("units", "startingUnits"),
         ("objectives", "objectives"),

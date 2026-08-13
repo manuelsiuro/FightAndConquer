@@ -5,6 +5,7 @@ import com.msa.fightandconquer.core.campaign.SeatDef
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.map.MapViolation
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Deposit
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.Terrain
@@ -234,6 +235,69 @@ class EditorSessionTest {
         val purses = s.ui.value.def.level.startingTreasury
         assertEquals(listOf(s.ui.value.def.level.rules.startingTreasury, 250), purses)
         assertTrue(s.ui.value.violations.isEmpty())
+    }
+
+    @Test
+    fun `seat civ edits create the civ list on demand and undo`() {
+        val s = session()
+        assertEquals(Civilization.DEFAULT, s.seatCiv(1))
+        s.setSeatCiv(1, Civilization.VIKINGS)
+        assertEquals(Civilization.VIKINGS, s.seatCiv(1))
+        assertEquals(
+            listOf(Civilization.DEFAULT, Civilization.VIKINGS),
+            s.ui.value.def.level.civs,
+        )
+        assertTrue(s.ui.value.violations.isEmpty())
+        s.undo()
+        assertNull(s.ui.value.def.level.civs)
+        assertEquals(Civilization.DEFAULT, s.seatCiv(1))
+    }
+
+    @Test
+    fun `an all-default civ list normalizes back to null`() {
+        val s = session()
+        s.setSeatCiv(0, Civilization.SHOGUNATE)
+        assertEquals(
+            listOf(Civilization.SHOGUNATE, Civilization.DEFAULT),
+            s.ui.value.def.level.civs,
+        )
+        s.setSeatCiv(0, Civilization.DEFAULT)
+        assertNull(s.ui.value.def.level.civs) // KINGDOM everywhere serializes as nothing
+        // Re-choosing the default on an already-null list is not an undo step.
+        val canUndoBefore = s.ui.value.canUndo
+        s.setSeatCiv(1, Civilization.DEFAULT)
+        assertEquals(canUndoBefore, s.ui.value.canUndo)
+        assertNull(s.ui.value.def.level.civs)
+    }
+
+    @Test
+    fun `growing a seat by capital keeps the civ list arity`() {
+        val s = session()
+        s.setSeatCiv(0, Civilization.SULTANATE) // materialize the list
+        s.setActiveSeat(2) // == seats.size: the pending seat
+        s.setBrush(EditorSession.Brush.Capital)
+        s.paint(Hex.of(0, 2))
+        val level = s.ui.value.def.level
+        assertEquals(3, level.seats.size)
+        assertEquals(3, level.civs?.size)
+        assertEquals(Civilization.DEFAULT, level.civs?.get(2))
+        assertEquals(Civilization.SULTANATE, s.seatCiv(0))
+        assertTrue(s.ui.value.violations.isEmpty())
+    }
+
+    @Test
+    fun `a mismatched civ list is flagged as a draft violation`() {
+        val store = CustomMapStore(File(tmp.root, "maps"))
+        val def = MapTemplates.starter("map-civ", "Mismatch", createdAt = 1_000).let {
+            it.copy(level = it.level.copy(civs = listOf(Civilization.VIKINGS))) // 1 civ, 2 seats
+        }
+        store.save(def)
+        val s = EditorSession(store, def)
+        assertTrue(s.ui.value.violations.any { it is MapViolation.CivsSizeMismatch })
+        // Any civ edit heals the arity through per-seat materialization.
+        s.setSeatCiv(1, Civilization.SHOGUNATE)
+        assertTrue(s.ui.value.violations.none { it is MapViolation.CivsSizeMismatch })
+        assertEquals(Civilization.VIKINGS, s.seatCiv(0))
     }
 
     @Test

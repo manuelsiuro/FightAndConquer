@@ -2,6 +2,7 @@ package com.msa.fightandconquer.render.mesh
 
 import android.content.Context
 import com.google.android.filament.Engine
+import com.msa.fightandconquer.core.model.Civilization
 
 /** How a part gets tinted. */
 enum class ColorRole { FACTION, GOLD, TREE_FOLIAGE, TRUNK, STONE, PIP }
@@ -20,22 +21,107 @@ enum class PieceKind {
 }
 
 /**
- * The piece model set, built once per engine and shared by every renderable.
+ * The (civilization, kind) -> parts resolution behind [PieceMeshes], generic over the
+ * part payload so JVM tests can exercise the exact fallback/ownership logic without
+ * Filament. Civ sets load lazily on first request (or via [preload]).
+ *
+ * Fallback ladder:
+ *  - a non-Kingdom civ tries `pieces/<civ>/<kind>.pmesh` for civ-forked kinds, else
+ *    SHARES the Kingdom entry (same instance — loaded once, freed once);
+ *  - neutral kinds ([PieceMeshes.NEUTRAL_KINDS]) never fork and always share Kingdom;
+ *  - Kingdom tries the flat `pieces/<kind>.pmesh`, else the procedural token.
+ */
+internal class CivArtTable<P : Any>(
+    private val loadCivAsset: (Civilization, PieceKind) -> P?,
+    private val loadFlatAsset: (PieceKind) -> P?,
+    private val procedural: (PieceKind) -> P,
+) {
+    /** Payloads this table created and owns; fallback shares are excluded, so a
+     *  release pass frees every payload exactly once. */
+    private val owned = ArrayList<P>()
+    private val sets = HashMap<Civilization, Map<PieceKind, P>>()
+
+    /** Kinds for which a civ shipped its OWN asset (everything else is a Kingdom share). */
+    private val forked = HashMap<Civilization, Set<PieceKind>>()
+
+    fun get(civ: Civilization, kind: PieceKind): P = setFor(civ).getValue(kind)
+
+    fun preload(civs: Set<Civilization>) = civs.forEach { setFor(it) }
+
+    /**
+     * The civilization whose art actually renders for (civ, kind): [civ] itself when it
+     * shipped that asset, [Civilization.KINGDOM] for neutral kinds and fallback shares.
+     * This is the piece IDENTITY the scene diffs — two civs sharing Kingdom art compare
+     * equal, so a capture between them never recreates an identical-looking piece.
+     */
+    fun artCiv(civ: Civilization, kind: PieceKind): Civilization {
+        if (civ == Civilization.KINGDOM) return Civilization.KINGDOM
+        setFor(civ) // ensure loaded
+        return if (kind in forked.getValue(civ)) civ else Civilization.KINGDOM
+    }
+
+    /** Visits every owned payload exactly once (destroy pass), then forgets everything. */
+    fun releaseOwned(action: (P) -> Unit) {
+        owned.forEach(action)
+        owned.clear()
+        sets.clear()
+        forked.clear()
+    }
+
+    private fun setFor(civ: Civilization): Map<PieceKind, P> {
+        sets[civ]?.let { return it }
+        val set: Map<PieceKind, P>
+        if (civ == Civilization.KINGDOM) {
+            set = PieceKind.entries.associateWith { kind ->
+                (loadFlatAsset(kind) ?: procedural(kind)).also { owned.add(it) }
+            }
+        } else {
+            val kingdom = setFor(Civilization.KINGDOM)
+            val civForked = HashSet<PieceKind>()
+            set = PieceKind.entries.associateWith { kind ->
+                val own = if (kind in PieceMeshes.CIV_FORKED_KINDS) loadCivAsset(civ, kind) else null
+                own?.also { owned.add(it); civForked.add(kind) } ?: kingdom.getValue(kind)
+            }
+            forked[civ] = civForked
+        }
+        sets[civ] = set
+        return set
+    }
+}
+
+/**
+ * The piece model sets, built once per engine and shared by every renderable.
  * Sizes are tuned to hex circumradius 0.5.
  *
- * Loader-first: Blender-authored minis baked into assets/pieces/<name>.pmesh take
- * priority (tools/glb2pmesh.py); the procedural token set remains as a per-kind
- * fallback so a missing asset degrades gracefully instead of crashing.
+ * Keyed by (civilization, kind) so per-civ art ships incrementally: Kingdom IS the
+ * flat `assets/pieces/<kind>.pmesh` set; other civs bake into `pieces/<civ>/` and
+ * fall back to the Kingdom entry for any kind they don't have yet (see [CivArtTable]).
+ *
+ * Loader-first: Blender-authored minis baked by tools/glb2pmesh.py take priority;
+ * the procedural token set remains as a per-kind Kingdom fallback so a missing asset
+ * degrades gracefully instead of crashing.
  */
 class PieceMeshes(private val engine: Engine, context: Context? = null) {
 
-    private val parts: Map<PieceKind, List<Part>> =
-        PieceKind.entries.associateWith { kind ->
+    private val table = CivArtTable<List<Part>>(
+        loadCivAsset = { civ, kind ->
+            context?.let {
+                PieceMeshLoader.load(it, engine, "${civ.name.lowercase()}/${kind.name.lowercase()}")
+            }
+        },
+        loadFlatAsset = { kind ->
             context?.let { PieceMeshLoader.load(it, engine, kind.name.lowercase()) }
-                ?: proceduralFor(kind)
-        }
+        },
+        procedural = ::proceduralFor,
+    )
 
-    fun partsFor(kind: PieceKind): List<Part> = parts.getValue(kind)
+    /** Loads the art sets for every civ present in a game up front (no first-use hitch). */
+    fun preload(civs: Set<Civilization>) = table.preload(civs)
+
+    fun partsFor(civ: Civilization, kind: PieceKind): List<Part> = table.get(civ, kind)
+
+    /** See [CivArtTable.artCiv]: the identity the scene should diff pieces by. */
+    fun artCivFor(civ: Civilization, kind: PieceKind): Civilization = table.artCiv(civ, kind)
 
     fun unitKind(unit: com.msa.fightandconquer.core.model.GameUnit): PieceKind = when (unit.type) {
         com.msa.fightandconquer.core.model.UnitType.ARCHER -> PieceKind.ARCHER
@@ -50,8 +136,20 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
         }
     }
 
+    /** Frees every GpuMesh loaded across all civ sets exactly once (shares excluded). */
     fun destroy(engine: Engine) {
-        parts.values.flatten().forEach { it.mesh.destroy(engine) }
+        table.releaseOwned { parts -> parts.forEach { it.mesh.destroy(engine) } }
+    }
+
+    companion object {
+        /** Ownerless board furniture: never forks per civ, always renders Kingdom art. */
+        val NEUTRAL_KINDS: Set<PieceKind> = setOf(
+            PieceKind.TREE, PieceKind.GRAVESTONE,
+            PieceKind.GOLD_VEIN, PieceKind.FERTILE, PieceKind.FISH_SHOAL,
+        )
+
+        /** Player-owned kinds whose art may fork per civilization. */
+        val CIV_FORKED_KINDS: Set<PieceKind> = PieceKind.entries.toSet() - NEUTRAL_KINDS
     }
 
     // ----- procedural fallback set (original token designs) -----

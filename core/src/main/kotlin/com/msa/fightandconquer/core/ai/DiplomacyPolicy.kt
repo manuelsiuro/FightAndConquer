@@ -143,7 +143,7 @@ object DiplomacyPolicy {
                 Building.STRONG_TOWER -> power += 8
                 else -> {}
             }
-            state.unitAt(hex)?.let { power += 5 * Rules.strengthOf(it, state.config.rules) }
+            state.unitAt(hex)?.let { power += 5 * Rules.strengthOf(state, it) }
         }
         return power
     }

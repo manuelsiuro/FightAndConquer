@@ -38,6 +38,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.editor.CustomMapDef
 import com.msa.fightandconquer.core.map.MapShape
 import com.msa.fightandconquer.core.map.MapSize
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Difficulty
 
 @Composable
@@ -61,6 +62,9 @@ fun SetupScreen(
     var fogOfWar by rememberSaveable { mutableStateOf(false) }
     var specialUnits by rememberSaveable { mutableStateOf(true) }
     var diplomacy by rememberSaveable { mutableStateOf(true) }
+    var civs by rememberSaveable(stateSaver = civListSaver()) {
+        mutableStateOf(List(MAX_PLAYERS) { Civilization.DEFAULT })
+    }
 
     Column(
         modifier = Modifier
@@ -152,6 +156,25 @@ fun SetupScreen(
                     }
                 }
             }
+            for (seat in 0 until playerCount) {
+                val label = when {
+                    mode == GameMode.PASS_AND_PLAY ->
+                        stringResource(R.string.menu_section_civ_player, seat + 1)
+                    seat == 0 -> stringResource(R.string.menu_section_civ_yours)
+                    else -> stringResource(R.string.menu_section_civ_ai, seat)
+                }
+                OptionRow(label) {
+                    for (option in Civilization.entries) {
+                        FilterChip(
+                            selected = civs[seat] == option,
+                            onClick = {
+                                civs = civs.mapIndexed { i, c -> if (i == seat) option else c }
+                            },
+                            label = { Text(stringResource(civNameRes(option))) },
+                        )
+                    }
+                }
+            }
             OptionRow(stringResource(R.string.menu_section_map_size)) {
                 for (option in MapSize.entries) {
                     FilterChip(
@@ -222,6 +245,7 @@ fun SetupScreen(
                         customMapId = customMapId,
                         specialUnits = specialUnits,
                         diplomacy = diplomacy,
+                        civs = civs.take(playerCount),
                     ),
                 )
             },
@@ -241,6 +265,12 @@ private const val MAX_PLAYERS = 4
 /** Saves an enum by name so setup choices survive Activity recreation. */
 private inline fun <reified T : Enum<T>> enumSaver(): Saver<T, String> =
     Saver(save = { it.name }, restore = { enumValueOf<T>(it) })
+
+/** Saves the per-seat civilization picks by name, same contract as [enumSaver]. */
+private fun civListSaver(): Saver<List<Civilization>, ArrayList<String>> = Saver(
+    save = { ArrayList(it.map(Civilization::name)) },
+    restore = { saved -> saved.map(Civilization::valueOf) },
+)
 
 private fun Difficulty.labelRes() = difficultyLabelRes(this)
 
@@ -270,6 +300,9 @@ private fun OptionRow(label: String, content: @Composable () -> Unit) {
             letterSpacing = 1.sp,
             color = UiColors.ink.copy(alpha = 0.6f),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) { content() }
     }
 }

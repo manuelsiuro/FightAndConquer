@@ -1,7 +1,10 @@
 package com.msa.fightandconquer.render.mesh
 
+import com.msa.fightandconquer.core.model.Civilization
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -67,16 +70,46 @@ class PieceMeshLoaderTest {
      * Baked-asset regression gate: every checked-in .pmesh must parse and respect the
      * converter budgets (tools/glb2pmesh.py), and every [PieceKind] that has shipped a
      * model must keep shipping it — a renamed enum value or missing bake fails here.
+     *
+     * Layout contract: flat files are the KINGDOM set and must map to PieceKind names;
+     * one level of `pieces/<civ>/` subdirectories carries the other civs' art —
+     * directory names must be non-Kingdom [Civilization]s (lowercase) and base names
+     * must be civ-forked (player-owned) kinds; neutral markers never fork.
      */
     @Test
     fun `checked-in piece assets parse and respect the budgets`() {
         val dir = java.io.File("src/main/assets/pieces")
-        val baked = dir.listFiles { f -> f.name.endsWith(".pmesh") }.orEmpty()
-        org.junit.Assert.assertTrue("no baked assets found at ${dir.absolutePath}", baked.isNotEmpty())
+        val flat = dir.listFiles { f -> f.isFile && f.name.endsWith(".pmesh") }.orEmpty()
+        org.junit.Assert.assertTrue("no baked assets found at ${dir.absolutePath}", flat.isNotEmpty())
         val kindNames = PieceKind.entries.map { it.name.lowercase() }.toSet()
-        for (file in baked) {
+        val civDirNames = Civilization.entries
+            .filter { it != Civilization.KINGDOM }
+            .map { it.name.lowercase() }
+            .toSet()
+        val forkedNames = PieceMeshes.CIV_FORKED_KINDS.map { it.name.lowercase() }.toSet()
+
+        val baked = ArrayList<Pair<String, java.io.File>>() // display name -> file
+        for (file in flat) {
             val name = file.name.removeSuffix(".pmesh")
             org.junit.Assert.assertTrue("$name.pmesh has no matching PieceKind", name in kindNames)
+            baked.add(name to file)
+        }
+        for (sub in dir.listFiles { f -> f.isDirectory }.orEmpty()) {
+            org.junit.Assert.assertTrue(
+                "pieces/${sub.name}/ is not a civilization directory (Kingdom stays flat)",
+                sub.name in civDirNames,
+            )
+            for (file in sub.listFiles { f -> f.name.endsWith(".pmesh") }.orEmpty()) {
+                val name = file.name.removeSuffix(".pmesh")
+                org.junit.Assert.assertTrue(
+                    "${sub.name}/$name.pmesh is not a civ-forked (player-owned) kind",
+                    name in forkedNames,
+                )
+                baked.add("${sub.name}/$name" to file)
+            }
+        }
+
+        for ((name, file) in baked) {
             val parts = PieceMeshLoader.parse(file.readBytes())
             org.junit.Assert.assertTrue("$name: no parts", parts.isNotEmpty())
             var tris = 0
@@ -98,14 +131,79 @@ class PieceMeshLoaderTest {
             org.junit.Assert.assertTrue("$name: height $maxY > 0.75", maxY <= 0.75f)
             org.junit.Assert.assertTrue("$name: minY $minY < -0.01", minY >= -0.01f)
         }
-        // Every original kind stays shipped; expansion kinds join this list as their
-        // Blender models land.
-        val shipped = baked.map { it.name.removeSuffix(".pmesh") }.toSet()
+        // Every original kind stays shipped (Kingdom = the flat set); expansion kinds
+        // join this list as their Blender models land.
+        val shipped = flat.map { it.name.removeSuffix(".pmesh") }.toSet()
         for (kind in listOf(
             "unit_t1", "unit_t2", "unit_t3", "unit_t4",
             "capital", "farm", "tower", "strong_tower", "tree", "gravestone",
         )) {
             org.junit.Assert.assertTrue("missing baked asset for $kind", kind in shipped)
         }
+    }
+
+    // ----- (civilization, kind) resolution: the exact production fallback/ownership
+    // logic ([CivArtTable] behind PieceMeshes), exercised on the JVM without Filament
+    // by substituting the part payload -----
+
+    private fun table(
+        civAsset: (Civilization, PieceKind) -> String? = { _, _ -> null },
+        flatAsset: (PieceKind) -> String? = { kind -> "kingdom/${kind.name.lowercase()}" },
+    ) = CivArtTable(civAsset, flatAsset) { kind -> "procedural/${kind.name.lowercase()}" }
+
+    @Test
+    fun `a civ with no baked assets resolves to the shared Kingdom parts instance`() {
+        val flatLoads = ArrayList<PieceKind>()
+        val table = table(flatAsset = { kind ->
+            flatLoads.add(kind)
+            "kingdom/${kind.name.lowercase()}"
+        })
+        val kingdom = table.get(Civilization.KINGDOM, PieceKind.UNIT_T1)
+        // Same instance, not a copy: loaded once, destroyed once.
+        assertSame(kingdom, table.get(Civilization.VIKINGS, PieceKind.UNIT_T1))
+        assertEquals(Civilization.KINGDOM, table.artCiv(Civilization.VIKINGS, PieceKind.UNIT_T1))
+        // The falling-back civ did not re-load the Kingdom set.
+        assertEquals(PieceKind.entries.size, flatLoads.size)
+    }
+
+    @Test
+    fun `a civ's own asset wins and neutral kinds never fork`() {
+        val civLoads = ArrayList<PieceKind>()
+        val table = table(civAsset = { civ, kind ->
+            civLoads.add(kind)
+            if (civ == Civilization.VIKINGS && kind == PieceKind.CAPITAL) "vikings/capital" else null
+        })
+        assertEquals("vikings/capital", table.get(Civilization.VIKINGS, PieceKind.CAPITAL))
+        assertEquals(Civilization.VIKINGS, table.artCiv(Civilization.VIKINGS, PieceKind.CAPITAL))
+        // Neutral markers never even consult the civ loader and stay the Kingdom instance.
+        assertTrue(civLoads.none { it in PieceMeshes.NEUTRAL_KINDS })
+        assertSame(
+            table.get(Civilization.KINGDOM, PieceKind.TREE),
+            table.get(Civilization.VIKINGS, PieceKind.TREE),
+        )
+    }
+
+    @Test
+    fun `kingdom falls back to procedural parts when even the flat asset is missing`() {
+        val table = table(flatAsset = { null })
+        assertEquals("procedural/unit_t2", table.get(Civilization.KINGDOM, PieceKind.UNIT_T2))
+        // And a civ falling back lands on the same procedural instance.
+        assertSame(
+            table.get(Civilization.KINGDOM, PieceKind.UNIT_T2),
+            table.get(Civilization.SHOGUNATE, PieceKind.UNIT_T2),
+        )
+    }
+
+    @Test
+    fun `release frees each loaded parts list exactly once across civs`() {
+        val table = table(civAsset = { civ, kind ->
+            if (civ == Civilization.VIKINGS && kind == PieceKind.CAPITAL) "vikings/capital" else null
+        })
+        table.preload(setOf(Civilization.KINGDOM, Civilization.VIKINGS, Civilization.SULTANATE))
+        val released = ArrayList<String>()
+        table.releaseOwned { released.add(it) }
+        // Kingdom's full set + the single Vikings fork; fallback shares are never re-freed.
+        assertEquals(PieceKind.entries.size + 1, released.size)
+        assertEquals(released.size, released.toSet().size)
     }
 }

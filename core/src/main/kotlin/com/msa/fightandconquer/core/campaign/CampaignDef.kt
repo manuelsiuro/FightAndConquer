@@ -2,6 +2,7 @@ package com.msa.fightandconquer.core.campaign
 
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.map.MapDefinition
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.PlayerId
 import com.msa.fightandconquer.core.model.PlayerKind
@@ -64,6 +65,8 @@ data class LevelDef(
     val rules: RuleConstants = RuleConstants(),
     /** Per-seat opening treasury; null keeps [RuleConstants.startingTreasury] for all. */
     val startingTreasury: List<Int>? = null,
+    /** Per-seat civilizations; null keeps [Civilization.DEFAULT] for all. */
+    val civs: List<Civilization>? = null,
     val startingUnits: List<UnitPlacement> = emptyList(),
     val objectives: List<Objective> = listOf(Objective.ConquerAll),
     val failures: List<FailCondition> = emptyList(),
