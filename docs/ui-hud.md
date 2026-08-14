@@ -8,9 +8,11 @@ Colors: `UiColors` — a `@Composable` accessor for `LocalUiColors`, resolving t
 the light or dark `UiColorScheme` per the system setting (`UiColors.kt`); the
 Material scheme in `theme/Theme.kt` is derived from the same instance. Faction
 pastels, `onFaction` and the board-overlay chips are fixed across themes because
-they mirror the render palette; only the chrome tokens (paper, ink, panels,
-toasts) flip. No dynamic color — wallpaper-derived schemes clashed with the fixed
-board palette. System bars are transparent edge-to-edge (`MainActivity` sets
+they mirror the render palette; only the chrome tokens (paper, ink, surfaces,
+toasts) flip. The legacy translucent `panel` / `toastWarning` tokens survive for
+the menu, guide and editor screens only — the in-game HUD is all opaque `surface`
+(see the chrome idiom below). No dynamic color — wallpaper-derived schemes clashed
+with the fixed board palette. System bars are transparent edge-to-edge (`MainActivity` sets
 `SystemBarStyle.auto(TRANSPARENT, TRANSPARENT)` + disables nav-bar contrast
 enforcement); the Game screen hides them entirely (immersive, edge-swipe reveals
 transiently) via `ImmersiveDuringGame`.
@@ -86,7 +88,7 @@ sides), "territory cut off" warning (diffed starving sets, debounced per round),
 "AI took N of your hexes" (accumulated during AI turns, flushed at the human's
 `TurnStarted`), bankruptcy alert, and `ActionRejected` reasons as info toasts.
 
-The selected-unit strip additionally hosts a "Disband (+N)" button for the held
+The selected-unit strip additionally hosts a "Disband +N" button for the held
 fresh unit (`HudState.selectedUnitDisbandRefund` → `disbandSelectedUnit()`); all
 destroy paths rely on the ordinary Undo button rather than a confirm dialog.
 

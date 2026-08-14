@@ -11,6 +11,7 @@ Google Filament 3D renderer inside Jetpack Compose, Blender-authored low-poly mi
 | [rendering.md](rendering.md) | Filament stack, materials, procedural meshes, board scene, animation |
 | [asset-pipeline.md](asset-pipeline.md) | Blender MCP authoring → glTF → `.pmesh` bake pipeline |
 | [ui-hud.md](ui-hud.md) | ViewModel state surface, interaction model, HUD components |
+| [design/](design/) | Claude Design briefs + handoffs — [game-screen-hud-handoff.md](design/game-screen-hud-handoff.md) is the shipped HUD spec (tokens, per-component metrics, tint ladder, plinth scale) |
 | [fog-of-war.md](fog-of-war.md) | Fog of War spec, gameplay impact, and extension proposals |
 | [campaign.md](campaign.md) | Campaign mode — level format, objectives, coach hints, story beats, authoring |
 | [map-editor.md](map-editor.md) | Map editor — custom scenarios, validation, storage, play path, sharing (code/file/QR/stego) |

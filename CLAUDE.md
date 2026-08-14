@@ -45,6 +45,13 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
   (theme-aware light/dark via `LocalUiColors`, follows the system setting, no
   dynamic color; faction pastels + `onFaction` + board chips are fixed across
   themes — never put `ink` on a faction pastel, use `onFaction`).
+- **In-game HUD chrome follows the shipped design spec**
+  (docs/design/game-screen-hud-handoff.md): every floating surface is opaque
+  `surface` + 1 dp `hairline` + the single `boardLift` shadow (`Modifier.hudSurface`)
+  — no translucent panels, no other shadows; tints come from the 12/30/100 % ladder;
+  baked renders sit on the `PlinthScale` S/M/L plinths; panels/toasts anchor to the
+  top bar's *measured* bottom + 8 dp, never a height constant; destructive flows use
+  two-tap "armed" patterns or Undo — no dialogs; no emoji, tinted vectors only.
 
 ## Gotchas
 
