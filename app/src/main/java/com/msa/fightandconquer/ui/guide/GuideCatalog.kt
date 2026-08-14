@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.BuildingType
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.UnitType
 import com.msa.fightandconquer.ui.PieceIcons
 
@@ -366,5 +367,13 @@ object GuideCatalog {
         UnitType.CATAPULT -> catapult
         UnitType.TRANSPORT -> transport
         UnitType.WARSHIP -> warship
+    }
+
+    /** The guide entry id for a civilization, so a civ picker can deep-link it. */
+    fun civEntryId(civ: Civilization): String = when (civ) {
+        Civilization.KINGDOM -> "civ_kingdom"
+        Civilization.VIKINGS -> "civ_vikings"
+        Civilization.SULTANATE -> "civ_sultanate"
+        Civilization.SHOGUNATE -> "civ_shogunate"
     }
 }

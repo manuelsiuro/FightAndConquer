@@ -23,12 +23,11 @@ import com.msa.fightandconquer.ui.GameViewModel
 import com.msa.fightandconquer.ui.MenuScreen
 import com.msa.fightandconquer.ui.PlaceholderScreen
 import com.msa.fightandconquer.ui.Screen
-import com.msa.fightandconquer.ui.SetupScreen
 import com.msa.fightandconquer.ui.campaign.BriefingScreen
 import com.msa.fightandconquer.ui.campaign.CampaignScreen
-import com.msa.fightandconquer.core.editor.CustomMapValidator
 import com.msa.fightandconquer.ui.editor.MapEditorScreen
 import com.msa.fightandconquer.ui.editor.MapManagerScreen
+import com.msa.fightandconquer.ui.setup.SetupScreen
 import com.msa.fightandconquer.ui.share.MapShareManager
 import com.msa.fightandconquer.ui.game.GameScreen
 import com.msa.fightandconquer.ui.theme.FightAndConquerTheme
@@ -63,11 +62,11 @@ class MainActivity : ComponentActivity() {
                     is Screen.Setup -> SetupScreen(
                         generating = s.generating,
                         onStart = viewModel::newGame,
+                        onCancel = viewModel::cancelGeneration,
                         onBack = viewModel::backToMenu,
-                        customMaps = remember(s) {
-                            viewModel.customMaps.list()
-                                .filter { CustomMapValidator.validate(it).isEmpty() }
-                        },
+                        // Unfiltered: the screen shows drafts too (dimmed, with their
+                        // issue count) and validates per row.
+                        customMaps = remember(s) { viewModel.customMaps.list() },
                     )
                     Screen.Campaign -> CampaignScreen(
                         campaigns = viewModel.campaigns.campaigns(),

@@ -26,10 +26,11 @@ object MinimapRenderer {
 
     const val SIZE = 512
 
-    fun render(def: CustomMapDef): Bitmap {
-        val bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
+    fun render(def: CustomMapDef, size: Int = SIZE, caption: Boolean = true): Bitmap {
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(GROUND)
+        val captionPx = if (caption) CAPTION * size / SIZE else 0f
 
         val tiles = def.level.map.tiles
         if (tiles.isNotEmpty()) {
@@ -43,12 +44,12 @@ object MinimapRenderer {
                 minY = min(minY, y); maxY = max(maxY, y)
                 Triple(tile, x, y)
             }
-            val margin = 28f
+            val margin = 28f * size / SIZE
             val spanX = maxX - minX + 2f * SQRT3
             val spanY = maxY - minY + 3f
-            val scale = min((SIZE - 2 * margin) / spanX, (SIZE - 2 * margin - CAPTION) / spanY)
-            val offX = (SIZE - spanX * scale) / 2f - (minX - SQRT3) * scale
-            val offY = (SIZE - CAPTION - spanY * scale) / 2f - (minY - 1.5f) * scale
+            val scale = min((size - 2 * margin) / spanX, (size - 2 * margin - captionPx) / spanY)
+            val offX = (size - spanX * scale) / 2f - (minX - SQRT3) * scale
+            val offY = (size - captionPx - spanY * scale) / 2f - (minY - 1.5f) * scale
 
             val fill = Paint(Paint.ANTI_ALIAS_FLAG)
             val capitals = def.level.map.capitals.toSet()
@@ -68,12 +69,14 @@ object MinimapRenderer {
             }
         }
 
-        val caption = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = INK
-            textSize = 24f
-            textAlign = Paint.Align.CENTER
+        if (caption) {
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = INK
+                textSize = 24f * size / SIZE
+                textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText(def.name.take(40), size / 2f, size - 20f * size / SIZE, paint)
         }
-        canvas.drawText(def.name.take(40), SIZE / 2f, SIZE - 20f, caption)
         return bitmap
     }
 
