@@ -1,9 +1,8 @@
 package com.msa.fightandconquer.ui.game
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.Image
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,15 +20,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,8 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -49,7 +44,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
@@ -62,12 +57,13 @@ import com.msa.fightandconquer.ui.HudState
 import com.msa.fightandconquer.ui.InfoCard
 import com.msa.fightandconquer.ui.InfoCardAction
 import com.msa.fightandconquer.ui.PieceIcons
-import com.msa.fightandconquer.ui.label
 import com.msa.fightandconquer.ui.ShopInfo
 import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.buildingNameRes
 import com.msa.fightandconquer.ui.guide.GuideCatalog
+import com.msa.fightandconquer.ui.label
 import com.msa.fightandconquer.ui.resolve
+import com.msa.fightandconquer.ui.setup.scaleClickable
 import com.msa.fightandconquer.ui.unitNameRes
 import kotlinx.coroutines.delay
 
@@ -78,128 +74,104 @@ internal fun BottomBar(
     viewModel: GameViewModel,
     onOpenGuide: (String?) -> Unit,
 ) {
-    Column(Modifier.padding(HudGutter)) {
+    Column(
+        Modifier.padding(HudGutter),
+        verticalArrangement = Arrangement.spacedBy(HudSpacing),
+    ) {
+        state.selectedUnitNameRes?.let { nameRes ->
+            SelectedUnitStrip(state, nameRes, viewModel)
+        }
         infoCard?.let { info ->
             InfoCardView(info, onAction = viewModel::performInfoAction)
-            Spacer(Modifier.height(8.dp))
-        }
-        state.selectedUnitNameRes?.let { nameRes ->
-            Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
-                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    state.selectedUnitIconRes?.let { icon ->
-                        Box(
-                            Modifier
-                                .size(44.dp)
-                                .background(UiColors.background, RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Image(painterResource(icon), contentDescription = null, Modifier.size(40.dp))
-                        }
-                        Spacer(Modifier.width(10.dp))
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            stringResource(nameRes),
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
-                            color = UiColors.ink,
-                        )
-                        Text(
-                            stringResource(R.string.hud_selected_unit_hint),
-                            fontSize = 12.sp,
-                            color = UiColors.inkSecondary,
-                        )
-                    }
-                    state.selectedUnitDisbandRefund?.let { refund ->
-                        val description = stringResource(R.string.cd_hud_disband)
-                        Spacer(Modifier.width(8.dp))
-                        OutlinedButton(
-                            onClick = { viewModel.disbandSelectedUnit() },
-                            modifier = Modifier.semantics { contentDescription = description },
-                        ) {
-                            Text(stringResource(R.string.hud_disband, refund), color = UiColors.ink)
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
         }
         if (state.purchases.isNotEmpty() && state.currentIsHuman && state.banner == null) {
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                for (option in state.purchases) {
-                    PurchaseCard(
-                        option,
-                        state.shopInfo,
-                        civ = state.currentCiv,
-                        affordable = option.cost <= state.treasury,
-                        onLearn = onOpenGuide,
-                        onBuy = { viewModel.buy(option) },
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
+            PurchaseTray(state, onOpenGuide, viewModel)
         }
 
-        var confirmEndTurn by remember { mutableStateOf(false) }
-        LaunchedEffect(confirmEndTurn) {
-            if (confirmEndTurn) {
+        // End-turn-with-unmoved-units arms on the first FAB tap and commits on the
+        // second (FAB again or "End anyway") — the HUD's no-dialog rule.
+        var endTurnArmed by remember { mutableStateOf(false) }
+        LaunchedEffect(endTurnArmed) {
+            if (endTurnArmed) {
                 delay(3000)
-                confirmEndTurn = false
+                endTurnArmed = false
             }
         }
         LaunchedEffect(state.turnNumber, state.currentPlayer, state.freshUnitCount) {
-            confirmEndTurn = false
+            endTurnArmed = false
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (state.canUndo && state.currentIsHuman) {
-                OutlinedButton(onClick = { viewModel.undo() }) {
-                    Text(stringResource(R.string.hud_undo), color = UiColors.ink)
-                }
+                UndoButton(onClick = { viewModel.undo() })
             }
             Spacer(Modifier.weight(1f))
             if (state.currentIsHuman && state.winner == null && state.banner == null) {
-                AnimatedContent(confirmEndTurn, label = "endTurnConfirm") { confirming ->
-                    if (!confirming) {
-                        ExtendedFloatingActionButton(
-                            onClick = {
-                                if (state.freshUnitCount == 0) viewModel.endTurn() else confirmEndTurn = true
-                            },
-                            containerColor = UiColors.faction(state.currentPlayer),
-                            contentColor = UiColors.onFaction,
-                        ) { Text(stringResource(R.string.hud_end_turn), fontWeight = FontWeight.Bold) }
-                    } else {
-                        val cancelDescription = stringResource(R.string.cd_cancel_end_turn)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                pluralStringResource(
-                                    R.plurals.hud_units_unmoved,
-                                    state.freshUnitCount,
-                                    state.freshUnitCount,
-                                ),
-                                fontSize = 13.sp,
-                                color = UiColors.inkSecondary,
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            OutlinedButton(
-                                onClick = { confirmEndTurn = false },
-                                modifier = Modifier.semantics { contentDescription = cancelDescription },
-                            ) {
-                                Text(stringResource(R.string.hud_cancel_symbol), color = UiColors.ink)
+                EndTurnFab(
+                    pastel = UiColors.faction(state.currentPlayer),
+                    onClick = {
+                        when {
+                            state.freshUnitCount == 0 -> viewModel.endTurn()
+                            endTurnArmed -> {
+                                endTurnArmed = false
+                                viewModel.endTurn()
                             }
-                            Spacer(Modifier.width(8.dp))
-                            ExtendedFloatingActionButton(
-                                onClick = { confirmEndTurn = false; viewModel.endTurn() },
-                                containerColor = UiColors.alert,
-                                contentColor = UiColors.onAlert,
-                            ) { Text(stringResource(R.string.hud_end_anyway), fontWeight = FontWeight.Bold) }
+                            else -> endTurnArmed = true
                         }
-                    }
-                }
+                    },
+                )
             }
+        }
+        AnimatedVisibility(endTurnArmed) {
+            ArmedEndTurnRow(
+                freshUnitCount = state.freshUnitCount,
+                onCancel = { endTurnArmed = false },
+                onEndAnyway = {
+                    endTurnArmed = false
+                    viewModel.endTurn()
+                },
+            )
+        }
+    }
+}
+
+/** Scale-S sibling of the info card: the selected unit's name, hint and disband. */
+@Composable
+private fun SelectedUnitStrip(state: HudState, nameRes: Int, viewModel: GameViewModel) {
+    Row(
+        Modifier
+            .hudSurface(14.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        state.selectedUnitIconRes?.let { icon ->
+            PiecePlinth(icon, PlinthScale.S)
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(nameRes),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = UiColors.ink,
+            )
+            Text(
+                stringResource(R.string.hud_selected_unit_hint),
+                fontSize = 12.sp,
+                color = UiColors.inkMuted,
+            )
+        }
+        state.selectedUnitDisbandRefund?.let { refund ->
+            val description = stringResource(R.string.cd_hud_disband)
+            Spacer(Modifier.width(8.dp))
+            OutlinedHudButton(
+                text = stringResource(R.string.hud_disband, refund),
+                height = 32.dp,
+                radius = 16.dp,
+                fontSize = 13.sp,
+                modifier = Modifier.semantics { contentDescription = description },
+                onClick = { viewModel.disbandSelectedUnit() },
+            )
         }
     }
 }
@@ -207,25 +179,21 @@ internal fun BottomBar(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
-    Surface(shape = RoundedCornerShape(12.dp), color = UiColors.panel, shadowElevation = 3.dp) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Column(
+        Modifier
+            .hudSurface(16.dp)
+            .padding(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             info.iconRes?.let { icon ->
-                // Plinth behind the transparent render so it reads on the panel.
-                Box(
-                    Modifier
-                        .size(64.dp)
-                        .background(UiColors.background, RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Image(painterResource(icon), contentDescription = null, Modifier.size(60.dp))
-                }
+                PiecePlinth(icon, PlinthScale.M)
                 Spacer(Modifier.width(12.dp))
             }
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         info.title.resolve(),
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = UiColors.ink,
                     )
@@ -234,13 +202,13 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
                         Spacer(Modifier.width(8.dp))
                         Box(
                             Modifier
-                                .size(12.dp)
+                                .size(10.dp)
                                 .background(UiColors.faction(index), CircleShape)
                                 .semantics { contentDescription = description },
                         )
                     }
                 }
-                Text(info.subtitle.resolve(), fontSize = 12.sp, color = UiColors.inkSecondary)
+                Text(info.subtitle.resolve(), fontSize = 12.sp, color = UiColors.inkMuted)
                 if (info.stats.isNotEmpty()) {
                     // FlowRow so each pair wraps as a whole; a plain Row squeezes
                     // overflowing stats to letter-per-line.
@@ -251,7 +219,7 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
                                     Text(
                                         stringResource(R.string.info_stat_separator),
                                         fontSize = 12.sp,
-                                        color = UiColors.inkFaint,
+                                        color = UiColors.inkMuted,
                                     )
                                 }
                                 Text(
@@ -262,32 +230,78 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
                                     ),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = UiColors.inkSecondary,
+                                    color = UiColors.inkMuted,
                                 )
                             }
                         }
                     }
                 }
-                if (info.actions.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (action in info.actions) {
-                            val description = stringResource(
-                                when (action) {
-                                    is InfoCardAction.RotateBridge -> R.string.cd_info_action_rotate
-                                    is InfoCardAction.Demolish -> R.string.cd_info_action_destroy
-                                    is InfoCardAction.Disband -> R.string.cd_hud_disband
-                                },
-                            )
-                            OutlinedButton(
-                                onClick = { onAction(action) },
-                                modifier = Modifier.semantics { contentDescription = description },
-                            ) {
-                                Text(action.label().resolve(), color = UiColors.ink)
-                            }
-                        }
+            }
+        }
+        if (info.actions.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = UiColors.divider)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                info.actions.forEachIndexed { index, action ->
+                    val description = stringResource(
+                        when (action) {
+                            is InfoCardAction.RotateBridge -> R.string.cd_info_action_rotate
+                            is InfoCardAction.Demolish -> R.string.cd_info_action_destroy
+                            is InfoCardAction.Disband -> R.string.cd_hud_disband
+                        },
+                    )
+                    // First action is the outlined primary; the rest take the
+                    // controlFill secondary treatment — one idiom, two emphases.
+                    if (index == 0) {
+                        OutlinedHudButton(
+                            text = action.label().resolve(),
+                            modifier = Modifier.semantics { contentDescription = description },
+                            onClick = { onAction(action) },
+                        )
+                    } else {
+                        FilledHudButton(
+                            text = action.label().resolve(),
+                            fill = UiColors.controlFill,
+                            textColor = UiColors.inkMuted,
+                            modifier = Modifier.semantics { contentDescription = description },
+                            onClick = { onAction(action) },
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PurchaseTray(
+    state: HudState,
+    onOpenGuide: (String?) -> Unit,
+    viewModel: GameViewModel,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // A header floating over the board never runs bare — surface chip idiom.
+        Box(
+            Modifier
+                .hudSurface(8.dp)
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        ) {
+            HudMicroLabel(stringResource(R.string.hud_recruit))
+        }
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            for (option in state.purchases) {
+                PurchaseCard(
+                    option,
+                    state.shopInfo,
+                    civ = state.currentCiv,
+                    affordable = option.cost <= state.treasury,
+                    onLearn = onOpenGuide,
+                    onBuy = { viewModel.buy(option) },
+                )
             }
         }
     }
@@ -306,9 +320,6 @@ private fun PurchaseCard(
         is PurchaseOption.Unit -> GuideCatalog.forUnit(option.type)
         is PurchaseOption.Structure -> GuideCatalog.forStructure(option.type)
     }
-    // Only a placement requirement is worth the cramped card space; the "specials
-    // enabled" meta-requirement on units is redundant here (they're already on sale).
-    val requirementRes = (option as? PurchaseOption.Structure)?.let { guideEntry.requirementRes }
     val nameRes = when (option) {
         is PurchaseOption.Unit -> unitNameRes(option.type, option.tier)
         is PurchaseOption.Structure -> buildingNameRes(option.type)
@@ -348,78 +359,239 @@ private fun PurchaseCard(
         stringResource(R.string.cd_purchase_unaffordable, name, option.cost)
     }
     val learnDescription = stringResource(R.string.cd_guide_learn, name)
-    Box {
-        Card(
-            modifier = Modifier
-                .width(128.dp)
-                .height(128.dp)
-                .clickable(enabled = affordable, role = Role.Button, onClick = onBuy)
-                .semantics { contentDescription = description },
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (affordable) UiColors.panel else UiColors.panel.copy(alpha = 0.5f),
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+    Box(Modifier.size(128.dp)) {
+        // An unaffordable card keeps full container opacity and stays tappable —
+        // the engine's rejection surfaces the "not enough coins" toast.
+        Column(
+            Modifier
+                .size(128.dp)
+                .hudSurface(16.dp)
+                .scaleClickable(onClick = onBuy)
+                .semantics {
+                    role = Role.Button
+                    contentDescription = description
+                }
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            // The 128 dp card is the one fixed box — line heights are pinned so
+            // plinth + name + cost + upkeep always fit without clipping.
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Image(
-                    painterResource(iconRes),
-                    contentDescription = null,
-                    Modifier.size(44.dp),
-                    alpha = if (affordable) 1f else 0.35f,
-                    colorFilter = if (affordable) {
-                        null
-                    } else {
-                        ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
-                    },
+            PiecePlinth(iconRes, PlinthScale.M, desaturated = !affordable)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    name,
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    color = if (affordable) UiColors.ink else UiColors.inactiveGlyph,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Text(name, fontSize = 13.sp, color = UiColors.ink, fontWeight = FontWeight.Medium)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         painterResource(R.drawable.ic_coin),
                         contentDescription = null,
-                        Modifier.size(12.dp),
+                        Modifier.size(14.dp),
                         tint = if (affordable) UiColors.coin else UiColors.alert,
                     )
                     Spacer(Modifier.width(3.dp))
                     Text(
                         stringResource(R.string.info_value_plain, option.cost),
-                        fontSize = 12.sp,
-                        color = if (affordable) UiColors.inkSecondary else UiColors.alert,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (affordable) UiColors.ink else UiColors.alert,
                     )
                 }
-                Text(detail, fontSize = 12.sp, color = UiColors.inkMuted)
-                requirementRes?.let { req ->
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        stringResource(req),
-                        fontSize = 10.sp,
-                        lineHeight = 12.sp,
-                        color = UiColors.inkFaint,
-                        textAlign = TextAlign.Center,
-                    )
-                }
+                Text(
+                    detail.uppercase(),
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp,
+                    maxLines = 1,
+                    color = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph,
+                )
             }
         }
-        // Tap-through to the full Field Guide entry for this piece.
-        IconButton(
-            onClick = { onLearn(guideEntry.id) },
-            modifier = Modifier
+        // Tap-through to the full Field Guide entry: 28 dp glyph, 48 dp target.
+        Box(
+            Modifier
                 .align(Alignment.TopEnd)
-                .size(26.dp)
-                .semantics { contentDescription = learnDescription },
+                .size(48.dp)
+                .clip(CircleShape)
+                .scaleClickable { onLearn(guideEntry.id) }
+                .semantics {
+                    role = Role.Button
+                    contentDescription = learnDescription
+                },
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Default.Info,
-                contentDescription = null,
-                Modifier.size(15.dp),
-                tint = UiColors.inkFaint,
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .background(UiColors.controlFill, CircleShape)
+                    .border(1.dp, UiColors.hairline, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    Modifier.size(15.dp),
+                    tint = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UndoButton(onClick: () -> Unit) {
+    OutlinedHudButton(text = stringResource(R.string.hud_undo), onClick = onClick)
+}
+
+/** The 56 dp end-turn FAB in the current player's pastel. */
+@Composable
+private fun EndTurnFab(pastel: Color, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    val description = stringResource(R.string.hud_end_turn)
+    Column(
+        Modifier
+            .size(56.dp)
+            .shadow(2.dp, shape, ambientColor = UiColors.boardShadow, spotColor = UiColors.boardShadow)
+            .background(pastel, shape)
+            .border(1.dp, Color(0x243E3A36), shape)
+            .clip(shape)
+            .scaleClickable(onClick = onClick)
+            .semantics {
+                role = Role.Button
+                contentDescription = description
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            stringResource(R.string.hud_end),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = UiColors.onFaction,
+        )
+        Text(
+            stringResource(R.string.hud_end_turn_micro).uppercase(),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = UiColors.onFaction.copy(alpha = 0.62f),
+        )
+    }
+}
+
+/** The armed end-turn confirm — one surface, replacing the old three-idiom row. */
+@Composable
+private fun ArmedEndTurnRow(
+    freshUnitCount: Int,
+    onCancel: () -> Unit,
+    onEndAnyway: () -> Unit,
+) {
+    val cancelDescription = stringResource(R.string.cd_cancel_end_turn)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .hudSurface(20.dp)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(Modifier.weight(1f).padding(start = 6.dp)) {
+            HudMicroLabel(
+                pluralStringResource(R.plurals.hud_units_unmoved, freshUnitCount, freshUnitCount),
+            )
+            Text(
+                stringResource(R.string.hud_tap_again_to_end),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = UiColors.ink,
+                maxLines = 1,
             )
         }
+        Box(
+            Modifier
+                .size(48.dp)
+                .background(UiColors.controlFill, RoundedCornerShape(16.dp))
+                .border(1.dp, UiColors.hairline, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .scaleClickable(onClick = onCancel)
+                .semantics {
+                    role = Role.Button
+                    contentDescription = cancelDescription
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Default.Close, contentDescription = null, Modifier.size(18.dp), tint = UiColors.ink)
+        }
+        FilledHudButton(
+            text = stringResource(R.string.hud_end_anyway),
+            fill = UiColors.alert,
+            textColor = UiColors.onAlert,
+            height = 48.dp,
+            radius = 16.dp,
+            fontWeight = FontWeight.ExtraBold,
+            onClick = onEndAnyway,
+        )
+    }
+}
+
+/** 44 dp outlined button — surface fill, 1 dp ink stroke, boardLift. */
+@Composable
+private fun OutlinedHudButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 44.dp,
+    radius: androidx.compose.ui.unit.Dp = 14.dp,
+    fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(radius)
+    Box(
+        modifier
+            .height(height)
+            .shadow(2.dp, shape, ambientColor = UiColors.boardShadow, spotColor = UiColors.boardShadow)
+            .background(UiColors.surface, shape)
+            .border(1.dp, UiColors.ink, shape)
+            .clip(shape)
+            .scaleClickable(onClick = onClick)
+            .semantics { role = Role.Button }
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, fontSize = fontSize, fontWeight = FontWeight.Bold, color = UiColors.ink, maxLines = 1)
+    }
+}
+
+/** Filled sibling of [OutlinedHudButton] for secondary/destructive emphasis. */
+@Composable
+private fun FilledHudButton(
+    text: String,
+    fill: Color,
+    textColor: Color,
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 44.dp,
+    radius: androidx.compose.ui.unit.Dp = 14.dp,
+    fontWeight: FontWeight = FontWeight.Bold,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(radius)
+    Box(
+        modifier
+            .height(height)
+            .background(fill, shape)
+            .clip(shape)
+            .scaleClickable(onClick = onClick)
+            .semantics { role = Role.Button }
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, fontSize = 14.sp, fontWeight = fontWeight, color = textColor, maxLines = 1)
     }
 }

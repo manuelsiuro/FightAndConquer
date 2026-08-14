@@ -36,7 +36,21 @@ class UiColorScheme(
     val progressTrack: Color,
     /** Unselected pictogram fills (the setup screen's hex-cluster glyphs). */
     val inactiveGlyph: Color,
+    /**
+     * The fixed "filled ink" selection treatment (dark fill, paper content in
+     * light; inverted in dark) — segments, active top-bar circles, Accept.
+     */
+    val filledInk: Color,
+    val onFilledInk: Color,
+    /**
+     * `boardLift` — the single shadow tint for HUD chrome floating over the live
+     * 3D board (ambient and spot). Everything else elevates with hairlines only.
+     */
+    val boardShadow: Color,
 ) {
+    /** Scrim behind full-screen overlays (turn banner, outcomes): paper @ 92%. */
+    val overlayScrim = background.copy(alpha = 0.92f)
+
     /**
      * Secondary text tokens. The faction pastels are far too light to carry white
      * text, so anything sitting on them uses [onFaction]; these three cover the
@@ -86,6 +100,9 @@ val LightUiColors = UiColorScheme(
     controlFill = Color(0xFFEDE9E3),
     progressTrack = Color(0xFFE4DFD8),
     inactiveGlyph = Color(0xFFD6D0C7),
+    filledInk = Color(0xFF3E3A36),
+    onFilledInk = Color(0xFFF7F4F0),
+    boardShadow = Color(0x1A3E3A36),
 )
 
 // Dark warm paper, light warm ink — the light aesthetic inverted. The panel is
@@ -93,12 +110,12 @@ val LightUiColors = UiColorScheme(
 // over the unchanged light-pastel 3D board.
 val DarkUiColors = UiColorScheme(
     background = Color(0xFF201E1B),
-    ink = Color(0xFFE8E4DE),
+    ink = Color(0xFFF2EEE9),
     panel = Color(0xF7292623),
-    surface = Color(0xFF262320),
-    coin = Color(0xFFD4AF5C),
-    positive = Color(0xFF8CBA88),
-    alert = Color(0xFFE08A6F),
+    surface = Color(0xFF2A2724),
+    coin = Color(0xFFD9B168),
+    positive = Color(0xFF7FA97C),
+    alert = Color(0xFFD2705C),
     onAlert = Color(0xFF2A1712),
     toastWarning = Color(0xF2554931),
     bannerScrim = Color(0xE6141210),
@@ -107,6 +124,9 @@ val DarkUiColors = UiColorScheme(
     controlFill = Color(0xFF332F2A),
     progressTrack = Color(0xFF332F2A),
     inactiveGlyph = Color(0xFF4A4540),
+    filledInk = Color(0xFFF2EEE9),
+    onFilledInk = Color(0xFF201E1B),
+    boardShadow = Color(0x57000000),
 )
 
 val LocalUiColors = staticCompositionLocalOf { LightUiColors }

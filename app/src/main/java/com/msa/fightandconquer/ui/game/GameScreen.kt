@@ -18,7 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -125,10 +128,27 @@ fun GameScreen(viewModel: GameViewModel) {
 
         // ----- HUD -----
         hud?.let { state ->
+            // Panels, toasts and the proposal strip anchor to the top chrome's
+            // measured bottom + 8 dp — never a constant (the bar is content-sized).
+            var topAnchorPx by remember { mutableStateOf(0f) }
+            val topAnchor = with(LocalDensity.current) { topAnchorPx.toDp() }
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                TopBar(state, incomingProposals.size, viewModel, onOpenGuide = { openGuide(null) })
-                if (state.currentIsHuman && state.banner == null && incomingProposals.isNotEmpty()) {
-                    ProposalStrip(incomingProposals, viewModel)
+                Column(
+                    Modifier.onGloballyPositioned {
+                        topAnchorPx = it.positionInRoot().y + it.size.height
+                    },
+                ) {
+                    TopBar(
+                        state,
+                        incomingProposals.size,
+                        diplomacyOpen = diplomacy != null,
+                        isCampaign = campaignRun != null,
+                        viewModel = viewModel,
+                        onOpenGuide = { openGuide(null) },
+                    )
+                    if (state.currentIsHuman && state.banner == null && incomingProposals.isNotEmpty()) {
+                        ProposalStrip(incomingProposals, viewModel)
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 campaignRun?.coach?.let { CoachCardView(it, viewModel::dismissCoachCard) }
@@ -139,19 +159,21 @@ fun GameScreen(viewModel: GameViewModel) {
             // whenever the glanceable panels are closed, since a mission's terms are not
             // something the player should have to go looking for.
             when {
-                economy != null -> EconomyPanel(economy!!)
-                diplomacy != null -> DiplomacyPanel(diplomacy!!, viewModel)
-                campaignRun != null -> ObjectivesPanel(campaignRun!!)
+                economy != null -> EconomyPanel(economy!!, topAnchor)
+                diplomacy != null -> DiplomacyPanel(diplomacy!!, viewModel, topAnchor)
+                campaignRun != null -> ObjectivesPanel(campaignRun!!, topAnchor)
             }
-            ToastStack(toasts)
+            ToastStack(toasts, topAnchor)
 
             state.banner?.let { seat ->
-                TurnBanner(seat) { viewModel.beginTurn() }
+                TurnBanner(seat, state.turnNumber, state.currentCiv) { viewModel.beginTurn() }
             }
             val outcome = campaignRun?.outcome
             when {
                 outcome != null -> CampaignOutcomeOverlay(
                     outcome = outcome,
+                    missionName = campaignRun!!.levelNameText
+                        ?: stringResource(campaignRun!!.levelName),
                     onNext = viewModel::startNextLevel,
                     onRetry = viewModel::retryLevel,
                     onMenu = viewModel::backToMenu,

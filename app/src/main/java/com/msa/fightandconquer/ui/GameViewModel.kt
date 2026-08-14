@@ -1010,6 +1010,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (_economy.value != null) signalUi(UiSignals.ECONOMY_OPENED)
     }
 
+    /**
+     * Closes the glanceable panels so the campaign objectives slot shows again
+     * (objectives occupy the panel slot whenever nothing else does).
+     */
+    fun showObjectivesPanel() {
+        _economy.value = null
+        _diplomacy.value = null
+    }
+
     // ----- diplomacy -----
 
     fun toggleDiplomacyPanel() {

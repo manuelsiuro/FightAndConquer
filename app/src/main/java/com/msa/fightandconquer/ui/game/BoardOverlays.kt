@@ -102,25 +102,26 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
         LabelKind.BLOCKED -> stringResource(R.string.cd_defense_blocked, label.defense)
     }
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
+    // Fixed board-palette colors, no hairline — these mirror the board, not the chrome.
     AnimatedVisibility(visible, modifier = modifier, enter = fadeIn(tween(120))) {
         Surface(shape = RoundedCornerShape(50), color = background, shadowElevation = 2.dp) {
             Row(
                 Modifier
-                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
                     .clearAndSetSemantics { contentDescription = description },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
                     painterResource(R.drawable.ic_shield),
                     contentDescription = null,
-                    Modifier.size(11.dp),
+                    Modifier.size(12.dp),
                     tint = Color.White,
                 )
-                Spacer(Modifier.width(2.dp))
+                Spacer(Modifier.width(3.dp))
                 Text(
                     stringResource(R.string.info_value_plain, label.defense),
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = Color.White,
                 )
             }
@@ -131,21 +132,17 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
 @Composable
 private fun CoinPopupText(popup: CoinPopup, modifier: Modifier) {
     val rise = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { rise.animateTo(1f, tween(1100)) }
-    Surface(
+    val riseDistance = with(LocalDensity.current) { 24.dp.toPx() }
+    LaunchedEffect(Unit) { rise.animateTo(1f, tween(700)) }
+    Text(
+        popup.text.resolve(),
         modifier = modifier
-            .offset { IntOffset(0, (-56f * rise.value).roundToInt()) }
-            .graphicsLayer { alpha = 1f - rise.value * rise.value },
-        shape = RoundedCornerShape(50),
-        color = UiColors.panel,
-        shadowElevation = 2.dp,
-    ) {
-        Text(
-            popup.text.resolve(),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = UiColors.positive,
-        )
-    }
+            .offset { IntOffset(0, (-riseDistance * rise.value).roundToInt()) }
+            .graphicsLayer { alpha = 1f - rise.value * rise.value }
+            .hudSurface(50.dp)
+            .padding(horizontal = 9.dp, vertical = 3.dp),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = UiColors.positive,
+    )
 }
