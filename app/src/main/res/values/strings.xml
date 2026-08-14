@@ -107,7 +107,10 @@
     <string name="hud_ai_thinking">thinking…</string>
     <string name="hud_fresh_units">%d</string>
     <string name="hud_resign">Resign</string>
+    <string name="hud_resign_confirm">Tap again to resign</string>
     <string name="hud_exit">Exit</string>
+    <string name="hud_identity_line">%1$s · %2$s</string>
+    <string name="hud_objectives">Objectives</string>
     <string name="cd_faction_color">Faction color of player %d</string>
     <string name="cd_open_economy">Show economy breakdown</string>
     <string name="cd_fresh_units">%d units still able to act. Jump to the next one</string>
@@ -117,6 +120,10 @@
     <string name="hud_selected_unit_hint">Pick a highlighted hex to move or capture</string>
     <string name="hud_undo">Undo</string>
     <string name="hud_end_turn">End Turn</string>
+    <string name="hud_end">End</string>
+    <string name="hud_end_turn_micro">Turn</string>
+    <string name="hud_tap_again_to_end">Tap again to end</string>
+    <string name="hud_recruit">Recruit</string>
     <string name="hud_end_anyway">End anyway</string>
     <string name="hud_cancel_symbol">✕</string>
     <string name="cd_cancel_end_turn">Cancel ending the turn</string>
@@ -178,7 +185,7 @@
     <string name="info_value_per_turn">%d/turn</string>
     <string name="info_value_income">+%d/turn</string>
     <string name="info_value_defense_area">%d (self + neighbors)</string>
-    <string name="info_value_coins">+%d 🪙</string>
+    <string name="info_value_coins">+%d coins</string>
     <string name="info_capital">Seat of this empire — drops %d%% of its treasury if captured</string>
     <string name="info_tower">Guards its hex and all 6 neighbors</string>
     <string name="info_castle">Heavy fortification — guards its hex and all 6 neighbors</string>
@@ -216,7 +223,7 @@
     <!-- Economy panel -->
     <string name="economy_income">Income</string>
     <string name="economy_upkeep">Upkeep</string>
-    <string name="economy_net">Net</string>
+    <string name="economy_net">Net per turn</string>
     <string name="economy_hexes_row">%1$d hexes × %2$d</string>
     <string name="economy_fertile_row">Fertile ground</string>
     <string name="economy_building_row">%1$d × %2$s</string>
@@ -225,8 +232,7 @@
     <string name="economy_upkeep_row">%1$d %2$s × %3$d</string>
     <string name="economy_amount_positive">+%d</string>
     <string name="economy_amount_negative">−%d</string>
-    <string name="economy_treasury">Treasury %d</string>
-    <string name="economy_projection">→ %d next turn</string>
+    <string name="economy_treasury_next">Treasury next turn</string>
     <string name="economy_warn_bankruptcy">Bankruptcy next turn — all units will die!</string>
     <string name="economy_warn_upkeep">Treasury won\'t cover another round of upkeep</string>
 
@@ -250,6 +256,7 @@
 
     <!-- Overlays -->
     <string name="banner_player">Player %d</string>
+    <string name="banner_turn_micro">Turn %1$d · %2$s</string>
     <string name="banner_tap_to_start">Tap to start your turn</string>
     <string name="game_over_winner">Player %d conquers!</string>
     <string name="game_over_back_to_menu">Back to menu</string>
@@ -257,16 +264,16 @@
     <string name="cd_defense_blocked">Defense %d — too strong for the selected unit</string>
 
     <!-- Toasts and popups -->
-    <string name="popup_coins">+%d 🪙</string>
+    <string name="popup_coins">+%d</string>
     <string name="toast_pact_sent">Pact proposal sent to Player %d</string>
     <string name="toast_pact_accepted">Pact agreed with Player %d</string>
     <string name="toast_pact_declined">Player %d declined your pact</string>
     <string name="toast_pact_expired">Your pact with Player %d has ended</string>
     <string name="toast_pact_broken_by">Player %d broke your pact!</string>
-    <string name="toast_pact_broken_penalty">Pact broken — you paid %d 🪙</string>
-    <string name="toast_pact_break_confirm">This breaks your pact (−%d 🪙) — tap again to attack</string>
-    <string name="toast_tribute_received">Player %1$d sent you %2$d 🪙</string>
-    <string name="toast_tribute_sent">Tribute sent (−%d 🪙)</string>
+    <string name="toast_pact_broken_penalty">Pact broken — you paid %d coins</string>
+    <string name="toast_pact_break_confirm">This breaks your pact (−%d coins) — tap again to attack</string>
+    <string name="toast_tribute_received">Player %1$d sent you %2$d coins</string>
+    <string name="toast_tribute_sent">Tribute sent (−%d coins)</string>
     <string name="toast_looted">Looted %d coins</string>
     <string name="toast_capital_looted">Your capital was looted (−%d)</string>
     <string name="toast_territory_cut_off">Territory cut off from your capital!</string>
@@ -333,8 +340,8 @@
 
     <!-- Info-card actions (rotate / demolish / disband) -->
     <string name="info_action_rotate">Rotate</string>
-    <string name="info_action_destroy">Destroy (+%d 🪙)</string>
-    <string name="hud_disband">Disband (+%d 🪙)</string>
+    <string name="info_action_destroy">Destroy +%d</string>
+    <string name="hud_disband">Disband +%d</string>
     <string name="cd_info_action_rotate">Rotate this bridge</string>
     <string name="cd_info_action_destroy">Destroy this building for a partial refund</string>
     <string name="cd_hud_disband">Disband this unit for a partial refund</string>
@@ -488,6 +495,7 @@
 
     <!-- In-game campaign HUD -->
     <string name="campaign_coach_dismiss">Got it</string>
+    <string name="campaign_coach_hint">Hint</string>
     <string name="campaign_turn_limit">Round %1$d of %2$d</string>
 
     <!-- Objective lines (shared by every mission) -->

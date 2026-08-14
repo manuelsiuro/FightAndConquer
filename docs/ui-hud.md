@@ -35,7 +35,7 @@ Unit/building names come from `unitNameRes(tier)`.
 | `overlayLabels` | `List<OverlayLabel(hex, text, CAPTURABLE\|BLOCKED)>` | Defense chips on frontier hexes while a unit is selected (defense-0 capturable hexes omitted — the disc already says it) |
 | `economy` | `EconomyBreakdown?` | Coin-tap panel (null = closed; recomputed on every refresh while open) |
 | `toasts` | `List<HudToast>` (max 3, 2.5 s TTL) | Top-center notifications |
-| `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N 🪙" |
+| `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N" coin pills |
 | `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, cut-off tiles) — `UiText` + numbers from `RuleConstants`, never hardcoded |
 | `cameraJumps` | `SharedFlow<Hex>` | One-shot camera glides |
 | `resync` | `StateFlow<Int>` | Board must skip+reconcile (undo/load) |
@@ -99,46 +99,67 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
 2. `AnchorOverlay` — **pixel-space, no safeDrawingPadding**: defense chips + coin
    popups positioned with `Modifier.offset` from `BoardScene.anchors`
    (`Float2` → `IntOffset`; placement-phase only).
-3. HUD column (safeDrawingPadding): `TopBar` (player chip, clickable coin-icon/net
-   area → economy panel, turn, fresh badge `N`+flag icon, pending-proposal badge
-   pact-icon+`N` → diplomacy panel, "thinking…", ⋯ menu with Field Guide/Diplomacy/
-   Resign/Exit)
+3. HUD column (safeDrawingPadding). **Chrome idiom** (the Game-Screen restyle of the
+   Setup 1a language — full spec in
+   [design/game-screen-hud-handoff.md](design/game-screen-hud-handoff.md)): every
+   surface is opaque `UiColors.surface` + 1 dp `hairline` + the single `boardLift`
+   shadow (`Modifier.hudSurface` in `ui/game/HudMetrics.kt`); one three-step tint
+   ladder (12 % glyph wash / 30 % pills, badges, warning strips / 100 % solid fills);
+   one plinth scale (`PlinthScale` S 40/32 · M 56/48 · L 96/80 = controlFill box +
+   hairline behind every baked render); press feedback is 0.96 scale + ripple
+   (`scaleClickable`). No translucent panels, no ad-hoc ink alphas, no emoji anywhere
+   (tinted vectors `ic_coin/ic_flag/ic_shield/ic_pact` only).
+   `TopBar` (full-width, content-sized: faction disc, seat label over "Civ · Turn N",
+   coin block → economy panel, then two 48 dp controlFill circles — Diplomacy with a
+   coin-gold pending-proposal badge, and the ⋮ menu with Field Guide / Objectives
+   (campaign) / two-tap-armed Resign / Exit; either circle flips to filled-ink while
+   its surface is open; second row hosts the fresh-units pill — pastel @30 % in light,
+   solid pastel in dark — or "thinking…")
    + `ProposalStrip` (persistent accept/decline rows for incoming pact offers —
-   StateFlow-driven, only for the acting human, never behind the banner) +
-   `BottomBar` (InfoCard with a 60 dp baked piece render on a plinth (`iconRes`
-   from `PieceIcons`, null for abstract cards) / selected-unit hint (same card
-   layout: 40 dp unit render on a plinth + name + "pick a highlighted hex" line,
-   via `HudState.selectedUnitIconRes`) / `PurchaseCard`
-   tray — 92 dp cards with 44 dp piece renders, desaturated+dimmed when
-   unaffordable, coin-icon cost, upkeep & defense lines / Undo / End-Turn FAB that
-   morphs in place into "N unmoved · ✕ · End anyway" for 3 s when fresh units
-   remain). Flat glyphs are tinted vector drawables (`ic_coin/ic_flag/ic_shield/
-   ic_pact`) — no emoji in persistent HUD chrome (toast/popup prose keeps 🪙).
-4. One panel at a time in the slot under the TopBar. `ObjectivesPanel` (campaign only;
-   mission name, turn counter that turns alert-coloured in the last three rounds, one
-   struck-through-when-done line per objective with its `have / need` counter) shows
-   whenever the two glanceable panels are closed — a mission's terms should not have to be
-   gone looking for. `CoachCardView` sits above the `BottomBar` rather than over the board,
-   so a hint never covers the hexes it points at; `HighlightSet.hintFocus` puts a pulsing
-   ring on those hexes (`BoardScene.showHighlights` draws it first so a selection reads on
-   top). `CampaignOutcomeOverlay` replaces `GameOverOverlay` for a mission: stars, rounds
-   or the defeat reason, the debrief, and Next / Retry / Leave.
-   All three occupants of the slot share one chrome — `HudSidePanel` (264 dp
-   Surface hung off the TopBar) with `PanelHeader` section titles and
-   `seatLabel()` for the "Player N"/"AI N" wording (`ui/game/HudMetrics.kt`).
-   `EconomyPanel` (income rows — hexes, fertile bonus,
-   one line per building type, each with a 20 dp piece icon — per-unit-type upkeep
-   rows with unit icons, divider, emphasized net + projection, bankruptcy/upkeep-risk
-   warning strips) / `DiplomacyPanel` (same slot, mutually exclusive: one row per
-   opponent — faction dot, name, tinted status pill (war=alert, pact=positive with
-   pact icon + turns left), Propose pact (pact icon) and Tribute buttons, coin-icon
-   tribute chips 10/25/50 dimmed when unaffordable, divider-separated rows, and a
-   footer stating pact duration + break penalty from `DiplomacyPanelState`).
+   StateFlow-driven, only for the acting human, never behind the banner; outlined
+   Decline + filled-ink Accept) +
+   `BottomBar` (selected-unit strip at plinth S with Disband / `InfoCard` at plinth M
+   with a divider before its outlined-primary + controlFill-secondary action row /
+   "RECRUIT" surface-chip header over the `PurchaseCard` tray — fixed 128 dp cards,
+   plinth-M render, 28 dp info glyph in a 48 dp target; unaffordable = still tappable
+   (engine rejection toasts), render 38 % + grayscale, `inactiveGlyph` text, rust cost /
+   44 dp outlined Undo / 56 dp radius-20 "End·TURN" FAB in the current player's pastel.
+   With fresh units the FAB arms instead of ending: a full-width armed surface appears
+   below — micro-label "N UNITS UNMOVED" + "Tap again to end", 48 dp ✕, rust
+   "End anyway" — and disarms after 3 s or on ✕; FAB-again or End-anyway commits).
+4. One panel at a time in the slot hanging off the TopBar's **measured** bottom + 8 dp
+   (published from `onGloballyPositioned` in `GameScreen` — never a height constant)
+   and right-aligned at the 12 dp gutter. `ObjectivesPanel` (campaign only; mission
+   name, turn counter that turns alert-coloured in the last three rounds, 18 dp check
+   circles — filled positive when done, `inactiveGlyph` ring while pending — with
+   struck-through done lines and `have / need` counters) shows whenever the two
+   glanceable panels are closed — a mission's terms should not have to be gone looking
+   for; the ⋮ menu's Objectives entry just closes the other panels
+   (`showObjectivesPanel()`). `CoachCardView` — the HUD's only solid-pastel surface
+   ("HINT" micro-label, sage fill) — sits above the `BottomBar` rather than over the
+   board, so a hint never covers the hexes it points at; `HighlightSet.hintFocus` puts
+   a pulsing ring on those hexes (`BoardScene.showHighlights` draws it first so a
+   selection reads on top).
+   All three occupants of the slot share one chrome — `HudSidePanel` (264 dp) with
+   `PanelHeader` micro-label + divider headers and `seatLabel()` for the
+   "Player N"/"AI N" wording (`ui/game/HudMetrics.kt`).
+   `EconomyPanel` (income/upkeep rows with an 18 dp tinted icon slot — positive @30 %
+   for income, rust @30 % for cost — then a controlFill emphasis block: "Net per turn"
+   + "Treasury next turn" projection, and radius-10 warning strips: coin-gold @30 %
+   upkeep risk, rust @30 % bankruptcy) / `DiplomacyPanel` (one row per opponent —
+   faction disc, name, status pill at exactly one 30 % tint: rust war · positive pact ·
+   coin-gold incoming · controlFill sent — 40 dp outlined Propose/Tribute, controlFill
+   tribute chips 10/25/50 disabled at 38 % when unaffordable, and a footer stating pact
+   duration + break penalty from `DiplomacyPanelState`).
    Capturing a pact partner's hex needs a second tap (warning toast arms the
    confirmation) — the no-dialog idiom throughout.
-5. `ToastStack` (top-center).
-6. `TurnBanner` (pass-and-play privacy scrim) / `GameOverOverlay` — topmost, they
-   scrim everything below.
+5. `ToastStack` (top-center, anchored below the measured top chrome): one 13 sp ink
+   text style for all kinds; warning/alert differ only by a 30 % coin-gold/rust wash.
+6. Full-screen overlays — topmost, `bg` @92 % scrim with a single centered radius-20
+   card (`OverlayScrim` in `Banners.kt`), 72 dp hero discs, plinth-L renders, 52 dp
+   `OverlayButton`s: `TurnBanner` (pass-and-play privacy; whole screen is the tap
+   target) / `GameOverOverlay` / `CampaignOutcomeOverlay` (mission micro-label, stars
+   in coin gold vs `progressTrack`, debrief, stacked Next / Retry / Leave).
 
 Compose children above the AndroidView naturally consume their own touches; only
 unhandled ones reach the board — no interop hit-test code exists or should be added.

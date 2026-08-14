@@ -269,7 +269,7 @@ internal fun StarRow(stars: Int, size: Int = 16) {
             Icon(
                 Icons.Default.Star,
                 contentDescription = null,
-                tint = if (index < stars) UiColors.coin else UiColors.ink.copy(alpha = 0.18f),
+                tint = if (index < stars) UiColors.coin else UiColors.progressTrack,
                 modifier = Modifier.size(size.dp),
             )
         }
