@@ -459,6 +459,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openSetup() {
+        // A stale generation job finishing after re-entering Setup would still call
+        // startEngine and yank the screen into the game — cancel it on the way in.
+        mapGenJob?.cancel()
+        mapGenJob = null
+        _screen.value = Screen.Setup()
+    }
+
+    /** Cancels an in-flight map generation and returns to the setup form as-is. */
+    fun cancelGeneration() {
+        mapGenJob?.cancel()
+        mapGenJob = null
         _screen.value = Screen.Setup()
     }
 

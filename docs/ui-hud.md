@@ -159,12 +159,22 @@ opens the `FieldGuide` overlay in place rather than navigating. **Note the layou
 shifts when Continue is visible — scripted UI tests must not hardcode coordinates;
 derive them from `uiautomator dump`.**
 
-`SetupScreen` (behind New game): opponents 2–4 seats, mode vs-AI / pass-and-play,
-difficulty (Easy/Normal/Hard), map type (Continent/Islands/Archipelago →
-`GameSetup.shape` → `MapParams.shape`), map size, fog, and On/Off rows for
-special units and diplomacy, wired through `GameSetup` into `RuleConstants`. Choices are
-`rememberSaveable` so rotation doesn't reset them. Start game generates the map
-off-main and shows the `generating` spinner here.
+`SetupScreen` (behind New game, `ui/setup/` — the quick-start card design): a
+tableau card summarizing the match (human civ's piece trio + one-line summary +
+seat dots), enemy-count cards, mode/difficulty columns (difficulty collapses in
+pass-and-play), per-seat civilization cards with pastel caps that open a
+`ModalBottomSheet` picker (tap-to-apply, "?" deep-links the Field Guide civ
+entry), and one "World & rules" disclosure folding map size/type (Canvas hex
+clusters), fog, special units and diplomacy behind a live summary — wired through
+`GameSetup` into `RuleConstants`. A Generated / My-maps toggle (only when authored
+maps exist) swaps the form for the custom-map list: `MinimapRenderer` thumbnails,
+seats·hexes meta, drafts dimmed with their violation count and never startable.
+Start sits in a sticky bottom bar under a scrim; in custom mode it reads
+"Play {map}". All choices are `rememberSaveable` (hoisted above the
+`AnimatedContent` that cross-fades form ↔ generating pane) so rotation and the
+generating round-trip reset nothing; the generating pane's Cancel calls
+`GameViewModel.cancelGeneration()`, which abandons the job and restores the form
+as-is.
 
 `AboutScreen`: static content — identity and version (`BuildConfig.VERSION_NAME` /
 `VERSION_CODE`, which is why `buildFeatures { buildConfig = true }` is on), what the

@@ -11,7 +11,7 @@
     <string name="menu_map_editor">Map Editor</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_about">About</string>
-    <string name="setup_title">New game</string>
+    <string name="setup_title">New Game</string>
     <string name="setup_start">Start game</string>
     <string name="placeholder_coming_soon">Coming soon</string>
     <string name="common_back">Back</string>
@@ -43,6 +43,59 @@
     <string name="menu_section_diplomacy">Diplomacy</string>
     <string name="menu_toggle_on">On</string>
     <string name="menu_toggle_off">Off</string>
+
+    <!-- Setup (quick-start card design) -->
+    <string name="setup_back_to_menu">Back to menu</string>
+    <plurals name="setup_tableau_vs">
+        <item quantity="one">%1$s vs %2$d enemy</item>
+        <item quantity="other">%1$s vs %2$d enemies</item>
+    </plurals>
+    <plurals name="setup_tableau_players">
+        <item quantity="one">%1$s · %2$d player</item>
+        <item quantity="other">%1$s · %2$d players</item>
+    </plurals>
+    <string name="setup_join_dot">%1$s · %2$s</string>
+    <string name="setup_size_shape">%1$s %2$s</string>
+    <string name="setup_shape_lc_continent">continent</string>
+    <string name="setup_shape_lc_islands">islands</string>
+    <string name="setup_shape_lc_archipelago">archipelago</string>
+    <string name="setup_source_generated_label">Generated map</string>
+    <string name="setup_source_custom_label">Custom map</string>
+    <string name="setup_section_enemies">Enemies</string>
+    <string name="setup_section_civs">Civilizations</string>
+    <string name="setup_civ_hint">tap a seat to change</string>
+    <string name="setup_seat_you">Yours</string>
+    <string name="setup_seat_ai">AI %1$d</string>
+    <string name="setup_seat_player">Player %1$d</string>
+    <string name="setup_sheet_seat_you">You</string>
+    <string name="setup_civ_sheet_title">Civilization for %1$s</string>
+    <string name="setup_world_title">World &amp; rules</string>
+    <string name="setup_sum_fog_on">Fog on</string>
+    <string name="setup_sum_fog_off">Fog off</string>
+    <string name="setup_sum_special_on">Special on</string>
+    <string name="setup_sum_special_off">Special off</string>
+    <string name="setup_sum_diplo_on">Diplomacy on</string>
+    <string name="setup_sum_diplo_off">Diplomacy off</string>
+    <string name="setup_civ_note_kingdom">The baseline rules</string>
+    <string name="setup_civ_note_vikings">Sea raiders · cheaper ships</string>
+    <string name="setup_civ_note_sultanate">Desert merchants · trade income</string>
+    <string name="setup_civ_note_shogunate">Defensive discipline</string>
+    <string name="setup_sheet_hint">Tap to apply · seat color stays the same</string>
+    <string name="setup_custom_info">Custom scenarios play exactly as authored — seats, civilizations and rules come from the map.</string>
+    <string name="setup_map_meta">%1$d seats · %2$d hexes</string>
+    <string name="setup_map_meta_shaped">%1$d seats · %2$d hexes · %3$s</string>
+    <plurals name="setup_map_draft">
+        <item quantity="one">Draft · %d issue</item>
+        <item quantity="other">Draft · %d issues</item>
+    </plurals>
+    <string name="setup_play_map">Play %1$s</string>
+    <string name="setup_generating_title">Raising the land</string>
+    <plurals name="setup_seat_count">
+        <item quantity="one">%d seat</item>
+        <item quantity="other">%d seats</item>
+    </plurals>
+    <string name="setup_cancel">Cancel</string>
+    <string name="cd_setup_seat">Change civilization for %1$s</string>
 
     <!-- Top bar -->
     <string name="hud_player">Player %d</string>

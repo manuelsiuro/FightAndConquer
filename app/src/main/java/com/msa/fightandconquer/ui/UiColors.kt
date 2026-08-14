@@ -26,6 +26,16 @@ class UiColorScheme(
     val onAlert: Color,
     val toastWarning: Color,
     val bannerScrim: Color,
+    /** 1 dp card borders and drag handles — the setup screen's elevation idiom. */
+    val hairline: Color,
+    /** Hairline separators inside a card (slightly stronger than [hairline]). */
+    val divider: Color,
+    /** Fills for small controls: circular back button, switch-off tracks. */
+    val controlFill: Color,
+    /** Track behind thin progress indicators. */
+    val progressTrack: Color,
+    /** Unselected pictogram fills (the setup screen's hex-cluster glyphs). */
+    val inactiveGlyph: Color,
 ) {
     /**
      * Secondary text tokens. The faction pastels are far too light to carry white
@@ -71,6 +81,11 @@ val LightUiColors = UiColorScheme(
     onAlert = Color.White,
     toastWarning = Color(0xF2EAD9B8),
     bannerScrim = Color(0xE6FFFFFF),
+    hairline = Color(0xFFE7E1D9),
+    divider = Color(0xFFEDE7DF),
+    controlFill = Color(0xFFEDE9E3),
+    progressTrack = Color(0xFFE4DFD8),
+    inactiveGlyph = Color(0xFFD6D0C7),
 )
 
 // Dark warm paper, light warm ink — the light aesthetic inverted. The panel is
@@ -87,6 +102,11 @@ val DarkUiColors = UiColorScheme(
     onAlert = Color(0xFF2A1712),
     toastWarning = Color(0xF2554931),
     bannerScrim = Color(0xE6141210),
+    hairline = Color(0xFF37332E),
+    divider = Color(0xFF302C28),
+    controlFill = Color(0xFF332F2A),
+    progressTrack = Color(0xFF332F2A),
+    inactiveGlyph = Color(0xFF4A4540),
 )
 
 val LocalUiColors = staticCompositionLocalOf { LightUiColors }
