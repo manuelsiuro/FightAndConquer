@@ -228,8 +228,11 @@ gold vein(s) sit inside its Voronoi cell at a common per-attempt target distance
 (nearest-vein spread ≤ 2 guaranteed), FERTILE in band 2–5 likewise; contested
 neutral deposits stay outside every fair zone; on cramped maps with no room the
 kind is skipped for everyone (zero-for-all is still fair); FISH_SHOAL uses the
-same fair Voronoi banding on coastal *sea* hexes (band 2–6 per capital + one
-contested neutral per 150 land hexes). Tree count = 8 % of
+same fair Voronoi banding on *sea* hexes (band 2–6 per capital + one
+contested neutral per 150 land hexes); per-capital shoals walk the band for a
+target every capital can serve with **fishery-workable** water (within
+`fisheryRange` of land), falling back to unfiltered placement when no target
+fits, while neutral shoals stay mid-ocean by design (fishing-boat territory). Tree count = 8 % of
 total land, placed on unprotected neutral non-deposit hexes. `MapValidator` enforces:
 shape-aware land connectivity (CONTINENT one component; ISLANDS/ARCHIPELAGO
 capitals pairwise land-disconnected), sea single-component with every landmass
@@ -255,8 +258,10 @@ lumber camps at ≥ 2 adjacent own trees (top 2 each, Normal/Hard), catapults wh
 building defense is the blocker (top 4), archers ranked by aura gain (top 3),
 Hard-only fog watchtowers scored by never-seen positions (pure geometry — probing
 `state.tiles` for unseen hexes would leak the coastline), ports on coastal spots,
-fisheries next to shoals, warship raids (`Bombard` where defense < warship
-strength) and warship buys when enemy boats are visible. Easy skips structures
+fisheries ranked by capped shoals-in-range (`Rules.shoalsWithin`, radius
+`fisheryRange`), warship raids (`Bombard` where defense < warship
+strength) and warship buys when enemy WAR boats are visible (a fishing dory is
+prey — evaluator −1 — never a purchase trigger). Easy skips structures
 until income > 15 and never touches diplomacy or specials.
 
 Evaluator: hexes dominate (`14/hex`, Easy `12`), income has diminishing returns
@@ -277,7 +282,13 @@ Naval strategy likewise lives OUTSIDE the argmax in `ai/NavalPolicy.kt` — a
 deterministic, stateless threshold ladder consulted before the greedy loop
 (pattern copied from `DiplomacyPolicy`, and for the same reason: one-ply greedy
 never *starts* a multi-turn plan — a transport's upkeep repels the evaluator
-before any invasion pays off). Overseas mode (enemies exist but none reachable
+before any invasion pays off). A third ladder, `ai/FishingPolicy.kt`, follows
+NavalPolicy (war wins treasury contention): buy dories while open shoals
+outnumber the fleet (cap 3, income-funded only), sail each onto the nearest
+open shoal (`ai/Sailing.kt`, the shared steering primitives, with `ontoGoals`
+seeding the distance field AT sea goals), park forever, disband when visible
+squatters leave nothing to work; shoal positions are chart knowledge, occupancy
+is fog-honest. Overseas mode (enemies exist but none reachable
 by land): disembark → sail loaded transports toward *beatable* beaches
 (sea-BFS distance fields, never straight-line — local minima cause shore-
 hugging loops) → embark → buy transport → build port → war-chest fallback

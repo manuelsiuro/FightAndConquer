@@ -36,6 +36,10 @@ bridges) landed in three save-compatible phases, same discipline as above
 3. **Sea economy** — BRIDGE (the one building ON a sea hex; owned, walkable,
    blocks boats, bombardable), FISHERY + FISH_SHOAL deposits with the standard
    fairness machinery, AI economy terms, HARD-only warship interdiction.
+4. **Fishing overhaul** — FISHERY works shoals at range (`fisheryRange` 2, the
+   shared `Rules.shoalsWithin` query), FISHING_BOAT (the dory: park-on-shoal
+   income, the game's only earning unit, `ai/FishingPolicy` ladder), workable
+   per-capital shoal placement, mid-ocean neutral shoals as boat territory.
 
 Feature gate: `navalEnabled` plus zeroed shoal counts in `RuleConstants`.
 Full rules in [game-rules.md](game-rules.md); engine details in

@@ -113,9 +113,10 @@ identical to procedural meshes. `PieceMeshes` tries
 `assets/pieces/<kind_lowercase>.pmesh` first and falls back to the procedural
 token set per kind, so a missing/broken asset can never crash the game.
 
-Shipped model set (24 — every `PieceKind` has a bake, no procedural fallback
+Shipped model set (25 — every `PieceKind` has a bake, no procedural fallback
 ships): `unit_t1..t4`, `archer`, `catapult`, the naval `boat` (longboat, faction
-sail) and `warship` (ram + faction shields), `capital`, `farm`, `tower`,
+sail), `warship` (ram + faction shields) and `fishing_boat` (stub dory, stern
+net boom, gold catch — a visible class below the longboat), `capital`, `farm`, `tower`,
 `strong_tower`, `mine`, `market`, `lumber_camp`, `watchtower`, `port`,
 `fishery`, `bridge` (timber deck on stone pylons — authored along Y with **no
 rotations**: rotated geometry once pushed the radius past the 0.45 budget),
@@ -144,7 +145,7 @@ level down, same pipeline end to end (full feature spec:
   `python3 tools/render_piece_icons.py vikings/capital`), producing
   `piece_<civ>_<kind>.png` in `art/icons/` + `drawable-nodpi/`; mapped by the
   (civ, kind) tables in `ui/PieceIcons.kt`.
-- **Scope**: only the 19 player-owned kinds fork (`PieceMeshes.CIV_FORKED_KINDS`);
+- **Scope**: only the 20 player-owned kinds fork (`PieceMeshes.CIV_FORKED_KINDS`);
   neutral markers (tree, gravestone, deposits) never fork — don't author them.
 - **Fallback**: `PieceMeshes` resolves (civilization, kind) lazily per civ present
   in the game; a forked kind without a baked asset shares the Kingdom `Part`s
