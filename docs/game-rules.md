@@ -13,7 +13,7 @@ per game without breaking old saves.
 | Max tier | 4 | Peasant, Spearman, Baron, Knight |
 | Move ranges (T1–T4) | 2 / 3 / 4 / 5 | BFS steps through own territory; capture = final step; Archer 2 |
 | Hex income | 1 /turn | Owned, non-starving, flora-free hexes |
-| Farm | cost 12 + 2×(farms owned), +4 income | Must be adjacent to own Capital or Farm |
+| Farm | cost 12 + 2×(farms owned), +4 income | Must be adjacent to own Capital or Farm, or stand on fertile ground |
 | Tower | cost 15, defense 2 | Covers self + 6 neighbors, no upkeep |
 | Strong Tower ("Castle") | cost 35, defense 3 | Covers self + 6 neighbors |
 | Capital | defense 1 (self + neighbors) | Loots 50 % of treasury when captured |
@@ -25,10 +25,10 @@ per game without breaking old saves.
 | Fog of war | off by default | Optional per game; see [fog-of-war.md](fog-of-war.md) |
 | Vision radii (fog on) | owned 2 / unit 3 / Capital+Tower+Castle 4 | `visionRadiusOwned` must stay ≥ 2 (Legality/AI invariant) |
 | Gold vein (deposit) | 1 per player (band 3–6 from capital) + 1 per 150 land hexes in the middle | Permanent terrain; the only place a Mine can stand |
-| Fertile ground (deposit) | +1 hex income; +2 extra for a Farm on it | 2 per player (band 2–5) + 3 % of neutral land |
+| Fertile ground (deposit) | +1 hex income; +2 extra for a Farm on it | 2 per player (band 2–5) + 3 % of neutral land; anchors a Farm without a chain; no Lumber camp allowed on it |
 | Mine | cost 20, +6 income | Gold-vein hexes only; destroyed on capture (vein survives) |
 | Market | cost 25, +1 per adjacent owned producing hex (cap 5) | Standard placement |
-| Lumber camp | cost 15, +2 per adjacent own tree (cap 4) | Adjacent trees never spread ("managed forest") |
+| Lumber camp | cost 15, +2 per adjacent own tree (cap 4) | Adjacent trees never spread ("managed forest"); never on fertile ground |
 | Watchtower | cost 8, defense 0, vision radius 6 | Fog-of-war games only (hard legality gate) |
 | Archer | cost 14, upkeep 4, strength 1 | Defense aura 2 over its hex + adjacent own hexes; never merges |
 | Catapult | cost 30, upkeep 10, strength 2, move range 2 | Ignores building defense entirely; never merges |

@@ -148,6 +148,7 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.CANNOT_MERGE_SPECIAL -> UiText.of(R.string.reject_cannot_merge_special)
     RejectionReason.SPECIAL_UNITS_DISABLED -> UiText.of(R.string.reject_specials_disabled)
     RejectionReason.BUILDING_NEEDS_DEPOSIT -> UiText.of(R.string.reject_building_needs_deposit)
+    RejectionReason.FERTILE_RESERVED_FOR_FARM -> UiText.of(R.string.reject_fertile_reserved_for_farm)
     RejectionReason.REQUIRES_FOG_OF_WAR -> UiText.of(R.string.reject_requires_fog)
     RejectionReason.DIPLOMACY_DISABLED -> UiText.of(R.string.reject_diplomacy_disabled)
     RejectionReason.INVALID_PLAYER -> UiText.of(R.string.reject_invalid_player)
