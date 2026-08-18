@@ -894,6 +894,10 @@ class BoardScene(
             }
 
             is GameEvent.BuildingBuilt -> {
+                // A deposit marker shows only while its hex has no building on it,
+                // and an overwritten piece must die now or it orphans in the scene.
+                depositPieces.remove(event.hex)?.let { destroyPiece(it) }
+                buildingPieces.remove(event.hex)?.let { destroyPiece(it) }
                 val owner = latestState.tiles[event.hex]?.owner?.value
                 val piece = createPiece(buildingKind(event.building), event.hex, owner)
                 if (piece.kind == PieceKind.BRIDGE) piece.yaw = bridgeYaw(event.hex)

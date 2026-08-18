@@ -67,6 +67,42 @@ class DepositIncomeTest {
     }
 }
 
+class FertilePlacementTest {
+
+    @Test
+    fun `farm on fertile ground needs no chain adjacency`() {
+        // hex 2 does not touch the capital at hex 0 — only fertile ground allows the farm.
+        val s = strip(9, 0..2, 6..8)
+        val rejection = Reducer.reduce(s, GameAction.BuyBuilding(BuildingType.FARM, hex(2)))
+            .events.filterIsInstance<GameEvent.ActionRejected>().single()
+        assertEquals(RejectionReason.FARM_NEEDS_ADJACENCY, rejection.reason)
+
+        val fertile = s.withDeposit(Deposit.FERTILE, at = hex(2))
+        val (next, events) = Reducer.reduce(fertile, GameAction.BuyBuilding(BuildingType.FARM, hex(2)))
+        assertTrue(events.any { it is GameEvent.BuildingBuilt })
+        assertEquals(Building.FARM, next.tiles[hex(2)]?.building)
+        assertInvariants(next)
+    }
+
+    @Test
+    fun `lumber camp is barred from fertile ground`() {
+        val s = strip(9, 0..2, 6..8).withDeposit(Deposit.FERTILE, at = hex(1))
+        val rejection = Reducer.reduce(s, GameAction.BuyBuilding(BuildingType.LUMBER_CAMP, hex(1)))
+            .events.filterIsInstance<GameEvent.ActionRejected>().single()
+        assertEquals(RejectionReason.FERTILE_RESERVED_FOR_FARM, rejection.reason)
+    }
+
+    @Test
+    fun `buyableAt on a fertile hex offers the farm and hides the lumber camp`() {
+        val engine = GameEngine(strip(9, 0..2, 6..8).withDeposit(Deposit.FERTILE, at = hex(2)))
+        val structures = engine.buyableAt(hex(2))
+            .filterIsInstance<PurchaseOption.Structure>()
+            .map { it.type }
+        assertTrue(BuildingType.FARM in structures)
+        assertFalse(BuildingType.LUMBER_CAMP in structures)
+    }
+}
+
 class MarketAndLumberCampTest {
 
     /** P0 owns a full hex flower (center + ring); P1 has a far single-tile capital. */

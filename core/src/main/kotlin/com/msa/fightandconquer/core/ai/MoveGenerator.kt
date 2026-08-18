@@ -197,13 +197,19 @@ object MoveGenerator {
                     .filter { (hex, tile) ->
                         tile.owner == me && !tile.starving && tile.building == null &&
                             tile.unit == null && tile.flora == null &&
-                            HexMath.neighbors(hex).any { n ->
-                                val t = state.tiles[n]
-                                t?.owner == me && (t.building == com.msa.fightandconquer.core.model.Building.CAPITAL ||
-                                    t.building == com.msa.fightandconquer.core.model.Building.FARM)
-                            }
+                            (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE ||
+                                HexMath.neighbors(hex).any { n ->
+                                    val t = state.tiles[n]
+                                    t?.owner == me && (t.building == com.msa.fightandconquer.core.model.Building.CAPITAL ||
+                                        t.building == com.msa.fightandconquer.core.model.Building.FARM)
+                                })
                     }
-                    .sortedBy { it.key.packed }
+                    // Fertile spots first: same farm, +fertileFarmBonus income.
+                    .sortedWith(
+                        compareByDescending<Map.Entry<Hex, com.msa.fightandconquer.core.model.Tile>> {
+                            it.value.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE
+                        }.thenBy { it.key.packed },
+                    )
                     .take(2)
                 farmSpots.forEach { out.add(GameAction.BuyBuilding(BuildingType.FARM, it.key)) }
             }

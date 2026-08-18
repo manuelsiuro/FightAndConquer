@@ -44,6 +44,8 @@ enum class RejectionReason {
     SPECIAL_UNITS_DISABLED,
     /** The building requires a specific terrain deposit (Mine on a gold vein). */
     BUILDING_NEEDS_DEPOSIT,
+    /** Fertile ground only accepts a Farm (no Lumber camp on it). */
+    FERTILE_RESERVED_FOR_FARM,
     /** The building only functions with fog of war enabled (Watchtower). */
     REQUIRES_FOG_OF_WAR,
     /** Diplomacy is disabled by this game's rules snapshot. */

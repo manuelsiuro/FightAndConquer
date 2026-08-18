@@ -313,7 +313,10 @@ object Legality {
         if (action.type == BuildingType.WATCHTOWER && !state.config.rules.fogOfWar) {
             return reject(RejectionReason.REQUIRES_FOG_OF_WAR)
         }
-        if (action.type == BuildingType.FARM) {
+        if (action.type == BuildingType.LUMBER_CAMP && tile.deposit == Deposit.FERTILE) {
+            return reject(RejectionReason.FERTILE_RESERVED_FOR_FARM)
+        }
+        if (action.type == BuildingType.FARM && tile.deposit != Deposit.FERTILE) {
             val adjacentToChain = HexMath.neighbors(action.at).any {
                 val t = state.tiles[it]
                 t?.owner == state.currentPlayer &&

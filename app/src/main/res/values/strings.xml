@@ -301,8 +301,9 @@
     <string name="reject_defense_too_high">Defense %d — you need a stronger unit</string>
     <string name="reject_not_your_hex">That hex is not yours</string>
     <string name="reject_hex_needs_clearing">Clear that hex first</string>
-    <string name="reject_farm_needs_adjacency">Farms must touch your capital or another farm</string>
+    <string name="reject_farm_needs_adjacency">Farms need fertile ground, or must touch your capital or another farm</string>
     <string name="reject_building_needs_deposit">Mines can only be built on gold veins</string>
+    <string name="reject_fertile_reserved_for_farm">Fertile ground is reserved for farms</string>
     <string name="reject_requires_fog">Watchtowers only help under fog of war</string>
     <string name="reject_cannot_merge_special">Archers and catapults can\'t merge</string>
     <string name="reject_specials_disabled">Special units are disabled in this game</string>
