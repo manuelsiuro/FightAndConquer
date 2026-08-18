@@ -27,7 +27,7 @@ object PieceIcons {
             UnitType.CATAPULT -> R.drawable.piece_vikings_catapult
             UnitType.TRANSPORT -> R.drawable.piece_vikings_boat
             UnitType.WARSHIP -> R.drawable.piece_vikings_warship
-            UnitType.FISHING_BOAT -> kingdomUnit(type, tier) // icon not baked yet
+            UnitType.FISHING_BOAT -> R.drawable.piece_vikings_fishing_boat
 
             UnitType.SOLDIER -> when (tier) {
                 1 -> R.drawable.piece_vikings_unit_t1
@@ -41,7 +41,7 @@ object PieceIcons {
             UnitType.CATAPULT -> R.drawable.piece_sultanate_catapult
             UnitType.TRANSPORT -> R.drawable.piece_sultanate_boat
             UnitType.WARSHIP -> R.drawable.piece_sultanate_warship
-            UnitType.FISHING_BOAT -> kingdomUnit(type, tier) // icon not baked yet
+            UnitType.FISHING_BOAT -> R.drawable.piece_sultanate_fishing_boat
 
             UnitType.SOLDIER -> when (tier) {
                 1 -> R.drawable.piece_sultanate_unit_t1
@@ -55,7 +55,7 @@ object PieceIcons {
             UnitType.CATAPULT -> R.drawable.piece_shogunate_catapult
             UnitType.TRANSPORT -> R.drawable.piece_shogunate_boat
             UnitType.WARSHIP -> R.drawable.piece_shogunate_warship
-            UnitType.FISHING_BOAT -> kingdomUnit(type, tier) // icon not baked yet
+            UnitType.FISHING_BOAT -> R.drawable.piece_shogunate_fishing_boat
 
             UnitType.SOLDIER -> when (tier) {
                 1 -> R.drawable.piece_shogunate_unit_t1
@@ -130,7 +130,7 @@ object PieceIcons {
         UnitType.CATAPULT -> R.drawable.piece_catapult
         UnitType.TRANSPORT -> R.drawable.piece_boat
         UnitType.WARSHIP -> R.drawable.piece_warship
-        UnitType.FISHING_BOAT -> R.drawable.piece_boat // TODO(art): piece_fishing_boat once baked
+        UnitType.FISHING_BOAT -> R.drawable.piece_fishing_boat
         UnitType.SOLDIER -> kingdomSoldier(tier)
     }
 
