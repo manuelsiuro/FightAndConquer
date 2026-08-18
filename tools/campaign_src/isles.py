@@ -305,6 +305,7 @@ CROWN_OF_SALT = dict(
     par=40,
     hints=[
         {"id": "finale", "until": {"type": "round", "round": 2}},
+        {"id": "fishing", "until": {"type": "units", "unitType": "FISHING_BOAT", "count": 1}},
     ],
     # A 1-v-2 against two seats of the SAME difficulty as the stand-in: the
     # playthrough AI beating two copies of itself is a coin toss, not a proof.

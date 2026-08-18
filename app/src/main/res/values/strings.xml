@@ -675,6 +675,7 @@
     <string name="level_isles_crown_of_salt_briefing">Every island, every channel, both rivals. No clock, no favours, nothing held back.</string>
     <string name="level_isles_crown_of_salt_debrief">The archipelago is yours, salt and stone and all of it.</string>
     <string name="hint_isles_crown_of_salt_finale">Everything the campaign taught you is on this board. So is everything it taught them.</string>
+    <string name="hint_isles_crown_of_salt_fishing">These shoals pay twice — a Fishery on the coast works them from two hexes out, and a fishing dory anchored on the shoal hauls its own catch.</string>
 
     <!-- === The Iron Crown === -->
     <string name="campaign_crown_name">The Iron Crown</string>
