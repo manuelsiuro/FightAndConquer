@@ -100,6 +100,12 @@ data class HighlightSet(
     val captures: Set<Hex> = emptySet(),
     val merges: Set<Hex> = emptySet(),
     /**
+     * Shoals a fishery here works (or would work): shown selection-scoped when a
+     * fishery or a fishery-legal empty hex is tapped. Static, never pulsing — a
+     * persistent pulse would pin the frame-pacing loop (docs/rendering.md).
+     */
+    val fishingRange: Set<Hex> = emptySet(),
+    /**
      * Hexes the campaign coach is pointing at ("land on the marked sand"). Independent
      * of selection, so it survives taps and keeps the prose free of coordinates.
      */
@@ -111,10 +117,10 @@ data class HighlightSet(
  * frontier the unit can touch, strength chips on naval targets, and the selected
  * unit's own attack ([LabelKind.ATTACKER]) so the pair reads as a comparison.
  */
-enum class LabelKind { CAPTURABLE, BLOCKED, ATTACKER }
+enum class LabelKind { CAPTURABLE, BLOCKED, ATTACKER, PROFIT }
 
-/** Which stat the chip's icon depicts: hex/garrison defense or attack/ship strength. */
-enum class LabelGlyph { SHIELD, SWORD }
+/** Which stat the chip's icon depicts: hex/garrison defense, attack/ship strength, or coins. */
+enum class LabelGlyph { SHIELD, SWORD, COIN }
 
 data class OverlayLabel(
     val hex: Hex,
@@ -805,7 +811,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (tile?.owner == me) {
             if (!tile.starving && tile.building == null && tile.unit == null) {
                 selectedHex = hex
-                _highlights.value = HighlightSet(selected = hex)
+                // A fishery-legal hex previews its catch: the tray is about to
+                // offer the fishery, so show which shoals it would work.
+                val offersFishery = engine.buyableAt(hex).any {
+                    it is PurchaseOption.Structure &&
+                        it.type == com.msa.fightandconquer.core.model.BuildingType.FISHERY
+                }
+                _highlights.value = HighlightSet(
+                    selected = hex,
+                    fishingRange = if (offersFishery) fisheryCoverage(state, hex) else emptySet(),
+                )
                 _overlayLabels.value = emptyList()
                 refreshHud()
                 return
@@ -832,9 +847,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             )
             else -> null
         }
-        _highlights.value = HighlightSet()
+        // A visible fishery — own or enemy — shows the shoals it works.
+        _highlights.value = if (
+            tile?.building == Building.FISHERY && (vis == null || hex in vis.visible)
+        ) {
+            HighlightSet(fishingRange = fisheryCoverage(state, hex))
+        } else {
+            HighlightSet()
+        }
         _overlayLabels.value = emptyList()
         refreshHud()
+    }
+
+    /** Shoals within the fishery range of [hex], fog-filtered for the viewer. */
+    private fun fisheryCoverage(state: GameState, hex: Hex): Set<Hex> {
+        val shoals = Rules.shoalHexesWithin(state.tiles, hex, state.config.rules.fisheryRange)
+        val vis = _visibility.value ?: return shoals.toSet()
+        return shoals.filterTo(HashSet()) { it in vis.visible || it in vis.explored }
     }
 
     private fun clearSelection() {
@@ -1111,6 +1140,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                             ),
                         ),
                     )
+                }
+            }
+            // The dory's trade: a coin chip on every shoal it could work from here
+            // (its own hex included — a parked dory advertises its catch).
+            if (unit.type == com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT) {
+                val income = Rules.effectiveRules(state, unit.owner).fishingBoatIncome
+                for (water in reach.moveTargets + unit.hex) {
+                    val tile = state.tiles[water] ?: continue
+                    if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL) {
+                        add(
+                            OverlayLabel(
+                                water, income, LabelKind.PROFIT, LabelGlyph.COIN,
+                                UiText.of(R.string.cd_fishing_income, income),
+                            ),
+                        )
+                    }
                 }
             }
             // Out-gunned enemy hulls beside this warship's water: reach lists only the

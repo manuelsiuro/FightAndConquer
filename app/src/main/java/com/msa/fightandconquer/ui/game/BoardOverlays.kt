@@ -98,10 +98,12 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
         LabelKind.CAPTURABLE -> UiColors.chipCapturable
         LabelKind.BLOCKED -> UiColors.chipBlocked
         LabelKind.ATTACKER -> UiColors.chipAttacker
+        LabelKind.PROFIT -> UiColors.chipProfit
     }
     val iconRes = when (label.glyph) {
         LabelGlyph.SHIELD -> R.drawable.ic_shield
         LabelGlyph.SWORD -> R.drawable.ic_sword
+        LabelGlyph.COIN -> R.drawable.ic_coin
     }
     val description = label.cd.resolve()
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }

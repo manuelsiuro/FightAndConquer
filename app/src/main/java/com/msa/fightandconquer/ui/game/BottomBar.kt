@@ -480,7 +480,27 @@ private fun PurchaseCard(
                         )
                     }
                 }
-                if (option is PurchaseOption.Unit) {
+                if (option is PurchaseOption.Unit && option.type == UnitType.FISHING_BOAT) {
+                    // No combat pair to show (0/0) — the third line sells the trade.
+                    val statTint = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painterResource(R.drawable.ic_coin),
+                            contentDescription = null,
+                            Modifier.size(12.dp),
+                            tint = statTint,
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            stringResource(R.string.info_value_income_on_shoal, shop.fishingBoatIncome),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            color = statTint,
+                        )
+                    }
+                } else if (option is PurchaseOption.Unit) {
                     val statTint = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(

@@ -96,7 +96,9 @@ fun GameScreen(viewModel: GameViewModel) {
         }
         LaunchedEffect(Unit) {
             viewModel.highlights.collect { h ->
-                ref.scene?.showHighlights(h.selected, h.moves, h.captures, h.merges, h.hintFocus)
+                ref.scene?.showHighlights(
+                    h.selected, h.moves, h.captures, h.merges, h.hintFocus, h.fishingRange,
+                )
             }
         }
         LaunchedEffect(Unit) {

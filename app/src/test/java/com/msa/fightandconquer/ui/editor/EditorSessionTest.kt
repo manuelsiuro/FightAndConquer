@@ -192,6 +192,19 @@ class EditorSessionTest {
     }
 
     @Test
+    fun `the dory brush is naval - sea only, land refused`() {
+        val s = session()
+        s.setActiveSeat(0)
+        s.setBrush(EditorSession.Brush.Sea)
+        s.paint(Hex.of(0, -2))
+        s.setBrush(EditorSession.Brush.UnitBrush(UnitType.FISHING_BOAT))
+        s.paint(Hex.of(0, -2))
+        assertEquals(UnitType.FISHING_BOAT, s.ui.value.def.level.startingUnits.single().type)
+        s.paint(Hex.of(-1, 0)) // own land: a boat has no business there
+        assertEquals(1, s.ui.value.def.level.startingUnits.size)
+    }
+
+    @Test
     fun `terrain edits sweep stranded units away`() {
         val s = session()
         s.setActiveSeat(0)

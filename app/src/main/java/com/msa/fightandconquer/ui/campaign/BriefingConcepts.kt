@@ -38,6 +38,16 @@ object BriefingConcepts {
         val rules = level.rules
         val concepts = ArrayList<BriefingConcept>()
 
+        // Map-derived on purpose: a shoal-less naval mission must not advertise
+        // the dory it cannot use.
+        if (rules.navalEnabled && rules.specialUnitsEnabled &&
+            level.map.tiles.any { it.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL }
+        ) {
+            concepts += BriefingConcept(
+                com.msa.fightandconquer.R.string.unit_fishing_boat,
+                GuideCatalog.forUnit(UnitType.FISHING_BOAT).id,
+            )
+        }
         if (rules.navalEnabled) {
             concepts += BriefingConcept(
                 com.msa.fightandconquer.R.string.unit_transport,
