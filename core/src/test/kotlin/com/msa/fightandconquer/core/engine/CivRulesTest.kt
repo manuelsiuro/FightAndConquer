@@ -49,6 +49,15 @@ class CivRulesTest {
     }
 
     @Test
+    fun `a Viking warship's display defense follows its strength`() {
+        val kingdom = bombardState(civs = null)
+        val viking = bombardState(civs = listOf(Civilization.VIKINGS, Civilization.KINGDOM))
+        assertEquals(rules.warshipStrength, Rules.unitDefenseOf(kingdom, kingdom.unitAt(hex(2, -1))!!))
+        assertEquals(rules.warshipStrength + 1, Rules.unitDefenseOf(viking, viking.unitAt(hex(2, -1))!!))
+        assertEquals(rules.warshipStrength + 1, Rules.buyDefense(viking, PlayerId(0), 1, UnitType.WARSHIP))
+    }
+
+    @Test
     fun `a Viking warship as DEFENDER cannot be sunk by a Kingdom warship`() {
         fun duel(civs: List<Civilization>?) =
             strip(4, 0..0, 2..3, civs = civs)
@@ -71,6 +80,24 @@ class CivRulesTest {
         assertTrue(
             hex(3, -1) in Rules.reachable(vikingAttacker, vikingAttacker.unitIdAt(hex(2, -1))).captureTargets,
         )
+    }
+
+    @Test
+    fun `buyableAt carries civ-effective display stats on special units`() {
+        val s = strip(5, 0..2, 4..4, civs = listOf(Civilization.VIKINGS, Civilization.KINGDOM))
+            .withSea(hex(1, -1))
+            .withBuilding(Building.PORT, hex(1))
+        val engine = GameEngine(s)
+        // A Viking warship at the boat yard advertises its buffed hull on both stats.
+        val warship = engine.buyableAt(hex(1, -1)).filterIsInstance<PurchaseOption.Unit>()
+            .single { it.type == UnitType.WARSHIP }
+        assertEquals(rules.warshipStrength + 1, warship.strength)
+        assertEquals(rules.warshipStrength + 1, warship.defense)
+        // The archer's asymmetric pair survives the offer path (defaults would say 1/1).
+        val archer = engine.buyableAt(hex(2)).filterIsInstance<PurchaseOption.Unit>()
+            .single { it.type == UnitType.ARCHER }
+        assertEquals(rules.archerStrength, archer.strength)
+        assertEquals(rules.archerAuraDefense, archer.defense)
     }
 
     // ----- Shogunate: catapult range -----

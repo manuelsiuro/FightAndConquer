@@ -40,6 +40,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -135,7 +136,7 @@ internal fun BottomBar(
     }
 }
 
-/** Scale-S sibling of the info card: the selected unit's name, hint and disband. */
+/** Scale-S sibling of the info card: the selected unit's name, stats and disband. */
 @Composable
 private fun SelectedUnitStrip(state: HudState, nameRes: Int, viewModel: GameViewModel) {
     Row(
@@ -155,11 +156,7 @@ private fun SelectedUnitStrip(state: HudState, nameRes: Int, viewModel: GameView
                 fontSize = 14.sp,
                 color = UiColors.ink,
             )
-            Text(
-                stringResource(R.string.hud_selected_unit_hint),
-                fontSize = 12.sp,
-                color = UiColors.inkMuted,
-            )
+            SelectedUnitStats(state)
         }
         state.selectedUnitDisbandRefund?.let { refund ->
             val description = stringResource(R.string.cd_hud_disband)
@@ -173,6 +170,58 @@ private fun SelectedUnitStrip(state: HudState, nameRes: Int, viewModel: GameView
                 onClick = { viewModel.disbandSelectedUnit() },
             )
         }
+    }
+}
+
+/** The strip's 12 sp stats line: attack · defense · upkeep (the spec'd slot, Atk/Def pair). */
+@Composable
+private fun SelectedUnitStats(state: HudState) {
+    val attack = state.selectedUnitAttack ?: return
+    val defense = state.selectedUnitDefense ?: return
+    val upkeep = state.selectedUnitUpkeep ?: return
+    // A loaded transport fights with its cargo; an empty one cannot attack at all.
+    val attackText = when {
+        state.selectedUnitCargoAttack != null ->
+            stringResource(R.string.info_value_cargo_attack, state.selectedUnitCargoAttack)
+        attack == 0 -> stringResource(R.string.info_value_none)
+        else -> stringResource(R.string.info_value_plain, attack)
+    }
+    val description = stringResource(R.string.cd_unit_stats, attackText, defense, upkeep)
+    Row(
+        Modifier.clearAndSetSemantics { contentDescription = description },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_sword),
+            contentDescription = null,
+            Modifier.size(12.dp),
+            tint = UiColors.inkMuted,
+        )
+        Spacer(Modifier.width(3.dp))
+        Text(attackText, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = UiColors.inkMuted)
+        Text(stringResource(R.string.hud_stat_separator), fontSize = 12.sp, color = UiColors.inkMuted)
+        Icon(
+            painterResource(R.drawable.ic_shield),
+            contentDescription = null,
+            Modifier.size(12.dp),
+            tint = UiColors.inkMuted,
+        )
+        Spacer(Modifier.width(3.dp))
+        Text(
+            stringResource(R.string.info_value_plain, defense),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = UiColors.inkMuted,
+        )
+        Text(stringResource(R.string.hud_stat_separator), fontSize = 12.sp, color = UiColors.inkMuted)
+        Text(
+            // The tray's compact upkeep idiom — the spelled-out label wraps the strip.
+            stringResource(R.string.shop_upkeep_per_turn, upkeep),
+            fontSize = 12.sp,
+            color = UiColors.inkMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -214,13 +263,22 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
                     // overflowing stats to letter-per-line.
                     FlowRow {
                         info.stats.forEachIndexed { index, stat ->
-                            Row {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (index > 0) {
                                     Text(
                                         stringResource(R.string.info_stat_separator),
                                         fontSize = 12.sp,
                                         color = UiColors.inkMuted,
                                     )
+                                }
+                                stat.iconRes?.let { icon ->
+                                    Icon(
+                                        painterResource(icon),
+                                        contentDescription = null,
+                                        Modifier.size(12.dp),
+                                        tint = UiColors.inkMuted,
+                                    )
+                                    Spacer(Modifier.width(3.dp))
                                 }
                                 Text(
                                     stringResource(
@@ -353,10 +411,13 @@ private fun PurchaseCard(
         }
     }
     val name = stringResource(nameRes)
-    val description = if (affordable) {
-        stringResource(R.string.cd_purchase_card, name, option.cost)
-    } else {
-        stringResource(R.string.cd_purchase_unaffordable, name, option.cost)
+    val description = when {
+        option is PurchaseOption.Unit && affordable ->
+            stringResource(R.string.cd_purchase_unit, name, option.cost, option.strength, option.defense)
+        option is PurchaseOption.Unit ->
+            stringResource(R.string.cd_purchase_unit_unaffordable, name, option.cost, option.strength, option.defense)
+        affordable -> stringResource(R.string.cd_purchase_card, name, option.cost)
+        else -> stringResource(R.string.cd_purchase_unaffordable, name, option.cost)
     }
     val learnDescription = stringResource(R.string.cd_guide_learn, name)
     Box(Modifier.size(128.dp)) {
@@ -403,16 +464,65 @@ private fun PurchaseCard(
                         fontWeight = FontWeight.Bold,
                         color = if (affordable) UiColors.ink else UiColors.alert,
                     )
+                    // Units carry their upkeep beside the cost so the third line is
+                    // free for the combat pair — the 128 dp box has no room for four.
+                    if (option is PurchaseOption.Unit) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            detail.uppercase(),
+                            fontSize = 10.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp,
+                            maxLines = 1,
+                            color = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph,
+                        )
+                    }
                 }
-                Text(
-                    detail.uppercase(),
-                    fontSize = 10.sp,
-                    lineHeight = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.2.sp,
-                    maxLines = 1,
-                    color = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph,
-                )
+                if (option is PurchaseOption.Unit) {
+                    val statTint = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painterResource(R.drawable.ic_sword),
+                            contentDescription = null,
+                            Modifier.size(12.dp),
+                            tint = statTint,
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            stringResource(R.string.info_value_plain, option.strength),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = statTint,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            painterResource(R.drawable.ic_shield),
+                            contentDescription = null,
+                            Modifier.size(12.dp),
+                            tint = statTint,
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            stringResource(R.string.info_value_plain, option.defense),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = statTint,
+                        )
+                    }
+                } else {
+                    Text(
+                        detail.uppercase(),
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp,
+                        maxLines = 1,
+                        color = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph,
+                    )
+                }
             }
         }
         // Tap-through to the full Field Guide entry: 28 dp glyph, 48 dp target.

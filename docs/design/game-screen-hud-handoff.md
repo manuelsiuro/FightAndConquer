@@ -376,6 +376,31 @@ panels, toasts, and the proposal strip can anchor to its bottom + 8 dp
 - **Baked piece renders**: transparent PNG at 32, 48, and 80 dp (× density buckets), one per unit
   and building, plus a capital render for the game-over overlay. Rendered against the light board
   palette so they read on the `controlFill` plinth in both themes.
+
+---
+
+## Addendum — unit combat-stat clarity (2026-08-18)
+
+Shipped after playtests showed the attack/defense model was invisible. All within the
+chrome above; deltas only:
+
+- **Selected-unit strip stats line**: ships as `[sword] 2 · [shield] 2 · -6/turn`
+  at 12 sp `inkMuted` (the upkeep token reuses the tray's `-N/turn` idiom, and the strip
+  uses a tight `·` separator — the spelled-out label wrapped the line). The spec's example
+  "Str 2 · moves left 1 · upkeep 6" predates the fresh/spent action model — there is no
+  "moves left" stat. A loaded transport shows its cargo's attack ("2 cargo"), an empty
+  one an em-dash.
+- **New board chip — attacker badge**: fixed `#3E3A36` (the palette's dark warm ink =
+  `onFaction`), white sword glyph + value, defense-chip geometry (radius 50, padding 4/10,
+  `boardLift`, no hairline, theme-independent). Appears on the selected unit's hex only
+  while at least one defense/strength chip is showing — it is the comparison's left side.
+  Naval duel chips reuse the verdict colors with the sword glyph (ship strength, not hex
+  defense): green on sinkable hulls, rust on adjacent hulls that out-gun the selected
+  warship.
+- **Purchase unit cards**: upkeep micro-label moves beside the cost; the third line is an
+  11 sp `[sword] Atk · [shield] Def` row (`inkMuted`, `inactiveGlyph` when unaffordable).
+  Structure cards unchanged.
+- **`ic_sword`** joins the tintable vector set (24 dp drawn, rendered at 12 dp).
 - **Faction discs** are drawn, not assets: a filled circle in the faction pastel at 10 / 14 / 48 /
   72 dp.
 - **Type**: the app's existing display face at weights 400 / 600 / 700 / 800.

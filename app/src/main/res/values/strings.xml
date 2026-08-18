@@ -117,7 +117,8 @@
     <string name="cd_open_menu">Open game menu</string>
 
     <!-- Bottom bar -->
-    <string name="hud_selected_unit_hint">Pick a highlighted hex to move or capture</string>
+    <string name="cd_unit_stats">Attack %1$s, defense %2$d, upkeep %3$d per turn</string>
+    <string name="hud_stat_separator">" · "</string>
     <string name="hud_undo">Undo</string>
     <string name="hud_end_turn">End Turn</string>
     <string name="hud_end">End</string>
@@ -141,6 +142,8 @@
     <string name="shop_walkway">Troop walkway</string>
     <string name="cd_purchase_card">%1$s, costs %2$d coins</string>
     <string name="cd_purchase_unaffordable">%1$s, costs %2$d coins — not affordable</string>
+    <string name="cd_purchase_unit">%1$s, costs %2$d coins — attack %3$d, defense %4$d</string>
+    <string name="cd_purchase_unit_unaffordable">%1$s, costs %2$d coins, attack %3$d, defense %4$d — not affordable</string>
 
     <!-- Piece names -->
     <string name="unit_peasant">Peasant</string>
@@ -172,11 +175,18 @@
     <string name="tile_sea">Open sea</string>
 
     <!-- Info cards -->
-    <string name="info_unit_enemy">Enemy unit — strength %d, defends its hex and neighbors</string>
+    <string name="info_unit_enemy">Enemy unit — attacks at %d and defends its hex and neighbors</string>
     <string name="info_unit_spent">Already moved this turn</string>
-    <string name="info_stat_strength">Strength</string>
+    <string name="info_stat_attack">Attack</string>
     <string name="info_stat_upkeep">Upkeep</string>
     <string name="info_stat_defense">Defense</string>
+    <string name="info_stat_capture">To capture</string>
+    <string name="info_stat_guarded_by">Guarded by</string>
+    <string name="info_value_attack_min">Atk %d+</string>
+    <string name="info_value_none">—</string>
+    <string name="info_value_cargo_attack">%d cargo</string>
+    <string name="info_enemy_territory_title">Enemy territory</string>
+    <string name="info_enemy_territory">Storm it with a unit whose Attack beats this hex\'s defense</string>
     <string name="info_stat_income">Income</string>
     <string name="info_stat_clear_bonus">Clear bonus</string>
     <string name="info_stat_separator">"  ·  "</string>
@@ -262,6 +272,11 @@
     <string name="game_over_back_to_menu">Back to menu</string>
     <string name="cd_defense_capturable">Defense %d — you can capture this hex</string>
     <string name="cd_defense_blocked">Defense %d — too strong for the selected unit</string>
+    <string name="cd_defense_bombard">Defense %d — you can bombard this hex</string>
+    <string name="cd_ship_sinkable">Strength %d — you can sink this ship, ties go to the attacker</string>
+    <string name="cd_ship_too_strong">Strength %d — too strong for your warship</string>
+    <string name="cd_attack_selected">Attack %d — your selected unit</string>
+    <string name="cd_attack_cargo">Attack %d — the carried unit lands with this</string>
 
     <!-- Toasts and popups -->
     <string name="popup_coins">+%d</string>
@@ -372,7 +387,7 @@
     <string name="guide_basic_economy_how">Each connected hex earns coins; each unit charges upkeep. If your treasury ever goes negative you go bankrupt and lose all your units — always keep income above upkeep. Tap the treasury at the top to see the full breakdown.</string>
     <string name="guide_basic_capture_title">Capturing hexes</string>
     <string name="guide_basic_capture_desc">Take enemy or neutral land with your units.</string>
-    <string name="guide_basic_capture_how">A unit can capture an adjacent hex only when its strength is greater than that hex\'s defense. Towers, castles, capitals and nearby enemy units all raise defense — bring a stronger unit or a catapult to break through.</string>
+    <string name="guide_basic_capture_how">A unit can capture an adjacent hex only when its Attack is greater than that hex\'s Defense — Defense 2 needs Attack 3. Towers, castles, capitals and nearby enemy units all raise defense. While a unit is selected, green chips mark hexes it can take and red chips show defenses that beat it — bring a stronger unit or a catapult to break through.</string>
     <string name="guide_basic_merge_title">Merging units</string>
     <string name="guide_basic_merge_desc">Combine soldiers into a stronger one.</string>
     <string name="guide_basic_merge_how">Move two soldiers of the same tier together — or buy one onto another — to merge them into the next tier, up to Knight. Archers and catapults never merge.</string>
@@ -383,11 +398,13 @@
     <!-- Field guide: Units -->
     <string name="guide_unit_soldiers">Soldiers</string>
     <string name="guide_desc_soldiers">Your core fighters — four tiers from Peasant to Knight. Higher tiers hit harder but cost far more upkeep.</string>
-    <string name="guide_how_soldiers">Buy one onto your own land. A fresh soldier can move anywhere inside your connected territory, or capture one adjacent hex whose defense is below its strength. Merge two of the same tier for the next tier up.</string>
-    <string name="guide_how_archer">Park it on ground you want to hold — it guards its own hex and every neighbour like a tower, but keeps pace with your army. It only attacks at strength 1, so don\'t rely on it to capture.</string>
+    <string name="guide_how_soldiers">Buy one onto your own land. A fresh soldier can move anywhere inside your connected territory, or capture one adjacent hex whose defense is below its Attack. Merge two of the same tier for the next tier up.</string>
+    <string name="guide_value_soldier_tier">1–4 (its tier)</string>
+    <string name="guide_value_soldier_upkeep">2–54/turn by tier</string>
+    <string name="guide_how_archer">Park it on ground you want to hold — it guards its own hex and every neighbour like a tower, but keeps pace with your army. It only attacks at Attack 1, so don\'t rely on it to capture.</string>
     <string name="guide_how_catapult">Send it at towers and castles — it ignores building defense completely. It moves only 2 hexes per turn and can be intercepted, and it still loses to defending enemy units.</string>
     <string name="guide_req_special">Special units must be enabled</string>
-    <string name="guide_how_transport">Buy it on the sea beside your port, then walk a unit onto it to embark. Sail up to 3 hexes per turn, park beside a beach and tap the shore to land — the passenger can even capture the beach with its own strength. A boat alongside also feeds troops cut off from supply.</string>
+    <string name="guide_how_transport">Buy it on the sea beside your port, then walk a unit onto it to embark. Sail up to 3 hexes per turn, park beside a beach and tap the shore to land — the passenger can even capture the beach with its own Attack. A boat alongside also feeds troops cut off from supply.</string>
     <string name="guide_how_warship">The navy\'s sword: move onto an enemy boat to sink it (ties go to you), or tap an adjacent enemy coastal hex to bombard it — the raid kills the garrison and razes any building except a capital. Towers shrug the bombardment off.</string>
     <string name="guide_req_port">Built at sea beside your port</string>
 
@@ -569,7 +586,7 @@
     <string name="level_academy_shoulder_debrief">A merge costs nothing but the two soldiers you already had. It is the cheapest strength in the game.</string>
     <string name="hint_academy_shoulder_defense">Pick up a soldier: the shield numbers show how hard each hex is to take.</string>
     <string name="hint_academy_shoulder_merge">Two peasants in one territory merge into a spearman. Move one onto the other.</string>
-    <string name="hint_academy_shoulder_storm">Strength must beat defence outright — a tie is not enough. Take both outposts.</string>
+    <string name="hint_academy_shoulder_storm">Attack must beat Defense outright — a tie is not enough. Take both outposts.</string>
 
     <string name="level_academy_stone_and_timber_name">Stone and Timber</string>
     <string name="level_academy_stone_and_timber_briefing">The pass between the two valleys changes hands with every raid. Stone holds ground that soldiers cannot — and the forest will pay for it.</string>

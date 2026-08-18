@@ -6,9 +6,12 @@ import com.msa.fightandconquer.core.TestStates.strip
 import com.msa.fightandconquer.core.TestStates.unitIdAt
 import com.msa.fightandconquer.core.TestStates.withBuilding
 import com.msa.fightandconquer.core.TestStates.withFlora
+import com.msa.fightandconquer.core.TestStates.withSea
 import com.msa.fightandconquer.core.TestStates.withUnit
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Flora
+import com.msa.fightandconquer.core.model.RuleConstants
+import com.msa.fightandconquer.core.model.UnitType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -73,6 +76,139 @@ class DefenseTest {
             .withUnit(owner = 1, tier = 4, at = hex(6))
         // hex 7: tower(2) on it, knight(4) adjacent
         assertEquals(4, Rules.defenseOf(s, hex(7)))
+    }
+}
+
+/** [Rules.defenseSourceOf]: which piece explains a hex's defense ("Guarded by Tower"). */
+class DefenseSourceTest {
+
+    // strip: P0 owns 0..2 (capital 0), neutral 3..5, P1 owns 6..8 (capital 8)
+    private val base = strip(9, 0..2, 6..8)
+
+    @Test
+    fun `a bare neutral hex has no defense source`() {
+        assertEquals(null, Rules.defenseSourceOf(base, hex(4)))
+        assertEquals(1, Rules.captureRequirement(base, hex(4)))
+    }
+
+    @Test
+    fun `the garrison is its own source`() {
+        val s = base.withUnit(owner = 1, tier = 2, at = hex(7))
+        val source = Rules.defenseSourceOf(s, hex(7))
+        assertTrue(source is Rules.DefenseSource.Unit && source.unit.hex == hex(7))
+        assertEquals(Rules.defenseOf(s, hex(7)) + 1, Rules.captureRequirement(s, hex(7)))
+    }
+
+    @Test
+    fun `a tower out-guarding the garrison becomes the source`() {
+        val s = base
+            .withUnit(owner = 1, tier = 1, at = hex(7))
+            .withBuilding(Building.TOWER, at = hex(6))
+        val source = Rules.defenseSourceOf(s, hex(7))
+        assertTrue(source is Rules.DefenseSource.Fortification && source.building == Building.TOWER)
+        assertEquals(3, Rules.captureRequirement(s, hex(7))) // tower 2, strictly greater
+    }
+
+    @Test
+    fun `on a tie the garrison wins over adjacent cover`() {
+        // Peasant (1) on hex 7, capital at 8 also covers it at 1.
+        val s = base.withUnit(owner = 1, tier = 1, at = hex(7))
+        val source = Rules.defenseSourceOf(s, hex(7))
+        assertTrue(source is Rules.DefenseSource.Unit && source.unit.hex == hex(7))
+    }
+
+    @Test
+    fun `an archer's aura guards the neighbor hex`() {
+        val s = base.withUnit(owner = 1, tier = 1, at = hex(7), type = UnitType.ARCHER)
+        val source = Rules.defenseSourceOf(s, hex(6))
+        assertTrue(source is Rules.DefenseSource.Unit && source.unit.type == UnitType.ARCHER)
+    }
+
+    @Test
+    fun `a catapult attacker sees no building source`() {
+        val s = base.withBuilding(Building.TOWER, at = hex(7))
+        val plain = Rules.defenseSourceOf(s, hex(6))
+        assertTrue(plain is Rules.DefenseSource.Fortification && plain.building == Building.TOWER)
+        assertEquals(null, Rules.defenseSourceOf(s, hex(6), UnitType.CATAPULT))
+    }
+
+    @Test
+    fun `the source always agrees with defenseOf`() {
+        val rules = RuleConstants()
+        val s = base
+            .withBuilding(Building.STRONG_TOWER, at = hex(6))
+            .withUnit(owner = 1, tier = 1, at = hex(7), type = UnitType.ARCHER)
+        for (q in 5..8) {
+            val hex = hex(q)
+            val value = when (val source = Rules.defenseSourceOf(s, hex)) {
+                is Rules.DefenseSource.Unit -> Rules.unitDefenseOf(s, source.unit)
+                is Rules.DefenseSource.Fortification -> when (source.building) {
+                    Building.TOWER -> rules.towerDefense
+                    Building.STRONG_TOWER -> rules.strongTowerDefense
+                    Building.CAPITAL -> rules.capitalDefense
+                    else -> 0
+                }
+                null -> 0
+            }
+            assertEquals("source value at $hex", Rules.defenseOf(s, hex), value)
+        }
+    }
+}
+
+/** The per-unit display pair the HUD shows: [Rules.strengthOf] (attack) vs [Rules.unitDefenseOf]. */
+class UnitDefenseValueTest {
+
+    private val rules = RuleConstants()
+    private val base = strip(9, 0..2, 6..8)
+
+    @Test
+    fun `a soldier defends at its tier`() {
+        for (tier in 1..rules.maxTier) {
+            val s = base.withUnit(owner = 0, tier = tier, at = hex(1))
+            assertEquals(tier, Rules.unitDefenseOf(s, s.unitAt(hex(1))!!))
+        }
+    }
+
+    @Test
+    fun `an archer attacks at 1 but defends at its aura value`() {
+        val s = base.withUnit(owner = 0, tier = 1, at = hex(1), type = UnitType.ARCHER)
+        val archer = s.unitAt(hex(1))!!
+        assertEquals(rules.archerStrength, Rules.strengthOf(s, archer))
+        assertEquals(rules.archerAuraDefense, Rules.unitDefenseOf(s, archer))
+    }
+
+    @Test
+    fun `a catapult defends at its strength`() {
+        val s = base.withUnit(owner = 0, tier = 1, at = hex(1), type = UnitType.CATAPULT)
+        assertEquals(rules.catapultStrength, Rules.unitDefenseOf(s, s.unitAt(hex(1))!!))
+    }
+
+    @Test
+    fun `a transport defends at zero and a warship at its sink threshold`() {
+        val s = base
+            .withSea(listOf(hex(1, -1), hex(2, -1)))
+            .withUnit(owner = 0, tier = 1, at = hex(1, -1), type = UnitType.TRANSPORT)
+            .withUnit(owner = 0, tier = 1, at = hex(2, -1), type = UnitType.WARSHIP)
+        assertEquals(0, Rules.unitDefenseOf(s, s.unitAt(hex(1, -1))!!))
+        assertEquals(rules.warshipStrength, Rules.unitDefenseOf(s, s.unitAt(hex(2, -1))!!))
+    }
+
+    @Test
+    fun `buyDefense mirrors unitDefenseOf for units that do not exist yet`() {
+        assertEquals(3, Rules.buyDefense(base, base.currentPlayer, 3, UnitType.SOLDIER))
+        assertEquals(rules.archerAuraDefense, Rules.buyDefense(base, base.currentPlayer, 1, UnitType.ARCHER))
+        assertEquals(0, Rules.buyDefense(base, base.currentPlayer, 1, UnitType.TRANSPORT))
+    }
+
+    @Test
+    fun `boats still garrison nothing - unitDefenseOf is a display value, not a land contribution`() {
+        // Guards the defenseContribution refactor: the warship's sink threshold (2)
+        // must never leak into hex defense.
+        val s = base.withSea(hex(2, -1)).withUnit(owner = 0, tier = 1, at = hex(2, -1), type = UnitType.WARSHIP)
+        val warship = s.unitAt(hex(2, -1))!!
+        assertEquals(rules.warshipStrength, Rules.unitDefenseOf(s, warship))
+        assertEquals(0, Rules.defenseContribution(s, warship))
+        assertEquals(0, Rules.defenseOf(s, hex(2)))
     }
 }
 
