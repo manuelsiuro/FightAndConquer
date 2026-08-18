@@ -71,19 +71,58 @@ class FishingAiTest {
     }
 
     @Test
+    fun `a parked dory does not stall the next purchase`() {
+        // Claim accounting is en-route boats vs open shoals: the parked hull
+        // already subtracts its shoal via occupancy, so the second, still-open
+        // shoal must trigger a second buy even when purchases are staggered.
+        val s = coast(treasury = 200)
+            .withDeposit(Deposit.FISH_SHOAL, hex(4))
+            .withDeposit(Deposit.FISH_SHOAL, hex(5))
+            .withUnit(owner = 0, tier = 1, at = hex(5), type = UnitType.FISHING_BOAT)
+        val action = FishingPolicy.action(s, Difficulty.NORMAL)
+        assertTrue("expected a second dory purchase, got $action", action is GameAction.BuyUnit)
+        assertEquals(UnitType.FISHING_BOAT, (action as GameAction.BuyUnit).type)
+    }
+
+    @Test
+    fun `an own transiting hull does not scuttle an en-route dory`() {
+        // A ferry staging on the only shoal is a one-turn transit, not a lost
+        // shoal — disbanding the dory over it would be a coin pump.
+        val s = coast()
+            .withDeposit(Deposit.FISH_SHOAL, hex(5))
+            .withUnit(owner = 0, tier = 1, at = hex(3), type = UnitType.FISHING_BOAT)
+            .withUnit(owner = 0, tier = 1, at = hex(5), type = UnitType.TRANSPORT)
+        val action = FishingPolicy.action(s, Difficulty.NORMAL)
+        assertTrue("expected patience, got $action", action !is GameAction.DisbandUnit)
+    }
+
+    @Test
     fun `easy never fishes`() {
         val s = coast().withDeposit(Deposit.FISH_SHOAL, hex(5))
         assertNull(FishingPolicy.action(s, Difficulty.EASY))
     }
 
     @Test
-    fun `an idle dory is disbanded when a visible squatter leaves nothing to work`() {
+    fun `a surplus dory disbands once every shoal is own-worked`() {
+        val s = coast()
+            .withDeposit(Deposit.FISH_SHOAL, hex(5))
+            .withUnit(owner = 0, tier = 1, at = hex(5), type = UnitType.FISHING_BOAT)
+            .withUnit(owner = 0, tier = 1, at = hex(3), type = UnitType.FISHING_BOAT)
+        val action = FishingPolicy.action(s, Difficulty.NORMAL)
+        assertTrue("expected a disband, got $action", action is GameAction.DisbandUnit)
+    }
+
+    @Test
+    fun `a squatted shoal is waited on - never the disband trigger`() {
+        // Writing off a visibly squatted shoal is a fog money pump: the enemy
+        // hull fades from view when this dory dies, the shoal reads open again,
+        // and the policy buys a replacement forever. The idle hull waits.
         val s = coast()
             .withDeposit(Deposit.FISH_SHOAL, hex(5))
             .withUnit(owner = 0, tier = 1, at = hex(3), type = UnitType.FISHING_BOAT)
             .withUnit(owner = 1, tier = 1, at = hex(5), type = UnitType.FISHING_BOAT)
         val action = FishingPolicy.action(s, Difficulty.NORMAL)
-        assertTrue("expected a disband, got $action", action is GameAction.DisbandUnit)
+        assertTrue("expected patience, got $action", action !is GameAction.DisbandUnit)
     }
 
     @Test

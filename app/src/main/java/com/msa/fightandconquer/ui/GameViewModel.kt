@@ -1190,7 +1190,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val vis = _visibility.value
         val shown = if (vis == null) chips else chips.filter { it.hex in vis.visible }
         if (shown.isEmpty()) return shown
-        // The badge exists to make the chips read as a comparison — no chips, no badge.
+        // The badge exists to make the chips read as a comparison — no chips, no
+        // badge. A dory has nothing to compare (it never attacks) and its own
+        // hex may carry the parked-catch coin chip the badge would sit on top of.
+        if (unit.type == com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT) return shown
         val cargoAttack = unit.cargo?.let { Rules.buyStrength(state, unit.owner, it.tier, it.type) }
         val attack = cargoAttack ?: Rules.strengthOf(state, unit)
         return shown + OverlayLabel(

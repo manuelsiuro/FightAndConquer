@@ -31,7 +31,9 @@ internal object FishingPolicy {
 
     fun action(state: GameState, difficulty: Difficulty = Difficulty.NORMAL): GameAction? {
         val rules = state.config.rules
-        if (!rules.navalEnabled || !rules.specialUnitsEnabled) return null
+        // Dories are naval, not "special": checkBuyNaval sells them on
+        // navalEnabled alone, and the policy must mirror the legality gate.
+        if (!rules.navalEnabled) return null
         // Easy skips the fishery in MoveGenerator too — it is the beatable seat.
         if (difficulty == Difficulty.EASY) return null
         val me = state.currentPlayer
@@ -51,7 +53,7 @@ internal object FishingPolicy {
             val occupant = state.tiles.getValue(hex).unit?.let { state.units[it] }
             when {
                 occupant == null -> true
-                occupant.owner == me -> false
+                occupant.owner == me -> false // parked dory or a ferry in transit
                 else -> visible != null && hex !in visible // unseen squatter = honest absence
             }
         }
@@ -59,23 +61,37 @@ internal object FishingPolicy {
         val fleet = state.units.values
             .filter { it.owner == me && it.type == UnitType.FISHING_BOAT }
             .sortedBy { it.id.value }
+        val enRoute = fleet.count { state.tiles.getValue(it.hex).deposit != Deposit.FISH_SHOAL }
 
-        // Park or sail every idle hull; a hull with no shoal left to work is
-        // pure upkeep — the 50% disband refund beats bleeding forever.
+        // Park or sail every idle hull. Disband only a provably SURPLUS hull:
+        // every shoal on the chart worked by an own parked dory — a fog-free
+        // fact, since own units are always known. A visibly enemy-squatted
+        // shoal is WAITED on, never written off: under fog the squatter fades
+        // from view the moment this hull dies, the shoal reads open again, and
+        // a stateless policy would buy a replacement — a disband/re-buy money
+        // pump (fog seed 5 diag, 2026-08-18). Waiting costs upkeep but holds
+        // the water, and the hull parks the instant the squatter leaves.
+        val allOwnWorked = shoals.all { hex ->
+            val occ = state.tiles.getValue(hex).unit?.let { state.units[it] }
+            occ != null && occ.owner == me && occ.type == UnitType.FISHING_BOAT
+        }
         for (boat in fleet) {
             if (boat.spent) continue
             if (state.tiles.getValue(boat.hex).deposit == Deposit.FISH_SHOAL) continue // parked
             Sailing.sailToward(state, boat, open, ontoGoals = true)?.let { return it }
-            if (open.isEmpty()) {
+            if (allOwnWorked) {
                 val disband = GameAction.DisbandUnit(boat.id)
                 if (Legality.check(state, disband) is LegalityResult.Ok) return disband
             }
         }
 
-        // Launch a new hull while open shoals outnumber the fleet. Fishing is
-        // optional economy: unlike war hulls it never dips into savings, and it
-        // never launches into water that cannot reach an open shoal.
-        if (fleet.size < minOf(MAX_FISHING_BOATS, open.size) &&
+        // Launch a new hull while open shoals outnumber the boats still sailing
+        // for one (parked hulls already subtract themselves via occupancy —
+        // counting them against the whole fleet would strand a shoal per parked
+        // boat). Fishing is optional economy: unlike war hulls it never dips
+        // into savings, and it never launches into water that cannot reach an
+        // open shoal.
+        if (fleet.size < MAX_FISHING_BOATS && enRoute < open.size &&
             state.player(me).treasury >= eff.fishingBoatCost + 10 &&
             Rules.incomeOf(state, me) - Rules.upkeepOf(state, me) >= eff.fishingBoatUpkeep
         ) {
