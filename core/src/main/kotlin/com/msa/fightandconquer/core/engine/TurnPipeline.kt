@@ -178,8 +178,11 @@ internal object TurnPipeline {
         return supplied
     }
 
-    private fun incomeIn(b: StateBuilder): Int =
-        Rules.incomeFrom(b.tiles, b.effectiveRules(b.currentPlayer), b.currentPlayer)
+    private fun incomeIn(b: StateBuilder): Int {
+        val eff = b.effectiveRules(b.currentPlayer)
+        return Rules.incomeFrom(b.tiles, eff, b.currentPlayer) +
+            Rules.boatIncomeFrom(b.tiles, b.units.values, eff, b.currentPlayer)
+    }
 
     private fun upkeepIn(b: StateBuilder): Int =
         Rules.upkeepFrom(b.units.values, b.effectiveRules(b.currentPlayer), b.currentPlayer)

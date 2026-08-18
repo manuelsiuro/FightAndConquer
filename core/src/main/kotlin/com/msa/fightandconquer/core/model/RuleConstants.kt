@@ -130,6 +130,18 @@ data class RuleConstants(
     /** Warship strength for sinking boats and bombarding; naval ties go to the ATTACKER. */
     val warshipStrength: Int = 2,
     val warshipMoveRange: Int = 3,
+    /** The working hull: just under the transport — an economy boat, not a weapon. */
+    val fishingBoatCost: Int = 14,
+    /** Below the transport's 4: a working boat must not out-cost the ferry it undercuts. */
+    val fishingBoatUpkeep: Int = 3,
+    /**
+     * Earned at turn start while parked on a FISH_SHOAL sea hex — net
+     * +3/turn at defaults, deliberately below farm efficiency: the boat's
+     * edge is reaching the mid-ocean shoals no fishery can work.
+     */
+    val fishingBoatIncome: Int = 6,
+    /** Same "MUST stay <= visionRadiusUnit" contract as [transportMoveRange]. */
+    val fishingBoatMoveRange: Int = 3,
     val portCost: Int = 20,
     val portIncome: Int = 2,
     /**

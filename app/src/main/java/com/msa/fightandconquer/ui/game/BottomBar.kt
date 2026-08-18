@@ -394,6 +394,7 @@ private fun PurchaseCard(
                 UnitType.CATAPULT -> shop.catapultUpkeep
                 UnitType.TRANSPORT -> shop.transportUpkeep
                 UnitType.WARSHIP -> shop.warshipUpkeep
+                UnitType.FISHING_BOAT -> shop.fishingBoatUpkeep
                 UnitType.SOLDIER -> shop.unitUpkeep[option.tier - 1]
             },
         )

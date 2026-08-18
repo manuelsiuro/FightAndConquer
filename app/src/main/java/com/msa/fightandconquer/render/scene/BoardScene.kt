@@ -700,9 +700,7 @@ class BoardScene(
                 // while a piece animates (xz set) or the queue is playing.
                 if (animator.isIdle) {
                     for ((id, piece) in unitPieces) {
-                        if ((piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) &&
-                            piece.xz == null && !piece.hidden
-                        ) {
+                        if (isBoatKind(piece.kind) && piece.xz == null && !piece.hidden) {
                             piece.yOffset = 0.008f * sin(waterTime * 1.3f + (id.value % 7) * 0.9f)
                             piece.updateTransform()
                         }
@@ -777,7 +775,7 @@ class BoardScene(
 
             is GameEvent.UnitMoved -> {
                 val piece = unitPieces[event.unit] ?: return
-                if (piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) {
+                if (isBoatKind(piece.kind)) {
                     // Boats SAIL: flat glide along open water, never a hop.
                     val path = seaPath(event.from, event.to)
                     if (path != null) {
@@ -1215,6 +1213,10 @@ class BoardScene(
         }
         piece.instances.forEach { filament.destroyMaterialInstance(it) }
     }
+
+    /** Kinds that sail and bob: the sea-glide and idle-bob gates key off this. */
+    private fun isBoatKind(kind: PieceKind): Boolean =
+        kind == PieceKind.BOAT || kind == PieceKind.WARSHIP || kind == PieceKind.FISHING_BOAT
 
     private fun buildingKind(building: Building): PieceKind = when (building) {
         Building.CAPITAL -> PieceKind.CAPITAL

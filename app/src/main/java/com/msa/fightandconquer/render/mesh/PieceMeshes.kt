@@ -13,7 +13,7 @@ class Part(val mesh: GpuMesh, val role: ColorRole)
 enum class PieceKind {
     UNIT_T1, UNIT_T2, UNIT_T3, UNIT_T4,
     ARCHER, CATAPULT,
-    BOAT, WARSHIP,
+    BOAT, WARSHIP, FISHING_BOAT,
     CAPITAL, FARM, TOWER, STRONG_TOWER,
     MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT, FISHERY, BRIDGE,
     TREE, GRAVESTONE,
@@ -128,6 +128,7 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
         com.msa.fightandconquer.core.model.UnitType.CATAPULT -> PieceKind.CATAPULT
         com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> PieceKind.BOAT
         com.msa.fightandconquer.core.model.UnitType.WARSHIP -> PieceKind.WARSHIP
+        com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT -> PieceKind.FISHING_BOAT
         com.msa.fightandconquer.core.model.UnitType.SOLDIER -> when (unit.tier) {
             1 -> PieceKind.UNIT_T1
             2 -> PieceKind.UNIT_T2
@@ -394,6 +395,42 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
                 ColorRole.STONE, // crates
             ),
             Part(up(Primitives.boxAt(0f, 0f, 0.125f, 0.012f, 0.24f, baseY = 0.073f)), ColorRole.PIP), // trim
+        )
+        // Fishing dory: stub hull, short mast with a small lug sail, a net panel
+        // hanging off the stern boom, gold catch in a basket. A class below the
+        // longboat. H ~0.32.
+        PieceKind.FISHING_BOAT -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0f, 0.085f, 0.05f, 0.16f) // hull slab
+                        boxInto(0f, 0f, 0.10f, 0.03f, 0.185f, baseY = 0.05f) // gunwale flare
+                        boxInto(0f, -0.19f, 0.03f, 0.08f, 0.03f) // bow post
+                        cylinderInto(0.012f, 0.24f, 6, baseY = 0.08f) // short mast
+                        boxInto(0f, 0.10f, 0.012f, 0.012f, 0.11f, baseY = 0.26f) // stern boom
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.boxAt(0f, -0.035f, 0.075f, 0.09f, 0.008f, baseY = 0.17f)), ColorRole.FACTION), // lug sail
+            Part(up(Primitives.boxAt(0f, 0.12f, 0.055f, 0.13f, 0.006f, baseY = 0.115f)), ColorRole.PIP), // hanging net
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.038f, 0.045f, 6, baseY = 0.08f, cx = 0.045f, cz = -0.09f) // basket
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0.045f, -0.09f, 0.022f, 0.02f, 0.03f, baseY = 0.125f) // the catch
+                        boxInto(0.02f, -0.045f, 0.016f, 0.014f, 0.024f, baseY = 0.08f)
+                    }
+                },
+                ColorRole.GOLD,
+            ),
         )
         // Warship: sleeker hull with a wedge ram, taller mast + crow's nest,
         // round faction shields along the gunwale, gold pennant. H ~0.52.

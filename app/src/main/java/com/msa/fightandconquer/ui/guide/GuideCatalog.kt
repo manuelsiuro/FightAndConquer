@@ -163,9 +163,25 @@ object GuideCatalog {
         ),
     )
 
+    private val fishingBoat = GuideEntry(
+        id = "unit_fishing_boat",
+        iconRes = PieceIcons.unit(UnitType.FISHING_BOAT, tier = 1),
+        nameRes = R.string.unit_fishing_boat,
+        descRes = R.string.info_fishing_boat,
+        howToRes = R.string.guide_how_fishing_boat,
+        requirementRes = R.string.guide_req_port,
+        stats = listOf(
+            GuideStat(R.string.info_stat_attack, R.string.info_value_none),
+            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 0),
+            GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
+            GuideStat(R.string.info_stat_income, R.string.info_value_income_on_shoal, 6),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 3),
+        ),
+    )
+
     private val units = GuideSection(
         R.string.guide_section_units,
-        listOf(soldiers, archer, catapult, transport, warship),
+        listOf(soldiers, archer, catapult, transport, warship, fishingBoat),
     )
 
     private val farm = GuideEntry(
@@ -376,6 +392,7 @@ object GuideCatalog {
         UnitType.CATAPULT -> catapult
         UnitType.TRANSPORT -> transport
         UnitType.WARSHIP -> warship
+        UnitType.FISHING_BOAT -> fishingBoat
     }
 
     /** The guide entry id for a civilization, so a civ picker can deep-link it. */

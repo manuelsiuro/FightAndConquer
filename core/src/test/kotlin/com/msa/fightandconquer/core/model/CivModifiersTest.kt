@@ -78,14 +78,15 @@ class CivModifiersTest {
             val positives = listOf(
                 r.farmCostBase, r.towerCost, r.strongTowerCost, r.mineCost, r.marketCost,
                 r.lumberCampCost, r.watchtowerCost, r.portCost, r.fisheryCost, r.bridgeCost,
-                r.archerCost, r.catapultCost, r.transportCost, r.warshipCost,
+                r.archerCost, r.catapultCost, r.transportCost, r.warshipCost, r.fishingBoatCost,
                 r.farmIncome, r.mineIncome, r.marketNeighborIncome, r.lumberCampTreeIncome,
-                r.portIncome, r.fisheryShoalIncome,
+                r.portIncome, r.fisheryShoalIncome, r.fishingBoatIncome,
             )
             assertTrue("$civ produced a non-positive cost/income: $positives", positives.all { it > 0 })
             val nonNegatives = listOf(
                 r.farmCostStep, r.archerUpkeep, r.catapultUpkeep, r.transportUpkeep,
                 r.warshipUpkeep, r.warshipStrength, r.catapultMoveRange,
+                r.fishingBoatUpkeep, r.fishingBoatMoveRange,
             )
             assertTrue("$civ produced a negative value: $nonNegatives", nonNegatives.all { it >= 0 })
         }

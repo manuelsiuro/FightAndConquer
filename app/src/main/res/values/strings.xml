@@ -154,6 +154,7 @@
     <string name="unit_catapult">Catapult</string>
     <string name="unit_transport">Longboat</string>
     <string name="unit_warship">Warship</string>
+    <string name="unit_fishing_boat">Fishing dory</string>
     <string name="building_capital">Capital</string>
     <string name="building_farm">Farm</string>
     <string name="building_tower">Tower</string>
@@ -219,6 +220,8 @@
     <string name="info_catapult">Slow siege engine — building defenses mean nothing to it</string>
     <string name="info_transport">Ferries one land unit across the sea</string>
     <string name="info_warship">Sinks boats and bombards the coast — never takes ground</string>
+    <string name="info_fishing_boat">Anchors on a fish shoal and hauls in coins every turn</string>
+    <string name="info_value_income_on_shoal">+%d/turn on a shoal</string>
     <string name="info_tree">Blocks this hex\'s income — move a unit onto it to clear</string>
     <string name="info_gravestone">A unit died here — a tree will sprout soon</string>
     <string name="info_cut_off">Disconnected from your capital — no income, units here will starve</string>
@@ -407,6 +410,7 @@
     <string name="guide_req_special">Special units must be enabled</string>
     <string name="guide_how_transport">Buy it on the sea beside your port, then walk a unit onto it to embark. Sail up to 3 hexes per turn, park beside a beach and tap the shore to land — the passenger can even capture the beach with its own Attack. A boat alongside also feeds troops cut off from supply.</string>
     <string name="guide_how_warship">The navy\'s sword: move onto an enemy boat to sink it (ties go to you), or tap an adjacent enemy coastal hex to bombard it — the raid kills the garrison and razes any building except a capital. Towers shrug the bombardment off.</string>
+    <string name="guide_how_fishing_boat">Buy it on the sea beside your port, sail it onto a fish shoal and leave it there — every turn it starts on the shoal, the catch is yours. It cannot fight and anything sinks it, so keep a warship near waters you share.</string>
     <string name="guide_req_port">Built at sea beside your port</string>
 
     <!-- Field guide: Buildings -->

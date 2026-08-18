@@ -38,7 +38,7 @@ object Rules {
 
     /** Boats: units that live on SEA hexes and move by sea BFS instead of region reach. */
     fun isNaval(type: UnitType): Boolean =
-        type == UnitType.TRANSPORT || type == UnitType.WARSHIP
+        type == UnitType.TRANSPORT || type == UnitType.WARSHIP || type == UnitType.FISHING_BOAT
 
     /**
      * FISH_SHOAL sea hexes within [radius] of [hex] (center included — moot for
@@ -86,7 +86,7 @@ object Rules {
         UnitType.SOLDIER -> tier
         UnitType.ARCHER -> rules.archerStrength
         UnitType.CATAPULT -> rules.catapultStrength
-        UnitType.TRANSPORT -> 0
+        UnitType.TRANSPORT, UnitType.FISHING_BOAT -> 0
         UnitType.WARSHIP -> rules.warshipStrength
     }
 
@@ -109,7 +109,7 @@ object Rules {
 
     private fun defenseIn(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
         UnitType.ARCHER -> rules.archerAuraDefense
-        UnitType.TRANSPORT -> 0
+        UnitType.TRANSPORT, UnitType.FISHING_BOAT -> 0
         UnitType.WARSHIP -> rules.warshipStrength
         else -> strengthIn(rules, tier, type)
     }
@@ -124,6 +124,7 @@ object Rules {
         UnitType.CATAPULT -> rules.catapultCost
         UnitType.TRANSPORT -> rules.transportCost
         UnitType.WARSHIP -> rules.warshipCost
+        UnitType.FISHING_BOAT -> rules.fishingBoatCost
     }
 
     /**
@@ -141,6 +142,7 @@ object Rules {
             UnitType.CATAPULT -> rules.catapultUpkeep
             UnitType.TRANSPORT -> rules.transportUpkeep
             UnitType.WARSHIP -> rules.warshipUpkeep
+            UnitType.FISHING_BOAT -> rules.fishingBoatUpkeep
         }
         val cargo = unit.cargo?.let { cargoUpkeep(it, rules) } ?: 0
         return own + cargo
@@ -151,7 +153,7 @@ object Rules {
             UnitType.SOLDIER -> rules.unitUpkeep[cargo.tier - 1]
             UnitType.ARCHER -> rules.archerUpkeep
             UnitType.CATAPULT -> rules.catapultUpkeep
-            UnitType.TRANSPORT, UnitType.WARSHIP -> 0 // boats never carry boats
+            UnitType.TRANSPORT, UnitType.WARSHIP, UnitType.FISHING_BOAT -> 0 // boats never carry boats
         }
 
     /**
@@ -267,6 +269,7 @@ object Rules {
             UnitType.ARCHER -> rules.archerMoveRange
             UnitType.TRANSPORT -> rules.transportMoveRange
             UnitType.WARSHIP -> rules.warshipMoveRange
+            UnitType.FISHING_BOAT -> rules.fishingBoatMoveRange
             UnitType.SOLDIER ->
                 rules.soldierMoveRanges.getOrElse(unit.tier - 1) { rules.soldierMoveRanges.last() }
         }
@@ -467,15 +470,43 @@ object Rules {
         return (own + cargo) * rules.demolishRefundPercent / 100
     }
 
-    /** Income the player will collect at turn start: producing hexes, deposits, buildings. */
-    fun incomeOf(state: GameState, player: PlayerId): Int =
-        incomeFrom(state.tiles, effectiveRules(state, player), player)
+    /** Income the player will collect at turn start: producing hexes, deposits, buildings, parked boats. */
+    fun incomeOf(state: GameState, player: PlayerId): Int {
+        val eff = effectiveRules(state, player)
+        return incomeFrom(state.tiles, eff, player) +
+            boatIncomeFrom(state.tiles, state.units.values, eff, player)
+    }
 
     /**
-     * Single source of truth for income, shared with TurnPipeline. A tile produces only
-     * when owned, non-starving and flora-free; deposit bonuses and building income stack
-     * on top of [RuleConstants.hexIncome]. [rules] must be [player]'s EFFECTIVE rules
-     * (both callers resolve them; only [player]'s own tiles are read).
+     * Per-turn earnings of [player]'s fishing boats parked on FISH_SHOAL sea
+     * hexes — the unit half of the income sum (see [incomeFrom] for the tile
+     * half; TurnPipeline adds both, exactly like [incomeOf]). Standing on the
+     * shoal at turn start is the whole rule: no spent/fog/starving coupling
+     * (open sea is never owned and never starves).
+     */
+    internal fun boatIncomeFrom(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        units: Collection<GameUnit>,
+        rules: RuleConstants,
+        player: PlayerId,
+    ): Int = units.sumOf { u ->
+        val t = tiles[u.hex]
+        if (u.owner == player && u.type == UnitType.FISHING_BOAT &&
+            t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+        ) {
+            rules.fishingBoatIncome
+        } else {
+            0
+        }
+    }
+
+    /**
+     * Single source of truth for TILE income, shared with TurnPipeline. A tile produces
+     * only when owned, non-starving and flora-free; deposit bonuses and building income
+     * stack on top of [RuleConstants.hexIncome]. [rules] must be [player]'s EFFECTIVE
+     * rules (both callers resolve them; only [player]'s own tiles are read).
+     * NOT the whole income: every caller must also add [boatIncomeFrom].
      */
     internal fun incomeFrom(
         tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,

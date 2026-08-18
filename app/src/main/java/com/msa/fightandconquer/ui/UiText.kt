@@ -64,6 +64,7 @@ fun unitNameRes(type: com.msa.fightandconquer.core.model.UnitType, tier: Int): I
     com.msa.fightandconquer.core.model.UnitType.CATAPULT -> R.string.unit_catapult
     com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> R.string.unit_transport
     com.msa.fightandconquer.core.model.UnitType.WARSHIP -> R.string.unit_warship
+    com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT -> R.string.unit_fishing_boat
 }
 
 /** Building -> display name resource. */
