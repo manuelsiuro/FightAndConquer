@@ -301,11 +301,10 @@ object Legality {
         }
         if (action.type == BuildingType.FISHERY) {
             if (!state.config.rules.navalEnabled) return reject(RejectionReason.NAVAL_DISABLED)
-            val shoal = HexMath.neighbors(action.at).any {
-                val t = state.tiles[it]
-                t?.terrain == Terrain.SEA && t.deposit == Deposit.FISH_SHOAL
+            val range = state.config.rules.fisheryRange
+            if (Rules.shoalsWithin(state.tiles, action.at, range) == 0) {
+                return reject(RejectionReason.FISHERY_NEEDS_SHOAL, range)
             }
-            if (!shoal) return reject(RejectionReason.BUILDING_NEEDS_DEPOSIT)
         }
         if (action.type == BuildingType.MINE && tile.deposit != Deposit.GOLD_VEIN) {
             return reject(RejectionReason.BUILDING_NEEDS_DEPOSIT)

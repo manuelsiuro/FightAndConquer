@@ -44,6 +44,8 @@ enum class RejectionReason {
     SPECIAL_UNITS_DISABLED,
     /** The building requires a specific terrain deposit (Mine on a gold vein). */
     BUILDING_NEEDS_DEPOSIT,
+    /** amount = [RuleConstants.fisheryRange]: no fish shoal within the fishery's reach. */
+    FISHERY_NEEDS_SHOAL,
     /** Fertile ground only accepts a Farm (no Lumber camp on it). */
     FERTILE_RESERVED_FOR_FARM,
     /** The building only functions with fog of war enabled (Watchtower). */

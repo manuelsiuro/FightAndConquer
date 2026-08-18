@@ -1277,15 +1277,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 Building.PORT -> { portCount++; portTotal += rules.portIncome }
                 Building.FISHERY -> {
                     fisheryCount++
-                    var shoals = 0
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = state.tiles[n]
-                        if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-                            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
-                        ) {
-                            shoals++
-                        }
-                    }
+                    val shoals = Rules.shoalsWithin(state.tiles, hex, rules.fisheryRange)
                     fisheryTotal += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
                 }
                 else -> {}

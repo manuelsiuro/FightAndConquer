@@ -140,9 +140,16 @@ data class RuleConstants(
      */
     val beachheadGraceTurns: Int = 3,
     val fisheryCost: Int = 18,
-    /** Fishery income per adjacent FISH_SHOAL sea hex. */
+    /** Fishery income per FISH_SHOAL sea hex within [fisheryRange]. */
     val fisheryShoalIncome: Int = 3,
     val fisheryShoalCap: Int = 3,
+    /**
+     * Operating radius of a fishery: it places against and earns from shoals up
+     * to this many hexes away. MUST stay <= [visionRadiusOwned]: the placement
+     * check reads sea hexes at this distance from an owned land hex, and staying
+     * inside guaranteed own-hex vision is what keeps Legality fog-check-free.
+     */
+    val fisheryRange: Int = 2,
     /** Flat cost per bridge hex (chains grow hex by hex; no income, no upkeep). */
     val bridgeCost: Int = 15,
     /**

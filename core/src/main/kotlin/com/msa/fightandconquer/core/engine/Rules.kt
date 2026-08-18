@@ -41,6 +41,29 @@ object Rules {
         type == UnitType.TRANSPORT || type == UnitType.WARSHIP
 
     /**
+     * FISH_SHOAL sea hexes within [radius] of [hex] (center included — moot for
+     * the land-hex callers). The single shoal query shared by Legality's fishery
+     * placement, [incomeFrom]'s fishery arm, the AI's fishery valuation, and the
+     * app's range indicator/income breakdown — they must never drift apart.
+     */
+    fun shoalHexesWithin(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        hex: Hex,
+        radius: Int,
+    ): List<Hex> = HexMath.range(hex, radius).filter { n ->
+        val t = tiles[n]
+        t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+    }
+
+    /** Count form of [shoalHexesWithin]. */
+    fun shoalsWithin(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        hex: Hex,
+        radius: Int,
+    ): Int = shoalHexesWithin(tiles, hex, radius).size
+
+    /**
      * The rules [player] actually plays with: the game's [RuleConstants] filtered
      * through their civilization's delta table ([CivModifiers.effective] — identity
      * for KINGDOM and when [RuleConstants.civBonusesEnabled] is off). Every
@@ -490,15 +513,7 @@ object Rules {
                 }
                 Building.PORT -> income += rules.portIncome
                 Building.FISHERY -> {
-                    var shoals = 0
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = tiles[n]
-                        if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-                            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
-                        ) {
-                            shoals++
-                        }
-                    }
+                    val shoals = shoalsWithin(tiles, hex, rules.fisheryRange)
                     income += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
                 }
                 else -> {}

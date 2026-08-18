@@ -62,7 +62,10 @@ object Evaluator {
                             Building.PORT -> myPorts++
                             Building.FISHERY ->
                                 buildingScore += 2.0 + 1.5 *
-                                    min(adjacentShoals(state, hex), state.config.rules.fisheryShoalCap)
+                                    min(
+                                        Rules.shoalsWithin(state.tiles, hex, state.config.rules.fisheryRange),
+                                        state.config.rules.fisheryShoalCap,
+                                    )
                             else -> {}
                         }
                     }
@@ -234,19 +237,6 @@ object Evaluator {
         com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
             val t = state.tiles[n]
             if (t != null && t.owner == me && !t.starving && t.flora == null) count++
-        }
-        return count
-    }
-
-    private fun adjacentShoals(state: GameState, hex: com.msa.fightandconquer.core.hex.Hex): Int {
-        var count = 0
-        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
-            val t = state.tiles[n]
-            if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-                t.deposit == Deposit.FISH_SHOAL
-            ) {
-                count++
-            }
         }
         return count
     }

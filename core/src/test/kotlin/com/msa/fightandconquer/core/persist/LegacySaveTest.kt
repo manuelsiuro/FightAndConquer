@@ -64,6 +64,9 @@ class LegacySaveTest {
         "civ",
         // RuleConstants (civilizations, phase 2)
         "civBonusesEnabled",
+        // RuleConstants (fishing overhaul)
+        "fisheryRange",
+        "fishingBoatCost", "fishingBoatUpkeep", "fishingBoatIncome", "fishingBoatMoveRange",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

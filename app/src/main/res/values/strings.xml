@@ -205,9 +205,9 @@
     <string name="info_lumber_camp">Harvests nearby forest — its trees never spread</string>
     <string name="info_watchtower">Extends vision through the fog</string>
     <string name="info_port">Harbor — builds boats on adjacent sea and supplies overseas colonies</string>
-    <string name="info_fishery">Harvests the fish shoals in its neighboring waters</string>
+    <string name="info_fishery">Harvests fish shoals up to two waters away</string>
     <string name="info_bridge">A walkway over the sea — troops cross it, boats cannot pass under it</string>
-    <string name="info_fish_shoal">Teeming waters — a coastal Fishery next to it earns from every shoal</string>
+    <string name="info_fish_shoal">Teeming waters — a coastal Fishery within two hexes earns from it</string>
     <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
     <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
     <string name="info_stat_vision">Vision</string>
@@ -318,6 +318,7 @@
     <string name="reject_hex_needs_clearing">Clear that hex first</string>
     <string name="reject_farm_needs_adjacency">Farms need fertile ground, or must touch your capital or another farm</string>
     <string name="reject_building_needs_deposit">Mines can only be built on gold veins</string>
+    <string name="reject_fishery_needs_shoal">Needs a fish shoal within %d hexes</string>
     <string name="reject_fertile_reserved_for_farm">Fertile ground is reserved for farms</string>
     <string name="reject_requires_fog">Watchtowers only help under fog of war</string>
     <string name="reject_cannot_merge_special">Archers and catapults can\'t merge</string>
@@ -422,8 +423,8 @@
     <string name="guide_req_watchtower">Fog of War games only</string>
     <string name="guide_how_port">Build it on your coast. It opens the shipyard (boats are bought on adjacent sea), pays a little trade income, and — built overseas — feeds a whole colony that has no path to your capital. Lose the port and the colony starves.</string>
     <string name="guide_req_port_coast">On your own coast, next to the sea</string>
-    <string name="guide_how_fishery">Build it on your coast beside fish shoals — it earns from every adjacent shoal (up to three). The shoals are permanent; guard the coast and the coins keep coming.</string>
-    <string name="guide_req_fishery">On your coast, next to fish shoals</string>
+    <string name="guide_how_fishery">Build it on your coast within two hexes of fish shoals — it earns from every shoal in range (up to three). The shoals are permanent; guard the coast and the coins keep coming.</string>
+    <string name="guide_req_fishery">On your coast, within two hexes of fish shoals</string>
     <string name="guide_how_bridge">Buy it on a sea hex touching your land, then keep going — each span extends the chain. Troops walk it like a road (regions connect across it!), boats are blocked by it, and enemies can storm and keep it. Warship bombardment drops it back into the sea.</string>
     <string name="guide_req_bridge">On sea, touching your land or bridge</string>
     <string name="guide_how_fish_shoal">The sea\'s gold vein. Capture the nearest coast and build a Fishery next to the shoal to harvest it.</string>
