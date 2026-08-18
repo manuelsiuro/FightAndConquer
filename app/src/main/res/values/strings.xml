@@ -222,6 +222,7 @@
     <string name="info_warship">Sinks boats and bombards the coast — never takes ground</string>
     <string name="info_fishing_boat">Anchors on a fish shoal and hauls in coins every turn</string>
     <string name="info_value_income_on_shoal">+%d/turn on a shoal</string>
+    <string name="shop_income_on_shoal">+%d on a shoal</string>
     <string name="cd_fishing_income">Earns %d coins per turn anchored on this shoal</string>
     <string name="info_tree">Blocks this hex\'s income — move a unit onto it to clear</string>
     <string name="info_gravestone">A unit died here — a tree will sprout soon</string>

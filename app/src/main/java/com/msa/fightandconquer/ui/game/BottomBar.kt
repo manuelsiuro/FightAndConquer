@@ -492,7 +492,9 @@ private fun PurchaseCard(
                         )
                         Spacer(Modifier.width(3.dp))
                         Text(
-                            stringResource(R.string.info_value_income_on_shoal, shop.fishingBoatIncome),
+                            // The short form: the long "+N/turn on a shoal" clips on a 128 dp
+                            // card (verified on device); the upkeep line already says /TURN.
+                            stringResource(R.string.shop_income_on_shoal, shop.fishingBoatIncome),
                             fontSize = 11.sp,
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Bold,
