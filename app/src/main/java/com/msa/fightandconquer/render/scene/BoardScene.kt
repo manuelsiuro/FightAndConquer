@@ -530,6 +530,8 @@ class BoardScene(
     /**
      * Show selection + legal-move overlays: translucent discs hovering over tiles.
      * Colors: selected = white, move = white (dimmer), capture = warm red, merge = gold.
+     * [fishingRange] marks the shoals a (would-be) fishery works: gold-sand, STATIC —
+     * a pulsing set here would pin [isBusy] and cook an idle board (docs/rendering.md).
      */
     fun showHighlights(
         selected: Hex?,
@@ -537,12 +539,15 @@ class BoardScene(
         captures: Set<Hex>,
         merges: Set<Hex>,
         hintFocus: Set<Hex> = emptySet(),
+        fishingRange: Set<Hex> = emptySet(),
     ) {
         clearHighlights()
         highlightClock = 0f // pulse always starts bright: "these just lit up"
         // The campaign coach's ring goes down first, so a selection highlight on the same
         // hex reads on top of it — the hint is context, the selection is what you just did.
         for (hex in hintFocus) addHighlight(hex, 0.45f, 0.8f, 0.95f, 0.5f, pulse = true)
+        // Range context under everything a tap just changed.
+        for (hex in fishingRange) addHighlight(hex, 0.95f, 0.80f, 0.40f, 0.40f)
         selected?.let { addHighlight(it, 1f, 1f, 1f, 0.55f) }
         for (hex in moves) addHighlight(hex, 1f, 1f, 1f, 0.3f)
         for (hex in captures) addHighlight(hex, 0.95f, 0.45f, 0.35f, 0.5f, pulse = true)
@@ -700,9 +705,7 @@ class BoardScene(
                 // while a piece animates (xz set) or the queue is playing.
                 if (animator.isIdle) {
                     for ((id, piece) in unitPieces) {
-                        if ((piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) &&
-                            piece.xz == null && !piece.hidden
-                        ) {
+                        if (isBoatKind(piece.kind) && piece.xz == null && !piece.hidden) {
                             piece.yOffset = 0.008f * sin(waterTime * 1.3f + (id.value % 7) * 0.9f)
                             piece.updateTransform()
                         }
@@ -777,7 +780,7 @@ class BoardScene(
 
             is GameEvent.UnitMoved -> {
                 val piece = unitPieces[event.unit] ?: return
-                if (piece.kind == PieceKind.BOAT || piece.kind == PieceKind.WARSHIP) {
+                if (isBoatKind(piece.kind)) {
                     // Boats SAIL: flat glide along open water, never a hop.
                     val path = seaPath(event.from, event.to)
                     if (path != null) {
@@ -1215,6 +1218,10 @@ class BoardScene(
         }
         piece.instances.forEach { filament.destroyMaterialInstance(it) }
     }
+
+    /** Kinds that sail and bob: the sea-glide and idle-bob gates key off this. */
+    private fun isBoatKind(kind: PieceKind): Boolean =
+        kind == PieceKind.BOAT || kind == PieceKind.WARSHIP || kind == PieceKind.FISHING_BOAT
 
     private fun buildingKind(building: Building): PieceKind = when (building) {
         Building.CAPITAL -> PieceKind.CAPITAL

@@ -181,6 +181,7 @@ object CampaignText {
         "isles_admirals_grave/two_fronts" to R.string.hint_isles_admirals_grave_two_fronts,
         "isles_admirals_grave/admiral" to R.string.hint_isles_admirals_grave_admiral,
         "isles_crown_of_salt/finale" to R.string.hint_isles_crown_of_salt_finale,
+        "isles_crown_of_salt/fishing" to R.string.hint_isles_crown_of_salt_fishing,
         "crown_granary/loam" to R.string.hint_crown_granary_loam,
         "crown_granary/market" to R.string.hint_crown_granary_market,
         "crown_granary/harvest" to R.string.hint_crown_granary_harvest,

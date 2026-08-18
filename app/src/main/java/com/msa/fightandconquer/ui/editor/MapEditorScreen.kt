@@ -400,6 +400,7 @@ private fun EditorDock(
             IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.CATAPULT), PieceIcons.unit(UnitType.CATAPULT, 1), R.string.unit_catapult, session)
             IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.TRANSPORT), PieceIcons.unit(UnitType.TRANSPORT, 1), R.string.unit_transport, session)
             IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.WARSHIP), PieceIcons.unit(UnitType.WARSHIP, 1), R.string.unit_warship, session)
+            IconChip(ui, EditorSession.Brush.UnitBrush(UnitType.FISHING_BOAT), PieceIcons.unit(UnitType.FISHING_BOAT, 1), R.string.unit_fishing_boat, session)
         }
     }
 }

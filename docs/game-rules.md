@@ -34,12 +34,13 @@ per game without breaking old saves.
 | Catapult | cost 30, upkeep 10, strength 2, move range 2 | Ignores building defense entirely; never merges |
 | Transport boat | cost 15, upkeep 4, move range 3 | Carries 1 land unit (any type); bought at a Port onto adjacent sea |
 | Warship | cost 25, upkeep 8, strength 2, move range 3 | Sinks boats (naval ties go to the **attacker**); bombards the coast |
+| Fishing dory | cost 14, upkeep 3, strength 0, move range 3 | Earns +6/turn parked on a fish shoal (one boat per shoal); never attacks |
 | Port | cost 20, +2 income | Own coastal land; sells boats; supplies overseas regions (see Naval rules) |
 | Beachhead grace | 3 turns | Sea-captured hexes carry landing stores; the starving region skips unit deaths while stocked |
-| Fishery | cost 18, +3 per adjacent fish shoal (cap 3) | Own coastal land next to fish shoals |
+| Fishery | cost 18, +3 per fish shoal within 2 hexes (cap 3) | Own land with a shoal in operating range (`fisheryRange` 2) |
 | Bridge | cost 15 per hex | Built on sea touching own land/bridge; walkable ground, blocks boats |
 | Demolish refund | 50 % of cost | Razing an own building / disbanding an own unit returns half its price (`demolishRefundPercent`) |
-| Fish shoal (deposit) | 1 per player (band 2–6 from capital) + 1 neutral per 150 land hexes | Sea-only deposit; only a Fishery harvests it |
+| Fish shoal (deposit) | 1 per player (band 2–6, fishery-workable when the water allows) + 1 neutral per 150 land hexes mid-ocean | Sea-only deposit; worked by a Fishery in range and/or a parked Fishing dory |
 | Pact duration | 2–10 rounds (proposals default to 6) | Unanswered proposals lapse after 1 full round |
 | Pact proposal cooldown | 6 rounds per pair | Anti-spam, enforced by Legality |
 | Pact break penalty | 25 % of the breaker's treasury, paid to the victim | Breaking = capturing a partner's hex (no explicit action) |
@@ -135,12 +136,25 @@ pacts are temporary tools, not alliances.
 
 **Sea & naval play.** Sea is first-class terrain (`Tile.terrain = SEA`): never
 owned, no flora, no gravestones, no income; its only deposit is the fish shoal.
-The one exception is a **bridge** — a sea hex carrying `Building.BRIDGE` *is*
+(The "no income" rule has exactly one exception, and it rides a unit, not the
+tile: a **fishing dory parked on a shoal** pays its owner at turn start — see
+Fishing below.) The one exception on the terrain side is a **bridge** — a sea hex carrying `Building.BRIDGE` *is*
 owned, walkable ground: region flood-fills join across it, land units stand on
 and storm it (capturing a bridge hex **preserves** the span), and boats cannot
 pass under it. Chains grow hex by hex from your land or an existing bridge.
 Warship bombardment collapses a bridge back into open neutral water; surrender
 and elimination leave bridges standing as neutral spans.
+
+**Fishing.** Fish shoals are worked two ways, stacking freely. A **Fishery**
+(own land, shoal within `fisheryRange` = 2) earns +3 per shoal in range, cap 3 —
+rival fisheries may share a shoal. A **fishing dory** (bought at a Port like any
+boat; strength 0, never attacks) earns +6/turn whenever it *starts the turn*
+parked on a shoal hex — the game's only income-producing unit. Hex occupancy
+makes shoals exclusive for boats: one dory per shoal, and an enemy hull parked
+there blocks yours. Anywhere else the dory is pure upkeep; anything sinks it,
+so guard the fleet or fish behind your own coast. Neutral mid-ocean shoals are
+deliberately out of every fishery's reach — they are the dory's hunting ground
+and the warship's bait.
 
 **Boats.** Transports and warships are bought at a Port onto adjacent sea and
 move by BFS over open sea (range 3, blocked by bridges, other boats and sea

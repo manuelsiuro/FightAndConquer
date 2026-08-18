@@ -37,7 +37,23 @@ object BriefingConcepts {
     fun forLevel(level: LevelDef, limit: Int = 3): List<BriefingConcept> {
         val rules = level.rules
         val concepts = ArrayList<BriefingConcept>()
+        var extra = 0
 
+        // Map-derived on purpose: a shoal-less naval mission must not advertise
+        // the dory it cannot use. Naval-gated only (dories are boats, not
+        // "specials" — checkBuyNaval sells them on navalEnabled alone). The
+        // dory chip widens the cap by one so the fishing lesson never evicts a
+        // concept the mission showed before it existed (the FISHERY chip loses
+        // the take() race otherwise).
+        if (rules.navalEnabled &&
+            level.map.tiles.any { it.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL }
+        ) {
+            concepts += BriefingConcept(
+                com.msa.fightandconquer.R.string.unit_fishing_boat,
+                GuideCatalog.forUnit(UnitType.FISHING_BOAT).id,
+            )
+            extra = 1
+        }
         if (rules.navalEnabled) {
             concepts += BriefingConcept(
                 com.msa.fightandconquer.R.string.unit_transport,
@@ -57,7 +73,7 @@ object BriefingConcepts {
             val entry = GuideCatalog.forStructure(type)
             concepts += BriefingConcept(entry.nameRes, entry.id)
         }
-        return concepts.take(limit)
+        return concepts.take(limit + extra)
     }
 
     private val NAVAL_BUILDINGS = setOf(BuildingType.PORT, BuildingType.FISHERY, BuildingType.BRIDGE)

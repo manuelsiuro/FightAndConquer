@@ -105,5 +105,6 @@ class NavalMovementTest {
         val rules = com.msa.fightandconquer.core.model.RuleConstants()
         assertTrue(rules.transportMoveRange <= rules.visionRadiusUnit)
         assertTrue(rules.warshipMoveRange <= rules.visionRadiusUnit)
+        assertTrue(rules.fishingBoatMoveRange <= rules.visionRadiusUnit)
     }
 }

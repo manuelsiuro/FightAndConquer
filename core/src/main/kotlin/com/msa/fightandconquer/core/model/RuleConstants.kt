@@ -130,6 +130,18 @@ data class RuleConstants(
     /** Warship strength for sinking boats and bombarding; naval ties go to the ATTACKER. */
     val warshipStrength: Int = 2,
     val warshipMoveRange: Int = 3,
+    /** The working hull: just under the transport — an economy boat, not a weapon. */
+    val fishingBoatCost: Int = 14,
+    /** Below the transport's 4: a working boat must not out-cost the ferry it undercuts. */
+    val fishingBoatUpkeep: Int = 3,
+    /**
+     * Earned at turn start while parked on a FISH_SHOAL sea hex — net
+     * +3/turn at defaults, deliberately below farm efficiency: the boat's
+     * edge is reaching the mid-ocean shoals no fishery can work.
+     */
+    val fishingBoatIncome: Int = 6,
+    /** Same "MUST stay <= visionRadiusUnit" contract as [transportMoveRange]. */
+    val fishingBoatMoveRange: Int = 3,
     val portCost: Int = 20,
     val portIncome: Int = 2,
     /**
@@ -140,9 +152,16 @@ data class RuleConstants(
      */
     val beachheadGraceTurns: Int = 3,
     val fisheryCost: Int = 18,
-    /** Fishery income per adjacent FISH_SHOAL sea hex. */
+    /** Fishery income per FISH_SHOAL sea hex within [fisheryRange]. */
     val fisheryShoalIncome: Int = 3,
     val fisheryShoalCap: Int = 3,
+    /**
+     * Operating radius of a fishery: it places against and earns from shoals up
+     * to this many hexes away. MUST stay <= [visionRadiusOwned]: the placement
+     * check reads sea hexes at this distance from an owned land hex, and staying
+     * inside guaranteed own-hex vision is what keeps Legality fog-check-free.
+     */
+    val fisheryRange: Int = 2,
     /** Flat cost per bridge hex (chains grow hex by hex; no income, no upkeep). */
     val bridgeCost: Int = 15,
     /**

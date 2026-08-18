@@ -100,6 +100,12 @@ data class HighlightSet(
     val captures: Set<Hex> = emptySet(),
     val merges: Set<Hex> = emptySet(),
     /**
+     * Shoals a fishery here works (or would work): shown selection-scoped when a
+     * fishery or a fishery-legal empty hex is tapped. Static, never pulsing — a
+     * persistent pulse would pin the frame-pacing loop (docs/rendering.md).
+     */
+    val fishingRange: Set<Hex> = emptySet(),
+    /**
      * Hexes the campaign coach is pointing at ("land on the marked sand"). Independent
      * of selection, so it survives taps and keeps the prose free of coordinates.
      */
@@ -111,10 +117,10 @@ data class HighlightSet(
  * frontier the unit can touch, strength chips on naval targets, and the selected
  * unit's own attack ([LabelKind.ATTACKER]) so the pair reads as a comparison.
  */
-enum class LabelKind { CAPTURABLE, BLOCKED, ATTACKER }
+enum class LabelKind { CAPTURABLE, BLOCKED, ATTACKER, PROFIT }
 
-/** Which stat the chip's icon depicts: hex/garrison defense or attack/ship strength. */
-enum class LabelGlyph { SHIELD, SWORD }
+/** Which stat the chip's icon depicts: hex/garrison defense, attack/ship strength, or coins. */
+enum class LabelGlyph { SHIELD, SWORD, COIN }
 
 data class OverlayLabel(
     val hex: Hex,
@@ -223,6 +229,8 @@ data class ShopInfo(
     val warshipUpkeep: Int = 8,
     val portIncome: Int = 2,
     val fisheryIncomeMax: Int = 9,
+    val fishingBoatUpkeep: Int = 3,
+    val fishingBoatIncome: Int = 6,
 )
 
 data class HudState(
@@ -803,7 +811,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (tile?.owner == me) {
             if (!tile.starving && tile.building == null && tile.unit == null) {
                 selectedHex = hex
-                _highlights.value = HighlightSet(selected = hex)
+                // A fishery-legal hex previews its catch: the tray is about to
+                // offer the fishery, so show which shoals it would work.
+                val offersFishery = engine.buyableAt(hex).any {
+                    it is PurchaseOption.Structure &&
+                        it.type == com.msa.fightandconquer.core.model.BuildingType.FISHERY
+                }
+                _highlights.value = HighlightSet(
+                    selected = hex,
+                    fishingRange = if (offersFishery) fisheryCoverage(state, hex) else emptySet(),
+                )
                 _overlayLabels.value = emptyList()
                 refreshHud()
                 return
@@ -830,9 +847,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             )
             else -> null
         }
-        _highlights.value = HighlightSet()
+        // A visible fishery — own or enemy — shows the shoals it works.
+        _highlights.value = if (
+            tile?.building == Building.FISHERY && (vis == null || hex in vis.visible)
+        ) {
+            HighlightSet(fishingRange = fisheryCoverage(state, hex))
+        } else {
+            HighlightSet()
+        }
         _overlayLabels.value = emptyList()
         refreshHud()
+    }
+
+    /** Shoals within the fishery range of [hex], fog-filtered for the viewer. */
+    private fun fisheryCoverage(state: GameState, hex: Hex): Set<Hex> {
+        val shoals = Rules.shoalHexesWithin(state.tiles, hex, state.config.rules.fisheryRange)
+        val vis = _visibility.value ?: return shoals.toSet()
+        return shoals.filterTo(HashSet()) { it in vis.visible || it in vis.explored }
     }
 
     private fun clearSelection() {
@@ -1111,6 +1142,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             }
+            // The dory's trade: a coin chip on every shoal it could work from here
+            // (its own hex included — a parked dory advertises its catch).
+            if (unit.type == com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT) {
+                val income = Rules.effectiveRules(state, unit.owner).fishingBoatIncome
+                for (water in reach.moveTargets + unit.hex) {
+                    val tile = state.tiles[water] ?: continue
+                    if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL) {
+                        add(
+                            OverlayLabel(
+                                water, income, LabelKind.PROFIT, LabelGlyph.COIN,
+                                UiText.of(R.string.cd_fishing_income, income),
+                            ),
+                        )
+                    }
+                }
+            }
             // Out-gunned enemy hulls beside this warship's water: reach lists only the
             // sinkable ones, so the too-strong boats need their own red explainer —
             // same target preconditions as seaReachable, with the comparison flipped.
@@ -1143,7 +1190,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val vis = _visibility.value
         val shown = if (vis == null) chips else chips.filter { it.hex in vis.visible }
         if (shown.isEmpty()) return shown
-        // The badge exists to make the chips read as a comparison — no chips, no badge.
+        // The badge exists to make the chips read as a comparison — no chips, no
+        // badge. A dory has nothing to compare (it never attacks) and its own
+        // hex may carry the parked-catch coin chip the badge would sit on top of.
+        if (unit.type == com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT) return shown
         val cargoAttack = unit.cargo?.let { Rules.buyStrength(state, unit.owner, it.tier, it.type) }
         val attack = cargoAttack ?: Rules.strengthOf(state, unit)
         return shown + OverlayLabel(
@@ -1231,7 +1281,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val state = engine?.state?.value ?: return null
         val me = state.currentPlayer
         val myCiv = state.player(me).civ
-        val rules = state.config.rules
+        // EFFECTIVE rules: the totals below come from Rules.incomeOf/upkeepOf,
+        // which resolve civ deltas — raw constants would stop the rows summing
+        // for a Sultanate mine or a Shogunate archer.
+        val rules = Rules.effectiveRules(state, me)
         var hexCount = 0
         var starving = 0
         var depositBonus = 0
@@ -1277,15 +1330,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 Building.PORT -> { portCount++; portTotal += rules.portIncome }
                 Building.FISHERY -> {
                     fisheryCount++
-                    var shoals = 0
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = state.tiles[n]
-                        if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-                            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
-                        ) {
-                            shoals++
-                        }
-                    }
+                    val shoals = Rules.shoalsWithin(state.tiles, hex, rules.fisheryRange)
                     fisheryTotal += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
                 }
                 else -> {}
@@ -1304,6 +1349,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 .takeIf { portCount > 0 },
             IncomeRow(R.string.building_fishery, fisheryCount, fisheryTotal, PieceIcons.building(myCiv, Building.FISHERY))
                 .takeIf { fisheryCount > 0 },
+            // The unit half of the income sum: dories parked on shoals (Rules.boatIncomeFrom).
+            run {
+                val parked = state.units.values.count { u ->
+                    u.owner == me && u.type == com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT &&
+                        state.tiles[u.hex]?.let {
+                            it.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                                it.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+                        } == true
+                }
+                IncomeRow(
+                    R.string.unit_fishing_boat, parked, parked * rules.fishingBoatIncome,
+                    PieceIcons.unit(myCiv, com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT, 1),
+                ).takeIf { parked > 0 }
+            },
         )
         // Cargo riding a transport still pays its own upkeep — count it with its
         // tier so the rows keep summing exactly to `upkeep`.
@@ -1334,15 +1393,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             Triple(com.msa.fightandconquer.core.model.UnitType.CATAPULT, R.string.unit_catapult, rules.catapultUpkeep),
             Triple(com.msa.fightandconquer.core.model.UnitType.TRANSPORT, R.string.unit_transport, rules.transportUpkeep),
             Triple(com.msa.fightandconquer.core.model.UnitType.WARSHIP, R.string.unit_warship, rules.warshipUpkeep),
+            Triple(
+                com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT,
+                R.string.unit_fishing_boat, rules.fishingBoatUpkeep,
+            ),
         ).mapNotNull { (type, nameRes, each) ->
             val count = state.units.values.count { it.owner == me && it.type == type } +
-                if (type != com.msa.fightandconquer.core.model.UnitType.TRANSPORT &&
-                    type != com.msa.fightandconquer.core.model.UnitType.WARSHIP
-                ) {
-                    cargoCount(type)
-                } else {
-                    0
-                }
+                if (Rules.isNaval(type)) 0 else cargoCount(type)
             if (count == 0) null else UpkeepRow(nameRes, count, each, count * each, PieceIcons.unit(myCiv, type, 1))
         }
         val tiers = soldierRows + specialRows
@@ -1624,6 +1681,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                             ),
                         )
                     }
+                    com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT -> {
+                        add(
+                            InfoStat(
+                                UiText.of(R.string.info_stat_range),
+                                UiText.of(R.string.info_value_plain, Rules.moveRangeOf(state, unit)),
+                            ),
+                        )
+                        add(
+                            InfoStat(
+                                UiText.of(R.string.info_stat_income),
+                                UiText.of(
+                                    R.string.info_value_income_on_shoal,
+                                    Rules.effectiveRules(state, unit.owner).fishingBoatIncome,
+                                ),
+                                iconRes = R.drawable.ic_coin,
+                            ),
+                        )
+                    }
                 }
                 if (!own) {
                     addAll(
@@ -1642,6 +1717,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     unit.type == com.msa.fightandconquer.core.model.UnitType.CATAPULT -> UiText.of(R.string.info_catapult)
                     unit.type == com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> UiText.of(R.string.info_transport)
                     unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP -> UiText.of(R.string.info_warship)
+                    unit.type == com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT ->
+                        UiText.of(R.string.info_fishing_boat)
                     own -> UiText.of(R.string.info_unit_spent)
                     else -> UiText.of(R.string.info_unit_enemy, strength)
                 },
@@ -2088,6 +2165,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     warshipUpkeep = eff.warshipUpkeep,
                     portIncome = eff.portIncome,
                     fisheryIncomeMax = eff.fisheryShoalIncome * eff.fisheryShoalCap,
+                    fishingBoatUpkeep = eff.fishingBoatUpkeep,
+                    fishingBoatIncome = eff.fishingBoatIncome,
                 )
             },
         )

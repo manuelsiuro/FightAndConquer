@@ -305,6 +305,10 @@ CROWN_OF_SALT = dict(
     par=40,
     hints=[
         {"id": "finale", "until": {"type": "round", "round": 2}},
+        # Acknowledged, not unit-count: fishing is optional flavor in a conquest
+        # finale, and only Acknowledged hints carry a dismiss control — a
+        # units-based until would pin the card for a player who never fishes.
+        {"id": "fishing", "until": {"type": "acknowledged"}},
     ],
     # A 1-v-2 against two seats of the SAME difficulty as the stand-in: the
     # playthrough AI beating two copies of itself is a coin toss, not a proof.

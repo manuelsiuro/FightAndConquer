@@ -80,7 +80,7 @@ object MapGenerator {
             tiles[hex] = tiles.getValue(hex).copy(deposit = deposit)
         }
         // Fish shoals: the sea's own deposit, fair by the same construction.
-        for ((hex, deposit) in placeShoals(rng, sea, land.size, capitals, rules)) {
+        for ((hex, deposit) in placeShoals(rng, sea, land, capitals, rules)) {
             tiles[hex] = tiles.getValue(hex).copy(deposit = deposit)
         }
 
@@ -202,11 +202,20 @@ object MapGenerator {
      * Fish shoals on open water, mirroring the gold-vein fairness scheme: every
      * capital gets its shoal(s) at a common target distance inside its Voronoi
      * cell (or nobody does), plus contested neutral shoals far from any capital.
+     *
+     * The per-capital shoals additionally prefer WORKABLE water — within
+     * [RuleConstants.fisheryRange] of land, so an early fishery always has a
+     * target: the rolled target distance is tried first, then the rest of the
+     * band, and the first target every capital can serve workably wins. When no
+     * target works for everyone, the rolled target places unfiltered exactly as
+     * before — fair-but-offshore beats zero-for-everyone, and fishing boats can
+     * still work those. Neutral shoals stay mid-ocean by design: they are the
+     * fishing boat's reason to exist.
      */
     private fun placeShoals(
         rng: Chain,
         sea: Set<Hex>,
-        landSize: Int,
+        land: Set<Hex>,
         capitals: List<Hex>,
         rules: RuleConstants,
     ): Map<Hex, Deposit> {
@@ -218,30 +227,41 @@ object MapGenerator {
             return capitals.all { it == capital || HexMath.distance(hex, it) > own }
         }
 
-        fun candidatesNear(capital: Hex, min: Int, max: Int): List<Hex> =
+        fun workable(hex: Hex): Boolean = HexMath.range(hex, rules.fisheryRange).any { it in land }
+
+        fun candidatesNear(capital: Hex, min: Int, max: Int, workableOnly: Boolean): List<Hex> =
             sea.filter { hex ->
-                hex !in shoals && HexMath.distance(hex, capital) in min..max && inCellOf(hex, capital)
+                hex !in shoals && HexMath.distance(hex, capital) in min..max &&
+                    inCellOf(hex, capital) && (!workableOnly || workable(hex))
             }.sortedBy { it.packed }
 
         if (rules.fishShoalsPerPlayer > 0) {
             val band = rules.fishShoalBandMin..rules.fishShoalBandMax
-            val target = band.first + rng.roll(band.last - band.first + 1)
-            val min = maxOf(band.first, target - 1)
-            val max = minOf(band.last, target + 1)
-            if (capitals.all { candidatesNear(it, min, max).size >= rules.fishShoalsPerPlayer }) {
+            val rolled = band.first + rng.roll(band.last - band.first + 1)
+            // Rolled target first, then the rest of the band by distance from it
+            // (lower value breaking ties) — a pure walk, no further rng.
+            val targets = band.sortedWith(compareBy({ kotlin.math.abs(it - rolled) }, { it }))
+            fun window(target: Int) = maxOf(band.first, target - 1) to minOf(band.last, target + 1)
+            val workableTarget = targets.firstOrNull { target ->
+                val (min, max) = window(target)
+                capitals.all { candidatesNear(it, min, max, workableOnly = true).size >= rules.fishShoalsPerPlayer }
+            }
+            val (min, max) = window(workableTarget ?: rolled)
+            val filtered = workableTarget != null
+            if (filtered || capitals.all { candidatesNear(it, min, max, workableOnly = false).size >= rules.fishShoalsPerPlayer }) {
                 for (capital in capitals) {
                     repeat(rules.fishShoalsPerPlayer) {
-                        val candidates = candidatesNear(capital, min, max)
+                        val candidates = candidatesNear(capital, min, max, workableOnly = filtered)
                         shoals[candidates[rng.roll(candidates.size)]] = Deposit.FISH_SHOAL
                     }
                 }
             }
         }
 
-        val neutral = landSize / 150 * rules.fishShoalsNeutralPer150Hexes
+        val neutral = land.size / 150 * rules.fishShoalsNeutralPer150Hexes
         if (neutral > 0) {
             val floor = maxOf(
-                requiredCapitalDistance(landSize, capitals.size) / 2,
+                requiredCapitalDistance(land.size, capitals.size) / 2,
                 rules.fishShoalBandMax + 1,
             )
             val open = sea.filter { hex ->

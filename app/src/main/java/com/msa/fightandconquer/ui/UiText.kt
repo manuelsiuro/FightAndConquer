@@ -64,6 +64,7 @@ fun unitNameRes(type: com.msa.fightandconquer.core.model.UnitType, tier: Int): I
     com.msa.fightandconquer.core.model.UnitType.CATAPULT -> R.string.unit_catapult
     com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> R.string.unit_transport
     com.msa.fightandconquer.core.model.UnitType.WARSHIP -> R.string.unit_warship
+    com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT -> R.string.unit_fishing_boat
 }
 
 /** Building -> display name resource. */
@@ -148,6 +149,7 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.CANNOT_MERGE_SPECIAL -> UiText.of(R.string.reject_cannot_merge_special)
     RejectionReason.SPECIAL_UNITS_DISABLED -> UiText.of(R.string.reject_specials_disabled)
     RejectionReason.BUILDING_NEEDS_DEPOSIT -> UiText.of(R.string.reject_building_needs_deposit)
+    RejectionReason.FISHERY_NEEDS_SHOAL -> UiText.of(R.string.reject_fishery_needs_shoal, amount ?: 0)
     RejectionReason.FERTILE_RESERVED_FOR_FARM -> UiText.of(R.string.reject_fertile_reserved_for_farm)
     RejectionReason.REQUIRES_FOG_OF_WAR -> UiText.of(R.string.reject_requires_fog)
     RejectionReason.DIPLOMACY_DISABLED -> UiText.of(R.string.reject_diplomacy_disabled)

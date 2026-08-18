@@ -135,6 +135,7 @@ class GameEngine private constructor(
             com.msa.fightandconquer.core.model.UnitType.CATAPULT,
             com.msa.fightandconquer.core.model.UnitType.TRANSPORT,
             com.msa.fightandconquer.core.model.UnitType.WARSHIP,
+            com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT,
         )) {
             if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
                 options.add(

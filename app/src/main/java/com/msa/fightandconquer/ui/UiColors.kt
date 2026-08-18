@@ -86,6 +86,9 @@ class UiColorScheme(
     // The selected unit's own attack badge: the palette's dark warm ink (= onFaction),
     // so "you" reads apart from the green/rust verdict chips in both themes.
     val chipAttacker = Color(0xFF3E3A36)
+
+    // The dory's earnings badge: a deep coin gold, apart from the verdict chips.
+    val chipProfit = Color(0xFF7A5F24)
 }
 
 val LightUiColors = UiColorScheme(

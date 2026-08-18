@@ -25,8 +25,12 @@ import kotlinx.serialization.Serializable
  *   and can Bombard an adjacent land hex — a raid that kills the unit and
  *   destroys a non-capital building, but never captures ground. Towers with
  *   defense >= its strength block bombardment entirely.
+ * - [FISHING_BOAT]: the working hull — strength 0, never attacks. Parked on a
+ *   FISH_SHOAL sea hex it earns [RuleConstants.fishingBoatIncome] at its
+ *   owner's turn start (the game's only income-producing unit); anywhere else
+ *   it is pure upkeep. One boat per shoal falls out of hex occupancy.
  *
  * Specials and naval units never merge (not with each other, not with soldiers).
  */
 @Serializable
-enum class UnitType { SOLDIER, ARCHER, CATAPULT, TRANSPORT, WARSHIP }
+enum class UnitType { SOLDIER, ARCHER, CATAPULT, TRANSPORT, WARSHIP, FISHING_BOAT }

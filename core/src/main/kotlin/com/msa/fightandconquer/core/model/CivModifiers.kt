@@ -96,6 +96,8 @@ object CivModifiers {
         positive("catapultCost", r.catapultCost)
         positive("transportCost", r.transportCost)
         positive("warshipCost", r.warshipCost)
+        positive("fishingBoatCost", r.fishingBoatCost)
+        positive("fishingBoatIncome", r.fishingBoatIncome)
         positive("farmIncome", r.farmIncome)
         positive("mineIncome", r.mineIncome)
         positive("marketNeighborIncome", r.marketNeighborIncome)
@@ -114,5 +116,7 @@ object CivModifiers {
         nonNegative("catapultMoveRange", r.catapultMoveRange)
         nonNegative("transportMoveRange", r.transportMoveRange)
         nonNegative("warshipMoveRange", r.warshipMoveRange)
+        nonNegative("fishingBoatUpkeep", r.fishingBoatUpkeep)
+        nonNegative("fishingBoatMoveRange", r.fishingBoatMoveRange)
     }
 }
