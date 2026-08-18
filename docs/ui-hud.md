@@ -32,13 +32,13 @@ Unit/building names come from `unitNameRes(tier)`.
 | Flow | Type | Drives |
 |---|---|---|
 | `screen` | `Menu(hasAutosave) \| Setup(generating) \| Campaign \| Briefing(campaignId, levelId) \| MapEditor \| Settings \| About \| Game` | Top-level navigation |
-| `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection tier, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`) |
+| `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection name + Atk/Def/upkeep/cargo-attack stats, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`) |
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
-| `overlayLabels` | `List<OverlayLabel(hex, text, CAPTURABLE\|BLOCKED)>` | Defense chips on frontier hexes while a unit is selected (defense-0 capturable hexes omitted — the disc already says it) |
+| `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex. The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
 | `economy` | `EconomyBreakdown?` | Coin-tap panel (null = closed; recomputed on every refresh while open) |
 | `toasts` | `List<HudToast>` (max 3, 2.5 s TTL) | Top-center notifications |
 | `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N" coin pills |
-| `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, cut-off tiles) — `UiText` + numbers from `RuleConstants`, never hardcoded |
+| `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, deposits, bare enemy ground, cut-off tiles) — `UiText` + numbers from the tapped piece's owner-effective rules, never hardcoded. Units carry an Atk/Def pair (sword/shield `InfoStat.iconRes` glyphs); every enemy-owned hex adds "To capture — Atk N+" (`Rules.captureRequirement` on land, the defender's `unitDefenseOf` at sea) and, when outside cover raises the hex above the tapped piece itself, "Guarded by <Tower/Baron/…>" via `Rules.defenseSourceOf` |
 | `cameraJumps` | `SharedFlow<Hex>` | One-shot camera glides |
 | `resync` | `StateFlow<Int>` | Board must skip+reconcile (undo/load) |
 | `campaignRun` | `CampaignRunState?` | Mission HUD: level name, objective lines, coach card, turn limit, outcome. **Null in a skirmish**, which is how every pre-existing HUD path stays untouched |
@@ -110,7 +110,7 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    one plinth scale (`PlinthScale` S 40/32 · M 56/48 · L 96/80 = controlFill box +
    hairline behind every baked render); press feedback is 0.96 scale + ripple
    (`scaleClickable`). No translucent panels, no ad-hoc ink alphas, no emoji anywhere
-   (tinted vectors `ic_coin/ic_flag/ic_shield/ic_pact` only).
+   (tinted vectors `ic_coin/ic_flag/ic_shield/ic_sword/ic_pact` only).
    `TopBar` (full-width, content-sized: faction disc, seat label over "Civ · Turn N",
    coin block → economy panel, then two 48 dp controlFill circles — Diplomacy with a
    coin-gold pending-proposal badge, and the ⋮ menu with Field Guide / Objectives
@@ -120,9 +120,14 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    + `ProposalStrip` (persistent accept/decline rows for incoming pact offers —
    StateFlow-driven, only for the acting human, never behind the banner; outlined
    Decline + filled-ink Accept) +
-   `BottomBar` (selected-unit strip at plinth S with Disband / `InfoCard` at plinth M
+   `BottomBar` (selected-unit strip at plinth S — name over a 12 sp `inkMuted`
+   sword-Atk · shield-Def · upkeep stats line (a loaded transport shows its cargo's
+   attack, an empty one an em-dash) — with Disband / `InfoCard` at plinth M
    with a divider before its outlined-primary + controlFill-secondary action row /
-   "RECRUIT" surface-chip header over the `PurchaseCard` tray — fixed 128 dp cards,
+   "RECRUIT" surface-chip header over the `PurchaseCard` tray — fixed 128 dp cards
+   (unit cards fold upkeep beside the cost and spend the third line on an 11 sp
+   sword-Atk · shield-Def row from `PurchaseOption.Unit.strength/defense`, civ-correct
+   at offer time; structures keep the income/defense micro-label),
    plinth-M render, 28 dp info glyph in a 48 dp target; unaffordable = still tappable
    (engine rejection toasts), render 38 % + grayscale, `inactiveGlyph` text, rust cost /
    44 dp outlined Undo / 56 dp radius-20 "End·TURN" FAB in the current player's pastel.

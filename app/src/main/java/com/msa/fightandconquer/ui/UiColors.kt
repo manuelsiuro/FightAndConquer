@@ -82,6 +82,10 @@ class UiColorScheme(
     // would let the board bleed through and drop text contrast below 4.5:1.
     val chipCapturable = Color(0xFF3F6142)
     val chipBlocked = Color(0xFF8E3E30)
+
+    // The selected unit's own attack badge: the palette's dark warm ink (= onFaction),
+    // so "you" reads apart from the green/rust verdict chips in both themes.
+    val chipAttacker = Color(0xFF3E3A36)
 }
 
 val LightUiColors = UiColorScheme(

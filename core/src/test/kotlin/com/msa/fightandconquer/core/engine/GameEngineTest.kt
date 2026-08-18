@@ -89,8 +89,8 @@ class GameEngineTest {
             setOf(
                 PurchaseOption.Unit(1, 10), PurchaseOption.Unit(2, 20),
                 PurchaseOption.Unit(3, 30), PurchaseOption.Unit(4, 40),
-                PurchaseOption.Unit(1, 14, com.msa.fightandconquer.core.model.UnitType.ARCHER),
-                PurchaseOption.Unit(1, 30, com.msa.fightandconquer.core.model.UnitType.CATAPULT),
+                PurchaseOption.Unit(1, 14, com.msa.fightandconquer.core.model.UnitType.ARCHER, strength = 1, defense = 2),
+                PurchaseOption.Unit(1, 30, com.msa.fightandconquer.core.model.UnitType.CATAPULT, strength = 2, defense = 2),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.TOWER, 15),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER, 35),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.MARKET, 25),

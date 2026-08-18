@@ -120,7 +120,15 @@ RNG-free), `incomeOf` (delegating to `incomeFrom`, the single income source shar
 with `TurnPipeline`: hex + deposit bonuses + farm/mine/market/lumber-camp),
 `upkeepOf` (delegating to `upkeepFrom`, the single upkeep source shared with
 `TurnPipeline`, mirroring income)/`unitUpkeepOf`,
-`strengthOf`/`buyStrength`/`unitCostOf`, `nextFarmCost`, `buildingCost`.
+`strengthOf`/`buyStrength`/`unitCostOf`, `nextFarmCost`, `buildingCost`,
+`unitDefenseOf`/`buyDefense` (the per-unit display defense the HUD pairs with
+`strengthOf`: garrison/aura value for land units, 0 for a transport, and — by
+convention — a warship shows its strength, the naval sink threshold, even though
+boats contribute 0 to land-hex defense), `captureRequirement` (`defenseOf + 1` —
+the strictly-greater rule as a number the UI can print), and `defenseSourceOf`
+(the strongest single contributor behind `defenseOf` — garrison, neighbor unit,
+or tower/castle/capital — so the HUD can say "Guarded by Tower"; mirrors
+`defenseOf`'s max with ties preferring the garrison, then fortifications).
 
 Pact breaking has exactly one site: `StateBuilder.captureHex` checks for an active
 pact with the victim before any mutation — covering move-capture and buy-capture —

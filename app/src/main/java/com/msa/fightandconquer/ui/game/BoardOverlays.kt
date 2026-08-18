@@ -41,6 +41,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.render.scene.BoardScene
 import com.msa.fightandconquer.ui.CoinPopup
+import com.msa.fightandconquer.ui.LabelGlyph
 import com.msa.fightandconquer.ui.LabelKind
 import com.msa.fightandconquer.ui.OverlayLabel
 import com.msa.fightandconquer.ui.UiColors
@@ -68,7 +69,7 @@ internal fun AnchorOverlay(scene: BoardScene?, labels: List<OverlayLabel>, popup
 
     Box(Modifier.fillMaxSize()) {
         for (label in labels) {
-            key(label.hex) {
+            key(label.hex, label.kind) {
                 DefenseChip(label, anchorOffset(anchors, label.hex, chipDx, chipDy))
             }
         }
@@ -96,11 +97,13 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
     val background = when (label.kind) {
         LabelKind.CAPTURABLE -> UiColors.chipCapturable
         LabelKind.BLOCKED -> UiColors.chipBlocked
+        LabelKind.ATTACKER -> UiColors.chipAttacker
     }
-    val description = when (label.kind) {
-        LabelKind.CAPTURABLE -> stringResource(R.string.cd_defense_capturable, label.defense)
-        LabelKind.BLOCKED -> stringResource(R.string.cd_defense_blocked, label.defense)
+    val iconRes = when (label.glyph) {
+        LabelGlyph.SHIELD -> R.drawable.ic_shield
+        LabelGlyph.SWORD -> R.drawable.ic_sword
     }
+    val description = label.cd.resolve()
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     // Fixed board-palette colors, no hairline — these mirror the board, not the chrome.
     AnimatedVisibility(visible, modifier = modifier, enter = fadeIn(tween(120))) {
@@ -112,14 +115,14 @@ private fun DefenseChip(label: OverlayLabel, modifier: Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    painterResource(R.drawable.ic_shield),
+                    painterResource(iconRes),
                     contentDescription = null,
                     Modifier.size(12.dp),
                     tint = Color.White,
                 )
                 Spacer(Modifier.width(3.dp))
                 Text(
-                    stringResource(R.string.info_value_plain, label.defense),
+                    stringResource(R.string.info_value_plain, label.value),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,

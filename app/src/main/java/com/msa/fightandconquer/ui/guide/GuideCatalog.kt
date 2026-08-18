@@ -96,6 +96,11 @@ object GuideCatalog {
         nameRes = R.string.guide_unit_soldiers,
         descRes = R.string.guide_desc_soldiers,
         howToRes = R.string.guide_how_soldiers,
+        stats = listOf(
+            GuideStat(R.string.info_stat_attack, R.string.guide_value_soldier_tier),
+            GuideStat(R.string.info_stat_defense, R.string.guide_value_soldier_tier),
+            GuideStat(R.string.info_stat_upkeep, R.string.guide_value_soldier_upkeep),
+        ),
     )
 
     private val archer = GuideEntry(
@@ -106,7 +111,7 @@ object GuideCatalog {
         howToRes = R.string.guide_how_archer,
         requirementRes = R.string.guide_req_special,
         stats = listOf(
-            GuideStat(R.string.info_stat_strength, R.string.info_value_plain, 1),
+            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, 1),
             GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, 2),
             GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 4),
         ),
@@ -120,7 +125,8 @@ object GuideCatalog {
         howToRes = R.string.guide_how_catapult,
         requirementRes = R.string.guide_req_special,
         stats = listOf(
-            GuideStat(R.string.info_stat_strength, R.string.info_value_plain, 2),
+            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, 2),
+            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 2),
             GuideStat(R.string.info_stat_range, R.string.info_value_plain, 2),
             GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 10),
         ),
@@ -134,6 +140,8 @@ object GuideCatalog {
         howToRes = R.string.guide_how_transport,
         requirementRes = R.string.guide_req_port,
         stats = listOf(
+            GuideStat(R.string.info_stat_attack, R.string.info_value_none),
+            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 0),
             GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
             GuideStat(R.string.info_stat_cargo, R.string.info_value_plain, 1),
             GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 4),
@@ -148,7 +156,8 @@ object GuideCatalog {
         howToRes = R.string.guide_how_warship,
         requirementRes = R.string.guide_req_port,
         stats = listOf(
-            GuideStat(R.string.info_stat_strength, R.string.info_value_plain, 2),
+            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, 2),
+            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 2),
             GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
             GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 8),
         ),

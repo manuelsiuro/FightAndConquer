@@ -25,7 +25,9 @@ import com.msa.fightandconquer.core.campaign.Verdict
 import com.msa.fightandconquer.core.engine.GameAction
 import com.msa.fightandconquer.core.engine.GameEngine
 import com.msa.fightandconquer.core.engine.GameEvent
+import com.msa.fightandconquer.core.engine.Legality
 import com.msa.fightandconquer.core.engine.LegalityResult
+import com.msa.fightandconquer.core.engine.RejectionReason
 import com.msa.fightandconquer.core.engine.PurchaseOption
 import com.msa.fightandconquer.core.engine.ReachResult
 import com.msa.fightandconquer.core.engine.Rules
@@ -104,9 +106,24 @@ data class HighlightSet(
     val hintFocus: Set<Hex> = emptySet(),
 )
 
-/** Defense numbers shown on frontier hexes while a unit is selected. */
-enum class LabelKind { CAPTURABLE, BLOCKED }
-data class OverlayLabel(val hex: Hex, val defense: Int, val kind: LabelKind)
+/**
+ * Numbers floated over the board while a unit is selected: defense chips on the
+ * frontier the unit can touch, strength chips on naval targets, and the selected
+ * unit's own attack ([LabelKind.ATTACKER]) so the pair reads as a comparison.
+ */
+enum class LabelKind { CAPTURABLE, BLOCKED, ATTACKER }
+
+/** Which stat the chip's icon depicts: hex/garrison defense or attack/ship strength. */
+enum class LabelGlyph { SHIELD, SWORD }
+
+data class OverlayLabel(
+    val hex: Hex,
+    val value: Int,
+    val kind: LabelKind,
+    val glyph: LabelGlyph = LabelGlyph.SHIELD,
+    /** Accessibility text; built here so the chip composable stays presentation-only. */
+    val cd: UiText,
+)
 
 /** Coin counter breakdown panel. */
 data class UpkeepRow(val nameRes: Int, val count: Int, val each: Int, val total: Int, val iconRes: Int? = null)
@@ -159,7 +176,12 @@ data class HudToast(val id: Long, val text: UiText, val kind: ToastKind)
 data class CoinPopup(val id: Long, val hex: Hex, val text: UiText)
 
 /** Bottom card describing a tapped piece that isn't selectable. */
-data class InfoStat(val label: UiText, val value: UiText)
+data class InfoStat(
+    val label: UiText,
+    val value: UiText,
+    /** Optional 12 dp leading glyph (sword/shield) rendered before the pair. */
+    val iconRes: Int? = null,
+)
 
 /** A button on an [InfoCard] — the card describes, the action acts. */
 sealed interface InfoCardAction {
@@ -218,6 +240,14 @@ data class HudState(
     val selectedUnitIconRes: Int?,
     /** Coins returned if the selected unit is disbanded; null when nothing is selected. */
     val selectedUnitDisbandRefund: Int?,
+    /** Attack ([Rules.strengthOf]) of the selected unit; null when none. */
+    val selectedUnitAttack: Int?,
+    /** Display defense ([Rules.unitDefenseOf]) of the selected unit; null when none. */
+    val selectedUnitDefense: Int?,
+    /** Per-turn upkeep of the selected unit (cargo included); null when none. */
+    val selectedUnitUpkeep: Int?,
+    /** Attack of a loaded transport's cargo — what an amphibious landing fights with. */
+    val selectedUnitCargoAttack: Int?,
     val purchases: List<PurchaseOption>,
     val canUndo: Boolean,
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
@@ -756,30 +786,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             selectedHex = hex
             signalUi(UiSignals.UNIT_SELECTED)
             val reach = engine.reachableFor(unit.id)
-            // Naval extras: landings for a loaded transport, raids for a warship.
-            var friendly = emptySet<Hex>()
-            var hostile = emptySet<Hex>()
-            if (com.msa.fightandconquer.core.engine.Rules.isNaval(unit.type)) {
-                fun legal(action: GameAction) =
-                    com.msa.fightandconquer.core.engine.Legality.check(state, action) is
-                        com.msa.fightandconquer.core.engine.LegalityResult.Ok
-                val neighbors = com.msa.fightandconquer.core.hex.HexMath.neighbors(hex)
-                if (unit.cargo != null) {
-                    val landings = neighbors.filter { legal(GameAction.Disembark(unit.id, it)) }
-                    friendly = landings.filter { state.tiles[it]?.owner == me }.toSet()
-                    hostile = landings.filter { state.tiles[it]?.owner != me }.toSet()
-                }
-                if (unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP) {
-                    hostile = hostile + neighbors.filter { legal(GameAction.Bombard(unit.id, it)) }
-                }
-            }
+            // Naval extras: landings for a loaded transport, raids for a warship —
+            // one scan produces both the discs and their explaining chips, so the
+            // two renderings of "what can this boat do here" can never drift apart.
+            val naval = navalExtras(state, unit)
             _highlights.value = HighlightSet(
                 hex,
-                reach.moveTargets + reach.embarkTargets + friendly,
-                reach.captureTargets + hostile,
+                reach.moveTargets + reach.embarkTargets + naval.friendly,
+                reach.captureTargets + naval.hostile,
                 reach.mergeTargets,
             )
-            _overlayLabels.value = computeOverlay(state, unit, reach)
+            _overlayLabels.value = computeOverlay(state, unit, reach, naval.chips)
             refreshHud()
             return
         }
@@ -989,17 +1006,153 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     // ----- threat overlay -----
 
-    private fun computeOverlay(state: GameState, unit: GameUnit, reach: ReachResult): List<OverlayLabel> {
-        // Chips live only on the unit's own reach — the frontier it can touch
-        // this action — so the overlay reads as "what this unit can do here".
-        return (reach.captureTargets + reach.blockedTargets).mapNotNull { hex ->
-            val defense = Rules.defenseOf(state, hex)
-            val capturable = hex in reach.captureTargets
-            when {
-                capturable && defense == 0 -> null // undefended: the highlight disc already says it
-                else -> OverlayLabel(hex, defense, if (capturable) LabelKind.CAPTURABLE else LabelKind.BLOCKED)
+    /** One per-neighbor legality scan feeding both the boat's discs and its chips. */
+    private class NavalExtras(
+        val friendly: Set<Hex> = emptySet(),
+        val hostile: Set<Hex> = emptySet(),
+        val chips: List<OverlayLabel> = emptyList(),
+    )
+
+    /** Landings for a loaded transport, raids for a warship — empty for land units. */
+    private fun navalExtras(state: GameState, unit: GameUnit): NavalExtras {
+        if (!Rules.isNaval(unit.type)) return NavalExtras()
+        val friendly = HashSet<Hex>()
+        val hostile = HashSet<Hex>()
+        val chips = ArrayList<OverlayLabel>()
+        val cargo = unit.cargo
+        for (n in HexMath.neighbors(unit.hex)) {
+            if (cargo != null && Legality.check(state, GameAction.Disembark(unit.id, n)) is LegalityResult.Ok) {
+                if (state.tiles[n]?.owner == unit.owner) {
+                    friendly.add(n)
+                } else {
+                    // An assault beach fights with the cargo's strength.
+                    hostile.add(n)
+                    val defense = Rules.defenseOf(state, n, cargo.type)
+                    if (defense > 0) {
+                        chips.add(
+                            OverlayLabel(
+                                n, defense, LabelKind.CAPTURABLE, LabelGlyph.SHIELD,
+                                UiText.of(R.string.cd_defense_capturable, defense),
+                            ),
+                        )
+                    }
+                }
+            }
+            if (unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP) {
+                // Raid chips: every legal target, plus coasts whose defense refuses
+                // the raid — the number that explains the missing disc.
+                when (val verdict = Legality.check(state, GameAction.Bombard(unit.id, n))) {
+                    is LegalityResult.Ok -> {
+                        hostile.add(n)
+                        val defense = Rules.defenseOf(state, n)
+                        if (defense > 0) {
+                            chips.add(
+                                OverlayLabel(
+                                    n, defense, LabelKind.CAPTURABLE, LabelGlyph.SHIELD,
+                                    UiText.of(R.string.cd_defense_bombard, defense),
+                                ),
+                            )
+                        }
+                    }
+                    is LegalityResult.Rejected -> if (verdict.reason == RejectionReason.DEFENSE_TOO_HIGH) {
+                        val defense = verdict.amount ?: 0
+                        chips.add(
+                            OverlayLabel(
+                                n, defense, LabelKind.BLOCKED, LabelGlyph.SHIELD,
+                                UiText.of(R.string.cd_defense_blocked, defense),
+                            ),
+                        )
+                    }
+                }
             }
         }
+        return NavalExtras(friendly, hostile, chips)
+    }
+
+    private fun computeOverlay(
+        state: GameState,
+        unit: GameUnit,
+        reach: ReachResult,
+        navalChips: List<OverlayLabel> = emptyList(),
+    ): List<OverlayLabel> {
+        // Chips live only on the unit's own reach — the frontier it can touch
+        // this action — so the overlay reads as "what this unit can do here".
+        val chips = buildList {
+            addAll(navalChips)
+            for (hex in reach.captureTargets + reach.blockedTargets) {
+                val capturable = hex in reach.captureTargets
+                // A hull on open water duels by strength; anything else — including an
+                // enemy soldier holding a BRIDGE hex (sea terrain, but owned, stand-able
+                // ground) — is an ordinary land capture ruled by the hex's defense.
+                val defender = state.tiles[hex]?.takeIf { it.terrain == Terrain.SEA }
+                    ?.unit?.let { state.units[it] }?.takeIf { Rules.isNaval(it.type) }
+                if (defender != null) {
+                    val strength = Rules.strengthOf(state, defender)
+                    if (strength == 0) continue // sinkable transport: the disc already says it
+                    add(
+                        OverlayLabel(
+                            hex, strength, LabelKind.CAPTURABLE, LabelGlyph.SWORD,
+                            UiText.of(R.string.cd_ship_sinkable, strength),
+                        ),
+                    )
+                } else {
+                    val defense = Rules.defenseOf(state, hex, unit.type)
+                    if (capturable && defense == 0) continue // undefended: the highlight disc already says it
+                    add(
+                        OverlayLabel(
+                            hex, defense,
+                            if (capturable) LabelKind.CAPTURABLE else LabelKind.BLOCKED,
+                            LabelGlyph.SHIELD,
+                            UiText.of(
+                                if (capturable) R.string.cd_defense_capturable else R.string.cd_defense_blocked,
+                                defense,
+                            ),
+                        ),
+                    )
+                }
+            }
+            // Out-gunned enemy hulls beside this warship's water: reach lists only the
+            // sinkable ones, so the too-strong boats need their own red explainer —
+            // same target preconditions as seaReachable, with the comparison flipped.
+            if (unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP) {
+                val myStrength = Rules.strengthOf(state, unit)
+                val seen = HashSet<Hex>()
+                for (water in reach.moveTargets + unit.hex) {
+                    HexMath.forEachNeighbor(water) { n ->
+                        if (n in seen || n in reach.captureTargets) return@forEachNeighbor
+                        val tile = state.tiles[n] ?: return@forEachNeighbor
+                        if (tile.terrain != Terrain.SEA || tile.building != null) return@forEachNeighbor
+                        val defender = tile.unit?.let { state.units[it] } ?: return@forEachNeighbor
+                        if (defender.owner == unit.owner || !Rules.isNaval(defender.type)) return@forEachNeighbor
+                        val strength = Rules.strengthOf(state, defender)
+                        if (strength > myStrength) {
+                            seen.add(n)
+                            add(
+                                OverlayLabel(
+                                    n, strength, LabelKind.BLOCKED, LabelGlyph.SWORD,
+                                    UiText.of(R.string.cd_ship_too_strong, strength),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        // Fog: chips are derived from reach and stay within vision by construction,
+        // but filter defensively so a rules change can never leak an unseen number.
+        val vis = _visibility.value
+        val shown = if (vis == null) chips else chips.filter { it.hex in vis.visible }
+        if (shown.isEmpty()) return shown
+        // The badge exists to make the chips read as a comparison — no chips, no badge.
+        val cargoAttack = unit.cargo?.let { Rules.buyStrength(state, unit.owner, it.tier, it.type) }
+        val attack = cargoAttack ?: Rules.strengthOf(state, unit)
+        return shown + OverlayLabel(
+            unit.hex, attack, LabelKind.ATTACKER, LabelGlyph.SWORD,
+            UiText.of(
+                if (cargoAttack != null) R.string.cd_attack_cargo else R.string.cd_attack_selected,
+                attack,
+            ),
+        )
     }
 
     // ----- economy panel -----
@@ -1374,6 +1527,37 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     // ----- info cards -----
 
+    /**
+     *"To capture Atk N+" plus, when something other than the tapped piece itself
+     * raises the hex's defense, "Guarded by <piece>" — the line that explains why
+     * a Peasant's hex can defend at 2 (the tower next door).
+     */
+    private fun enemyCaptureStats(
+        state: GameState,
+        hex: Hex,
+        navalDefender: GameUnit? = null,
+        tappedUnit: GameUnit? = null,
+    ): List<InfoStat> = buildList {
+        val needed = navalDefender?.let { Rules.unitDefenseOf(state, it) }
+            ?: Rules.captureRequirement(state, hex)
+        add(
+            InfoStat(
+                UiText.of(R.string.info_stat_capture),
+                UiText.of(R.string.info_value_attack_min, needed),
+            ),
+        )
+        val guardName = when (val source = Rules.defenseSourceOf(state, hex)) {
+            // The tapped piece guarding itself explains nothing — name outside cover only.
+            is Rules.DefenseSource.Unit ->
+                if (source.unit.id == tappedUnit?.id) null
+                else UiText.of(unitNameRes(source.unit.type, source.unit.tier))
+            is Rules.DefenseSource.Fortification ->
+                if (source.at == hex) null else UiText.of(buildingNameRes(source.building))
+            null -> null
+        }
+        guardName?.let { add(InfoStat(UiText.of(R.string.info_stat_guarded_by), it)) }
+    }
+
     private fun infoCardFor(state: GameState, hex: Hex, tile: com.msa.fightandconquer.core.model.Tile): InfoCard? {
         val rules = state.config.rules
         val me = state.currentPlayer
@@ -1382,7 +1566,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val own = unit.owner == me
             val strength = Rules.strengthOf(state, unit)
             val stats = buildList {
-                add(InfoStat(UiText.of(R.string.info_stat_strength), UiText.of(R.string.info_value_plain, strength)))
+                add(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_attack),
+                        UiText.of(R.string.info_value_plain, strength),
+                        iconRes = R.drawable.ic_sword,
+                    ),
+                )
+                val defense = Rules.unitDefenseOf(state, unit)
+                add(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_defense),
+                        if (unit.type == com.msa.fightandconquer.core.model.UnitType.ARCHER) {
+                            UiText.of(R.string.info_value_defense_area, defense)
+                        } else {
+                            UiText.of(R.string.info_value_plain, defense)
+                        },
+                        iconRes = R.drawable.ic_shield,
+                    ),
+                )
                 add(
                     InfoStat(
                         UiText.of(R.string.info_stat_upkeep),
@@ -1396,31 +1598,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                             UiText.of(R.string.info_value_plain, Rules.moveRangeOf(state, unit)),
                         ),
                     )
-                    com.msa.fightandconquer.core.model.UnitType.ARCHER -> {
-                        add(
-                            InfoStat(
-                                UiText.of(R.string.info_stat_defense),
-                                UiText.of(R.string.info_value_defense_area, rules.archerAuraDefense),
-                            ),
-                        )
-                        add(
-                            InfoStat(
-                                UiText.of(R.string.info_stat_range),
-                                UiText.of(R.string.info_value_plain, rules.archerMoveRange),
-                            ),
-                        )
-                    }
-                    com.msa.fightandconquer.core.model.UnitType.CATAPULT -> add(
+                    com.msa.fightandconquer.core.model.UnitType.ARCHER,
+                    com.msa.fightandconquer.core.model.UnitType.CATAPULT,
+                    com.msa.fightandconquer.core.model.UnitType.WARSHIP,
+                    -> add(
                         InfoStat(
                             UiText.of(R.string.info_stat_range),
-                            UiText.of(R.string.info_value_plain, rules.catapultMoveRange),
+                            // Owner-effective, like the SOLDIER arm — a Shogunate
+                            // catapult really moves 3.
+                            UiText.of(R.string.info_value_plain, Rules.moveRangeOf(state, unit)),
                         ),
                     )
                     com.msa.fightandconquer.core.model.UnitType.TRANSPORT -> {
                         add(
                             InfoStat(
                                 UiText.of(R.string.info_stat_range),
-                                UiText.of(R.string.info_value_plain, rules.transportMoveRange),
+                                UiText.of(R.string.info_value_plain, Rules.moveRangeOf(state, unit)),
                             ),
                         )
                         add(
@@ -1431,10 +1624,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                             ),
                         )
                     }
-                    com.msa.fightandconquer.core.model.UnitType.WARSHIP -> add(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_range),
-                            UiText.of(R.string.info_value_plain, rules.warshipMoveRange),
+                }
+                if (!own) {
+                    addAll(
+                        enemyCaptureStats(
+                            state, hex,
+                            navalDefender = unit.takeIf { Rules.isNaval(it.type) },
+                            tappedUnit = unit,
                         ),
                     )
                 }
@@ -1464,6 +1660,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         tile.building?.let { building ->
             val ownerIndex = tile.owner?.value
             val ownerCiv = tile.owner?.let { state.player(it).civ } ?: Civilization.KINGDOM
+            // This building already belongs to someone — its numbers are the OWNER's
+            // effective ones (a Sultanate mine pays 7, its lumber camp 3 per tree).
+            val rules = tile.owner?.let { Rules.effectiveRules(state, it) } ?: rules
             val card = when (building) {
                 Building.CAPITAL -> InfoCard(
                     UiText.of(R.string.building_capital),
@@ -1615,8 +1814,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     add(InfoCardAction.Demolish(hex, Rules.demolishRefund(state, me, building)))
                 }
             }
-            return card.copy(actions = actions)
+            val enemyStats = if (tile.owner != null && tile.owner != me) {
+                enemyCaptureStats(state, hex)
+            } else {
+                emptyList()
+            }
+            return card.copy(stats = card.stats + enemyStats, actions = actions)
         }
+        // Enemy-owned flora/deposit hexes are capture targets too — carry the same
+        // "To capture / Guarded by" pair as every other enemy hex.
+        val enemyGroundStats = if (tile.owner != null && tile.owner != me) {
+            enemyCaptureStats(state, hex)
+        } else {
+            emptyList()
+        }
+        val enemyGroundFaction = tile.owner?.takeIf { it != me }?.value
         when (tile.flora) {
             is Flora.Tree -> return InfoCard(
                 UiText.of(R.string.piece_tree),
@@ -1626,12 +1838,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_stat_clear_bonus),
                         UiText.of(R.string.info_value_coins, rules.treeClearBonus),
                     ),
-                ),
+                ) + enemyGroundStats,
+                factionIndex = enemyGroundFaction,
                 iconRes = PieceIcons.tree,
             )
             is Flora.Gravestone -> return InfoCard(
                 UiText.of(R.string.piece_gravestone),
                 UiText.of(R.string.info_gravestone),
+                stats = enemyGroundStats,
+                factionIndex = enemyGroundFaction,
                 iconRes = PieceIcons.gravestone,
             )
             null -> {}
@@ -1643,9 +1858,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 listOf(
                     InfoStat(
                         UiText.of(R.string.info_stat_income),
-                        UiText.of(R.string.info_value_income, rules.mineIncome),
+                        // The prospective mine is MINE, so my effective price of it.
+                        UiText.of(R.string.info_value_income, Rules.effectiveRules(state, me).mineIncome),
                     ),
-                ),
+                ) + enemyGroundStats,
+                factionIndex = enemyGroundFaction,
                 iconRes = PieceIcons.goldVein,
             )
             com.msa.fightandconquer.core.model.Deposit.FERTILE -> return InfoCard(
@@ -1656,7 +1873,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         UiText.of(R.string.info_stat_income),
                         UiText.of(R.string.info_value_income, rules.fertileHexBonus),
                     ),
-                ),
+                ) + enemyGroundStats,
+                factionIndex = enemyGroundFaction,
                 iconRes = PieceIcons.fertile,
             )
             com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL -> return InfoCard(
@@ -1676,6 +1894,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             return InfoCard(
                 UiText.of(R.string.tile_sea),
                 UiText.of(R.string.info_sea),
+            )
+        }
+        // Bare enemy ground: name the owner and the attack it takes to storm it.
+        val owner = tile.owner
+        if (owner != null && owner != me) {
+            return InfoCard(
+                title = UiText.of(R.string.info_enemy_territory_title),
+                subtitle = UiText.of(R.string.info_enemy_territory),
+                stats = enemyCaptureStats(state, hex),
+                factionIndex = owner.value,
             )
         }
         if (tile.owner == me && tile.starving && tile.graceTurns > 0) {
@@ -1830,27 +2058,38 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 PieceIcons.unit(state.player(it.owner).civ, it.type, it.tier)
             },
             selectedUnitDisbandRefund = selected?.let { Rules.disbandRefund(state, it) },
+            selectedUnitAttack = selected?.let { Rules.strengthOf(state, it) },
+            selectedUnitDefense = selected?.let { Rules.unitDefenseOf(state, it) },
+            selectedUnitUpkeep = selected?.let { Rules.unitUpkeepOf(state, it) },
+            selectedUnitCargoAttack = selected?.cargo?.let {
+                Rules.buyStrength(state, selected.owner, it.tier, it.type)
+            },
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,
             winner = (state.phase as? GamePhase.Finished)?.winner?.value,
             freshUnitCount = state.units.values.count { it.owner == me && !it.spent },
-            shopInfo = ShopInfo(
-                unitUpkeep = rules.unitUpkeep,
-                towerDefense = rules.towerDefense,
-                strongTowerDefense = rules.strongTowerDefense,
-                farmIncome = rules.farmIncome,
-                mineIncome = rules.mineIncome,
-                marketIncomeMax = rules.marketNeighborIncome * rules.marketNeighborCap,
-                lumberCampIncomeMax = rules.lumberCampTreeIncome * rules.lumberCampTreeCap,
-                watchtowerVision = rules.watchtowerVisionRadius,
-                archerUpkeep = rules.archerUpkeep,
-                catapultUpkeep = rules.catapultUpkeep,
-                transportUpkeep = rules.transportUpkeep,
-                warshipUpkeep = rules.warshipUpkeep,
-                portIncome = rules.portIncome,
-                fisheryIncomeMax = rules.fisheryShoalIncome * rules.fisheryShoalCap,
-            ),
+            // The tray previews MY prospective pieces, so every number is read at my
+            // effective rules — a Shogunate archer really upkeeps 3, a Sultanate
+            // mine really pays 7. (Identity for Kingdom.)
+            shopInfo = Rules.effectiveRules(state, me).let { eff ->
+                ShopInfo(
+                    unitUpkeep = eff.unitUpkeep,
+                    towerDefense = eff.towerDefense,
+                    strongTowerDefense = eff.strongTowerDefense,
+                    farmIncome = eff.farmIncome,
+                    mineIncome = eff.mineIncome,
+                    marketIncomeMax = eff.marketNeighborIncome * eff.marketNeighborCap,
+                    lumberCampIncomeMax = eff.lumberCampTreeIncome * eff.lumberCampTreeCap,
+                    watchtowerVision = eff.watchtowerVisionRadius,
+                    archerUpkeep = eff.archerUpkeep,
+                    catapultUpkeep = eff.catapultUpkeep,
+                    transportUpkeep = eff.transportUpkeep,
+                    warshipUpkeep = eff.warshipUpkeep,
+                    portIncome = eff.portIncome,
+                    fisheryIncomeMax = eff.fisheryShoalIncome * eff.fisheryShoalCap,
+                )
+            },
         )
         // Live panels track every buy/move/undo.
         if (_economy.value != null) _economy.value = computeEconomy()

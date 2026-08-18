@@ -21,6 +21,9 @@ sealed interface PurchaseOption {
         val tier: Int,
         override val cost: Int,
         val type: com.msa.fightandconquer.core.model.UnitType = com.msa.fightandconquer.core.model.UnitType.SOLDIER,
+        /** Display stats resolved at offer time (civ-aware for specials). Defaults = the soldier ladder. */
+        val strength: Int = tier,
+        val defense: Int = tier,
     ) : PurchaseOption
     data class Structure(val type: BuildingType, override val cost: Int) : PurchaseOption
 }
@@ -134,7 +137,15 @@ class GameEngine private constructor(
             com.msa.fightandconquer.core.model.UnitType.WARSHIP,
         )) {
             if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
-                options.add(PurchaseOption.Unit(1, Rules.unitCostOf(s, s.currentPlayer, 1, special), special))
+                options.add(
+                    PurchaseOption.Unit(
+                        tier = 1,
+                        cost = Rules.unitCostOf(s, s.currentPlayer, 1, special),
+                        type = special,
+                        strength = Rules.buyStrength(s, s.currentPlayer, 1, special),
+                        defense = Rules.buyDefense(s, s.currentPlayer, 1, special),
+                    ),
+                )
             }
         }
         for (type in BuildingType.entries) {

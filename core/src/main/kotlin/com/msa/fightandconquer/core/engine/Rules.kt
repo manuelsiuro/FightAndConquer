@@ -67,6 +67,30 @@ object Rules {
         UnitType.WARSHIP -> rules.warshipStrength
     }
 
+    /**
+     * The defense number the UI pairs with a unit's attack ([strengthOf]): what an
+     * enemy is up against when going for the unit itself. Land units show their
+     * garrison/aura contribution to hex defense; a TRANSPORT shows 0 (anything
+     * sinks it); a WARSHIP shows its strength — the naval sink threshold (an enemy
+     * sinks it at strength >= this; ties go to the ATTACKER). Boats still
+     * contribute 0 to land-hex defense ([defenseContribution]): this is a per-unit
+     * display value, not a garrison. Not to be confused with [defenseOf], the
+     * hex-level max the capture rule tests.
+     */
+    fun unitDefenseOf(state: GameState, unit: GameUnit): Int =
+        defenseIn(effectiveRules(state, unit.owner), unit.tier, unit.type)
+
+    /** [unitDefenseOf] for a [player]'s unit that doesn't exist yet (recruit cards). */
+    fun buyDefense(state: GameState, player: PlayerId, tier: Int, type: UnitType): Int =
+        defenseIn(effectiveRules(state, player), tier, type)
+
+    private fun defenseIn(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
+        UnitType.ARCHER -> rules.archerAuraDefense
+        UnitType.TRANSPORT -> 0
+        UnitType.WARSHIP -> rules.warshipStrength
+        else -> strengthIn(rules, tier, type)
+    }
+
     /** What [player] pays for a fresh unit (civ-priced for specials; soldiers universal). */
     fun unitCostOf(state: GameState, player: PlayerId, tier: Int, type: UnitType): Int =
         costIn(effectiveRules(state, player), tier, type)
@@ -114,11 +138,8 @@ object Rules {
      * Boats are ships, not garrisons: they defend nothing (and being at sea,
      * never neighbor an OWN hex anyway).
      */
-    internal fun defenseContribution(state: GameState, unit: GameUnit): Int = when (unit.type) {
-        UnitType.ARCHER -> effectiveRules(state, unit.owner).archerAuraDefense
-        UnitType.TRANSPORT, UnitType.WARSHIP -> 0
-        else -> strengthOf(state, unit)
-    }
+    internal fun defenseContribution(state: GameState, unit: GameUnit): Int =
+        if (isNaval(unit.type)) 0 else unitDefenseOf(state, unit)
 
     /**
      * Defense rating of [hex] from an attacker's perspective:
@@ -142,6 +163,62 @@ object Rules {
             }
         }
         return defense
+    }
+
+    /**
+     * The minimum attack that takes [hex] by land: capture requires STRICTLY more
+     * than [defenseOf], so the threshold is defense + 1. (The naval sink threshold
+     * is the defender's [unitDefenseOf] — ties go to the attacker at sea.)
+     */
+    fun captureRequirement(state: GameState, hex: Hex): Int = defenseOf(state, hex) + 1
+
+    /** The strongest single contributor to [defenseOf] — what a capture must out-attack. */
+    sealed interface DefenseSource {
+        /** A defending unit: the garrison on the hex itself, or one on an adjacent own hex. */
+        data class Unit(val unit: GameUnit) : DefenseSource
+
+        /** A tower/castle/capital covering the hex from [at] (the hex itself or a neighbor). */
+        data class Fortification(val building: Building, val at: Hex) : DefenseSource
+    }
+
+    /**
+     * Which piece produces [defenseOf] at [hex] — for the UI to explain why a hex
+     * defends above the tapped unit's own value ("Guarded by Tower"). Mirrors
+     * [defenseOf]'s max exactly (same [attackerType] siege gating); ties prefer the
+     * hex's own garrison (it explains itself), then fortifications over neighbor
+     * units (naming the permanent piece reads clearer). Null when the hex defends at 0.
+     */
+    fun defenseSourceOf(state: GameState, hex: Hex, attackerType: UnitType? = null): DefenseSource? {
+        val tile = state.tiles[hex] ?: return null
+        val owner = tile.owner ?: return null
+        val siege = attackerType == UnitType.CATAPULT
+        var best: DefenseSource? = null
+        var bestValue = 0
+        // Consideration order = tie priority: a later candidate must strictly beat the best.
+        fun consider(value: Int, source: () -> DefenseSource) {
+            if (value > bestValue) {
+                bestValue = value
+                best = source()
+            }
+        }
+        state.unitAt(hex)?.let { consider(defenseContribution(state, it)) { DefenseSource.Unit(it) } }
+        if (!siege) {
+            tile.building?.let {
+                consider(buildingDefense(state, owner, it)) { DefenseSource.Fortification(it, hex) }
+            }
+        }
+        HexMath.forEachNeighbor(hex) { n ->
+            val neighborTile = state.tiles[n]
+            if (neighborTile?.owner == owner) {
+                if (!siege) {
+                    neighborTile.building?.let {
+                        consider(buildingDefense(state, owner, it)) { DefenseSource.Fortification(it, n) }
+                    }
+                }
+                state.unitAt(n)?.let { consider(defenseContribution(state, it)) { DefenseSource.Unit(it) } }
+            }
+        }
+        return best
     }
 
     /** Defensive value of the DEFENDER's building, at the defender's effective rules. */

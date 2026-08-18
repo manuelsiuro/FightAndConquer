@@ -11,7 +11,7 @@ per game without breaking old saves.
 | Unit cost (T1–T4) | 10 / 20 / 30 / 40 | Any tier directly buyable |
 | Unit upkeep (T1–T4) | 2 / 6 / 18 / 54 | Per turn; strength = tier |
 | Max tier | 4 | Peasant, Spearman, Baron, Knight |
-| Move ranges (T1–T4) | 2 / 3 / 4 / 5 | BFS steps through own territory; capture = final step; Archer 2 |
+| Move ranges (T1–T4) | 3 / 4 / 5 / 6 | BFS steps through own territory; capture = final step; Archer 3 |
 | Hex income | 1 /turn | Owned, non-starving, flora-free hexes |
 | Farm | cost 12 + 2×(farms owned), +4 income | Must be adjacent to own Capital or Farm, or stand on fertile ground |
 | Tower | cost 15, defense 2 | Covers self + 6 neighbors, no upkeep |
@@ -53,7 +53,7 @@ per game without breaking old saves.
 steps through its own connected territory (friendly units and buildings never block
 the path — bridges carry it over water — but the destination must be stand-able and
 empty), and the **final step may capture** one adjacent non-owned hex it can beat.
-Ranges: Peasant 2 / Spearman 3 / Baron 4 / Knight 5 (`soldierMoveRanges`), Archer 2,
+Ranges: Peasant 3 / Spearman 4 / Baron 5 / Knight 6 (`soldierMoveRanges`), Archer 3,
 Catapult 2 — the same bounded-BFS model the ships always had, so a selected unit's
 whole reach reads as one local highlight blob. Any move spends the unit for the turn.
 Freshly bought units on owned hexes are unspent; buying directly onto a capturable hex
