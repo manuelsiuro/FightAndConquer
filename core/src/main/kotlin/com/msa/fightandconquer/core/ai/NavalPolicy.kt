@@ -260,8 +260,12 @@ internal object NavalPolicy {
         //     every termination bound — this is Hard's edge, not the default.
         if (difficulty == com.msa.fightandconquer.core.model.Difficulty.HARD) {
             val visibleNow = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
+            // WAR boats only: an enemy fisherman is not an invasion in progress,
+            // and a hunter bought for one would never be tasked (the chase list
+            // below is ferries-only) — a dead-weight hull.
             val prey = state.units.values.filter {
-                it.owner != me && it.owner !in partners && Rules.isNaval(it.type) &&
+                it.owner != me && it.owner !in partners &&
+                    (it.type == UnitType.TRANSPORT || it.type == UnitType.WARSHIP) &&
                     (visibleNow == null || it.hex in visibleNow)
             }
             if (prey.isNotEmpty()) {
@@ -409,113 +413,13 @@ internal object NavalPolicy {
         ).firstOrNull()
     }
 
-    /**
-     * Move to the reachable sea hex strictly nearer to [goals] by SAILED distance
-     * (multi-source BFS over water) — straight-line distance strands boats in
-     * local minima behind their own island whenever the route bends around land.
-     * Only moves that actually close distance are taken (no tide-pacing loops).
-     */
-    private fun sailToward(state: GameState, boat: GameUnit, goals: Collection<Hex>): GameAction? {
-        if (goals.isEmpty()) return null
-        val targets = Rules.reachable(state, boat.id).moveTargets
-        if (targets.isEmpty()) return null
+    /** See [Sailing.sailToward] — extracted so FishingPolicy sails the same water. */
+    private fun sailToward(state: GameState, boat: GameUnit, goals: Collection<Hex>): GameAction? =
+        Sailing.sailToward(state, boat, goals)
 
-        fun sailable(hex: Hex): Boolean {
-            val t = state.tiles[hex] ?: return false
-            return t.terrain == Terrain.SEA && t.building == null
-        }
-        // Distance field seeded at every sea hex lapping a goal. Other boats are
-        // ignored for the FIELD (they drift); actual moves come from moveTargets.
-        val dist = HashMap<Hex, Int>()
-        var frontier = ArrayList<Hex>()
-        for (goal in goals) {
-            HexMath.forEachNeighbor(goal) { n ->
-                if (sailable(n) && dist.putIfAbsent(n, 0) == null) frontier.add(n)
-            }
-        }
-        var d = 0
-        while (frontier.isNotEmpty() && d < 128) {
-            d++
-            val next = ArrayList<Hex>()
-            for (hex in frontier) {
-                HexMath.forEachNeighbor(hex) { n ->
-                    if (sailable(n) && dist.putIfAbsent(n, d) == null) next.add(n)
-                }
-            }
-            frontier = next
-        }
-        val here = dist[boat.hex] ?: Int.MAX_VALUE
-        val best = targets.minWith(
-            compareBy({ dist[it] ?: Int.MAX_VALUE }, { it.packed }),
-        )
-        val bestDist = dist[best] ?: Int.MAX_VALUE
-        return if (bestDist < here) GameAction.MoveUnit(boat.id, best) else null
-    }
-
-    /**
-     * Lowest-packed legal launch hex: open sea beside an own working port.
-     * HARD only refuses water a visible enemy warship can strike before the
-     * hull ever acts (a launch beside a hunter is a donation; the sink-relaunch
-     * money pump is how symmetric HARD interdiction deadlocked mirror duels —
-     * with no safe water HARD hoards toward the war chest instead). Everyone
-     * else launches on the old rule: interdiction is Hard's edge, and a
-     * campaign AI on a one-port island must risk the hull or lose on the clock.
-     */
-    private fun launchSpot(state: GameState, difficulty: Difficulty): Hex? {
-        val me = state.currentPlayer
-        val rules = state.config.rules
-        val visibleNow = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
-        val hunters = if (difficulty != Difficulty.HARD) {
-            emptyList()
-        } else {
-            state.units.values.filter {
-                it.owner != me && it.type == UnitType.WARSHIP &&
-                    (visibleNow == null || it.hex in visibleNow)
-            }
-        }
-        // The hunters' one-turn strike shadow by SAILED distance (islands block;
-        // cube distance would blanket whole archipelago coasts and stop all
-        // launches). +1 covers the adjacent-capture final step.
-        val shadow = HashSet<Hex>()
-        for (w in hunters) {
-            val range = Rules.moveRangeOf(state, w) + 1
-            val dist = HashMap<Hex, Int>()
-            dist[w.hex] = 0
-            var frontier = listOf(w.hex)
-            var d = 0
-            while (frontier.isNotEmpty() && d < range) {
-                d++
-                val next = ArrayList<Hex>()
-                for (hex in frontier) {
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = state.tiles[n]
-                        if (t != null && t.terrain == Terrain.SEA && t.building == null &&
-                            dist.putIfAbsent(n, d) == null
-                        ) {
-                            next.add(n)
-                        }
-                    }
-                }
-                frontier = next
-            }
-            shadow.addAll(dist.keys)
-        }
-        val spots = HashSet<Hex>()
-        for ((hex, tile) in state.tiles) {
-            if (tile.owner != me || tile.building != Building.PORT || tile.starving) continue
-            HexMath.forEachNeighbor(hex) { n ->
-                val t = state.tiles[n]
-                if (t != null && t.terrain == Terrain.SEA && t.unit == null && t.building == null) {
-                    spots.add(n)
-                }
-            }
-        }
-        return if (difficulty == Difficulty.HARD) {
-            spots.filter { it !in shadow }.minByOrNull { it.packed }
-        } else {
-            spots.minByOrNull { it.packed }
-        }
-    }
+    /** See [Sailing.launchSpot]. */
+    private fun launchSpot(state: GameState, difficulty: Difficulty): Hex? =
+        Sailing.launchSpot(state, difficulty)
 
     /** Own buildable coastal hex with the most adjacent sea (ties: lowest packed). */
     private fun portSpot(state: GameState, starvingOnly: Boolean): Hex? {

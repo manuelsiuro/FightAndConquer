@@ -40,8 +40,13 @@ class AiPlayer(private val difficulty: Difficulty) {
 
         // Naval invasion is a threshold policy too: a single-action greedy search
         // can never justify the intermediate ferry steps (see NavalPolicy).
+        // Fishing follows for the same structural reason, and AFTER invasion —
+        // termination-load-bearing war wins any treasury contention.
         if (state.config.rules.navalEnabled) {
             NavalPolicy.action(state, difficulty)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
+            FishingPolicy.action(state, difficulty)?.let { action ->
                 if (Legality.check(state, action) is LegalityResult.Ok) return action
             }
         }

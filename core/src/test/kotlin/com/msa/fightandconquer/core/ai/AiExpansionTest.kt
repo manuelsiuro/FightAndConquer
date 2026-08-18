@@ -93,6 +93,14 @@ class AiExpansionTest {
     }
 
     @Test
+    fun `normal AIs still build fisheries with the ranged shoal link`() {
+        // Generated SMALL maps carry per-capital shoals on most seeds, and the
+        // mapgen change guarantees they are workable — the AI must keep using them.
+        val built = builtAcrossGames(1L..6L, Difficulty.NORMAL)
+        assertTrue("no FISHERY built across 6 games", Building.FISHERY in built)
+    }
+
+    @Test
     fun `normal AI consolidates with a market when the front is quiet`() {
         // Markets lose the argmax to any capture — correctly, land beats garnish income.
         // On a board with nothing left to take, the AI must invest instead of hoarding:

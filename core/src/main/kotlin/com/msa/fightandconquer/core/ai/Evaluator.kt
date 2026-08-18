@@ -8,6 +8,7 @@ import com.msa.fightandconquer.core.model.Flora
 import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.PlayerId
+import com.msa.fightandconquer.core.model.UnitType
 import kotlin.math.min
 
 /** Position scoring from [me]'s perspective. Higher is better. */
@@ -124,12 +125,18 @@ object Evaluator {
             if (state.config.rules.navalEnabled) {
                 // Ports are gateway assets (supply + boat yard), but two is plenty.
                 score += 6.0 * min(myPorts, 2)
-                // Enemy boats are threats worth sinking (+4 per kill via this term).
-                val enemyBoats = state.units.values.count {
-                    it.owner != me && Rules.isNaval(it.type) &&
-                        (visible == null || it.hex in visible)
+                // Enemy WAR boats are threats worth sinking (+4 per kill via this
+                // term); a fisherman is not an invasion — just a snack worth
+                // taking when a warship is already alongside, never worth buying
+                // a 25-coin hunter for.
+                var enemyWarBoats = 0
+                var enemyFishingBoats = 0
+                for (u in state.units.values) {
+                    if (u.owner == me || !Rules.isNaval(u.type)) continue
+                    if (visible != null && u.hex !in visible) continue
+                    if (u.type == UnitType.FISHING_BOAT) enemyFishingBoats++ else enemyWarBoats++
                 }
-                score -= 4.0 * enemyBoats
+                score -= 4.0 * enemyWarBoats + 1.0 * enemyFishingBoats
             }
         }
         score -= 6.0 * myTrees

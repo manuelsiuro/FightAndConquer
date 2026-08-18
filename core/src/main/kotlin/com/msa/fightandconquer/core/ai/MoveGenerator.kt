@@ -343,12 +343,18 @@ object MoveGenerator {
                         .take(2)
                         .forEach { out.add(GameAction.BuyBuilding(BuildingType.FISHERY, it.key)) }
                 }
-                // Warships answer visible enemy boats (the -4/boat evaluator term
-                // makes the hunt worthwhile once one is afloat).
+                // Warships answer visible enemy WAR boats (the -4/boat evaluator
+                // term makes the hunt worthwhile once one is afloat). Fishermen
+                // never trigger a purchase — a dory is prey, not a threat.
                 if (treasury >= eff.warshipCost) {
                     val visible = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
                     val enemyBoats = state.units.values.any {
-                        it.owner != me && Rules.isNaval(it.type) && (visible == null || it.hex in visible)
+                        it.owner != me &&
+                            (
+                                it.type == com.msa.fightandconquer.core.model.UnitType.TRANSPORT ||
+                                    it.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP
+                                ) &&
+                            (visible == null || it.hex in visible)
                     }
                     if (enemyBoats) {
                         val spot = state.tiles.entries
