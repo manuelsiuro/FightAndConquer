@@ -211,4 +211,57 @@ data class RuleConstants(
      * scripted event, so nothing outside a campaign level can spawn free units.
      */
     val scriptedEventsEnabled: Boolean = false,
-)
+) {
+    /**
+     * Structural invariants every rules instance must satisfy — the documented
+     * "MUST stay" contracts, enforced. kotlinx deserialization runs this block,
+     * so a hand-edited save or campaign level that would crash the engine later
+     * (or silently break the fog contract) fails loudly at load instead.
+     * Deliberately weaker than [CivModifiers]' per-delta validation: zeros are
+     * legal here (campaign tutorials ship `hexIncome = 0`, `unitUpkeep = [0,0,0,0]`).
+     */
+    init {
+        require(maxTier in 1..minOf(unitCost.size, unitUpkeep.size)) {
+            "maxTier $maxTier needs a cost and upkeep entry per tier " +
+                "(unitCost has ${unitCost.size}, unitUpkeep has ${unitUpkeep.size})"
+        }
+        require(unitCost.all { it > 0 }) { "unitCost must stay > 0: $unitCost" }
+        require(unitUpkeep.all { it >= 0 }) { "unitUpkeep must stay >= 0: $unitUpkeep" }
+        require(soldierMoveRanges.isNotEmpty() && soldierMoveRanges.all { it >= 1 }) {
+            "soldierMoveRanges must hold at least one range >= 1: $soldierMoveRanges"
+        }
+        require(hexIncome >= 0) { "hexIncome must stay >= 0: $hexIncome" }
+        // Fog contracts (docs/fog-of-war.md): these are what keep Legality,
+        // reachable() and MoveGenerator free of fog checks.
+        require(visionRadiusOwned >= 2) { "visionRadiusOwned must stay >= 2: $visionRadiusOwned" }
+        require(
+            transportMoveRange <= visionRadiusUnit &&
+                warshipMoveRange <= visionRadiusUnit &&
+                fishingBoatMoveRange <= visionRadiusUnit,
+        ) {
+            "naval move ranges (transport $transportMoveRange, warship $warshipMoveRange, " +
+                "fishing boat $fishingBoatMoveRange) must stay <= visionRadiusUnit $visionRadiusUnit"
+        }
+        require(fisheryRange <= visionRadiusOwned) {
+            "fisheryRange $fisheryRange must stay <= visionRadiusOwned $visionRadiusOwned"
+        }
+        // Below 100 so build-then-demolish always loses money (see the field doc).
+        require(demolishRefundPercent in 0..99) {
+            "demolishRefundPercent must stay in 0..99: $demolishRefundPercent"
+        }
+        require(capitalLootPercent in 0..100) { "capitalLootPercent must stay in 0..100: $capitalLootPercent" }
+        require(pactBreakPenaltyPercent in 0..100) {
+            "pactBreakPenaltyPercent must stay in 0..100: $pactBreakPenaltyPercent"
+        }
+        require(treeSpreadPercent in 0..100) { "treeSpreadPercent must stay in 0..100: $treeSpreadPercent" }
+        require(goldVeinBandMin <= goldVeinBandMax) {
+            "gold vein band inverted: $goldVeinBandMin..$goldVeinBandMax"
+        }
+        require(fishShoalBandMin <= fishShoalBandMax) {
+            "fish shoal band inverted: $fishShoalBandMin..$fishShoalBandMax"
+        }
+        require(pactMinDurationRounds <= pactMaxDurationRounds) {
+            "pact duration band inverted: $pactMinDurationRounds..$pactMaxDurationRounds"
+        }
+    }
+}
