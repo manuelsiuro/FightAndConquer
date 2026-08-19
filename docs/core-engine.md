@@ -323,10 +323,11 @@ is the last obstacle, which keeps pacted duels from deadlocking.
 - Generator property test: 200 seeds × shapes × player counts must validate.
 - Engine facade: undo semantics, save/replay equivalence mid-turn and across turns.
 - AI simulations: full games terminate < 400 rounds with invariants; Hard ≥ 55 %
-  vs Easy over 30 mirror seeds (recalibrated 2026-08 after fixing the
-  evaluator's market-valuation bug — the historical 70 %/10-seed bar was
-  calibrated against it; restoring ≥ 70 % is a known gap in roadmap.md); Easy
-  expands within 3 rounds; turns < 1 s on LARGE; AI games fully deterministic.
+  vs Easy over 30 mirror seeds (measures ~65 % since the 2026-08 turtle fix —
+  the evaluator caps its retake penalty by force balance; the residual gap to
+  the historical 70 % is the island invasion-funding stall, see roadmap.md);
+  Easy expands within 3 rounds; turns < 1 s on LARGE; AI games fully
+  deterministic.
 - Expansion suites: `DepositEconomyTest` (per-building income rules, spread
   suppression, capture semantics), `DepositGenerationTest` (fairness property
   tests), `SpecialUnitTest` (aura/bypass/range/merge/upkeep), `DiplomacyTest`

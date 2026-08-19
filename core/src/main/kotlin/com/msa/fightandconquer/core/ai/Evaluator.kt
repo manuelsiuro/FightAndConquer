@@ -229,8 +229,29 @@ object Evaluator {
         }
 
         if (difficulty == Difficulty.HARD) {
-            // Retake awareness: undefended fresh borders are a liability.
-            score -= 1.5 * exposedBorderHexes(state, me, visible)
+            // Retake awareness: undefended fresh borders are a liability — but a
+            // BOUNDED one. The old flat -1.5/hex compounded down a long front until
+            // every expanding move scored negative and HARD passed turns while an
+            // EASY swarm ate it (the diagnosed mutual-turtle stall, docs/roadmap.md).
+            // The cap keeps the signal ("don't leave a few fresh borders hanging")
+            // and scales with the balance of fielded force: an army that outguns
+            // the visible enemy can afford exposed ground (retakes are cheap), an
+            // outgunned one stays twice as careful — but never frozen.
+            val exposed = exposedBorderHexes(state, me, visible)
+            if (exposed > 0) {
+                var myForce = 0
+                var enemyForce = 0
+                for (u in state.units.values) {
+                    if (Rules.isNaval(u.type)) continue
+                    if (u.owner == me) {
+                        myForce += Rules.strengthOf(state, u)
+                    } else if (visible == null || u.hex in visible) {
+                        enemyForce += Rules.strengthOf(state, u)
+                    }
+                }
+                val cap = if (myForce >= enemyForce) 3 else 6
+                score -= 1.5 * min(exposed, cap)
+            }
             // Anti-hoard: a catapult with no visible fortification left to crack is
             // pure upkeep — let attrition pressure retire it.
             if (enemyForts == 0) {

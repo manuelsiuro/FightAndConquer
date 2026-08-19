@@ -166,16 +166,22 @@ precisely for this — tested), so tuning defaults never alters an in-progress g
 
 ## Known gaps / accepted trade-offs
 
-- **HARD's winrate vs EASY sits at ~60%** (measured over 30 seeds / 60 mirror
-  games) since the evaluator's day-one market bug was fixed (it credited a 6th
-  market neighbor that never pays income; `AiSimulationTest` documents the
-  recalibrated 55% bar). Diagnosed root cause for the follow-up: HARD's
-  retake-awareness penalty (`Evaluator`, `exposedBorderHexes`) vetoes expansion
-  whenever fresh borders would be threatened, so against an EASY swarm on open
-  maps HARD literally passes turns while being eaten — and a few HARD-vs-EASY
-  island games stall to the 400-round cap. Fixing the timidity (e.g. capping
-  the penalty relative to local force advantage) should restore the historical
-  ≥70% edge; rebalance all gates once when doing it.
+- **HARD's winrate vs EASY sits at ~65%** (measured over 30 seeds / 60 mirror
+  games; `AiSimulationTest`'s bar stays 55% to absorb reshuffles). The old
+  retake-penalty turtle is FIXED (2026-08): `Evaluator` now caps the
+  `exposedBorderHexes` penalty by the balance of fielded force, so a long
+  threatened front can no longer compound into vetoing every expanding move.
+  The residual gap to the historical ≥70% is a *different* stall, measured by
+  diag on the stalled games (7/60 hit the 400-round cap, clustered on island
+  maps): EASY hoards an unspendable treasury (8k–89k coins) behind saturated
+  defense while HARD's income knee (`incomeScore` flattens past net +10) plus
+  the bankruptcy guard pin it at ~zero treasury — max sustainable army, no way
+  to fund an invasion war chest (transports + escort + beachhead). Next lever:
+  let HARD value savings again when its frontier is unbreakable and a sea
+  crossing is the only path to enemy land (NavalPolicy's WAR_CHEST exists but
+  the evaluator's treasury cap at 200 fights it). Also removing the penalty
+  entirely was measured WORSE (63%, fog 8/10) — the cap, not deletion, is
+  right. Fog termination stays 9/10 (seed 5 = this island stall).
 
 - **Tree-clear animation** is a generic sink, not the doc's "tip-over" (needs X/Z
   rotation support in `Transforms.trs`, which is translate+Y-rot+scale only).

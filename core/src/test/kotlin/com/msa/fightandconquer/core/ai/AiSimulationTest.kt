@@ -108,12 +108,14 @@ class AiSimulationTest {
         // History: this gate was 70% over 10 seeds, calibrated against the evaluator's
         // day-one market bug (it scored a 6th market neighbor that never pays income —
         // see marketNeighborCap). Fixing that bug reshuffled every deterministic
-        // trajectory; HARD now measures ~60% over 30 seeds, on maps where the seat
-        // (capital position) decides many small-map mirrors outright. The bar is 55%
-        // to absorb reshuffles while still catching "HARD lost its edge" regressions.
-        // Follow-up (docs/roadmap.md): restore >= 70% by fixing HARD's diagnosed
-        // turtle behavior — its retake-awareness penalty vetoes expansion while an
-        // EASY swarm grows unchecked.
+        // trajectory and HARD measured ~60% over 30 seeds; the bar is 55% to absorb
+        // reshuffles while still catching "HARD lost its edge" regressions.
+        // 2026-08: the diagnosed retake-penalty turtle was fixed (Evaluator caps the
+        // exposure penalty by force balance) — HARD now measures 65% (39/60). The
+        // residual gap to the historical 70% is a DIFFERENT stall: on island maps
+        // EASY hoards an unspendable treasury behind saturated defense while HARD's
+        // income knee + bankruptcy guard pin it at zero net, unable to fund an
+        // invasion war chest (7/60 games hit the 400-round cap; see docs/roadmap.md).
         var hardWins = 0
         var games = 0
         for (seed in 1L..30L) {
@@ -149,13 +151,13 @@ class AiSimulationTest {
     @Test
     fun `fog games terminate with fog-honoring AIs and invariants intact`() {
         // No winrate gate under fog (balance may legitimately shift) — the fog-off
-        // 70% mirror gate stays the balance baseline. This guards termination only.
-        // Seeds are hand-picked to dodge the known HARD mutual-turtle stalemate
-        // (roadmap follow-up): ~1-2 of 10 fog seeds freeze in it regardless of rules,
-        // and any rule change reshuffles which ones (fertile-farm placement moved it
-        // from seed 8 to seed 2; the fishing overhaul moved it to seed 5 — 9/10
-        // terminate on the 2026-08-18 rule set). Terminating seeds guard "fog can't
-        // deadlock the AIs"; the turtle fix will retire this dodge.
+        // mirror gate stays the balance baseline. This guards termination only.
+        // Seeds are hand-picked to dodge a known stall: ~1 of 10 fog seeds freezes
+        // regardless of rules, and any rule change reshuffles which one (fertile-farm
+        // placement moved it from seed 8 to 2; the fishing overhaul to 5). 2026-08:
+        // the retake-penalty turtle fix did NOT retire this dodge — seed 5 still
+        // freezes (9/10 terminate), and the diag shows it is the island
+        // invasion-funding stall, not the retake turtle (see docs/roadmap.md).
         val fogRules = RuleConstants(fogOfWar = true)
         for (seed in listOf(1L, 2L, 3L, 4L)) {
             var state = newAiGame(seed, listOf(Difficulty.NORMAL, Difficulty.HARD), rules = fogRules)
