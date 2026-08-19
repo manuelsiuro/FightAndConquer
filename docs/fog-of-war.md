@@ -131,7 +131,7 @@ fog symmetrically, so mirror games stay fair. `MoveGenerator` is unchanged
 
 Balance notes: HARD's slicing signal (`enemyStarving`) degrades under fog —
 it can only reward cuts it can see. The fog-off winrate gate (HARD vs EASY,
-55% bar, measuring ~65% since the 2026-08 turtle fix — see roadmap.md)
+60% bar, measuring ~71% since the 2026-08 turtle + war-economy fixes)
 remains the balance baseline; fog-on games are gated on termination,
 determinism, and per-turn time, not winrate.
 

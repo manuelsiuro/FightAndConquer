@@ -300,8 +300,12 @@ by land): disembark → sail loaded transports toward *beatable* beaches
 (sea-BFS distance fields, never straight-line — local minima cause shore-
 hugging loops) → embark → buy transport → build port → war-chest fallback
 (save for a stronger invader, or span a 1-hex strait with a bridge instead of
-running a ferry line). Every destination is a pure function of the state so
-consecutive turns can't oscillate. Hard adds sea control: when enemy boats are
+running a ferry line) → war economy (when even a peasant marine is
+unsustainable and no loaded transport is at sea, demobilize the costliest
+surplus soldier — never the capital guard, never the strongest one, never
+while invaded — so refunds and freed upkeep finance the fleet instead of an
+idle garrison pinning net income at zero). Every destination is a pure
+function of the state so consecutive turns can't oscillate. Hard adds sea control: when enemy boats are
 visible, buy one warship, shadow the ferries, and let the greedy loop land the
 kill. Easy gets no ladder at all — aimless at sea by design.
 
@@ -322,12 +326,13 @@ is the last obstacle, which keeps pacted duels from deadlocking.
 - Determinism: bit-identical serialization; roundtrip stability.
 - Generator property test: 200 seeds × shapes × player counts must validate.
 - Engine facade: undo semantics, save/replay equivalence mid-turn and across turns.
-- AI simulations: full games terminate < 400 rounds with invariants; Hard ≥ 55 %
-  vs Easy over 30 mirror seeds (measures ~65 % since the 2026-08 turtle fix —
-  the evaluator caps its retake penalty by force balance; the residual gap to
-  the historical 70 % is the island invasion-funding stall, see roadmap.md);
-  Easy expands within 3 rounds; turns < 1 s on LARGE; AI games fully
-  deterministic.
+- AI simulations: full games terminate < 400 rounds with invariants; Hard ≥ 60 %
+  vs Easy over 30 mirror seeds (measures ~71 % since the 2026-08 turtle and
+  war-economy fixes — the evaluator caps its retake penalty by force balance,
+  and NavalPolicy demobilizes an idle army to fund the fleet; the remaining
+  amphibious-fortress stall is a known gap in roadmap.md); Easy expands within
+  3 rounds; turns < 1 s on LARGE; AI games fully deterministic; fog games
+  terminate across seeds 1–10 (the historical seed dodge is retired).
 - Expansion suites: `DepositEconomyTest` (per-building income rules, spread
   suppression, capture semantics), `DepositGenerationTest` (fairness property
   tests), `SpecialUnitTest` (aura/bypass/range/merge/upkeep), `DiplomacyTest`

@@ -166,22 +166,27 @@ precisely for this — tested), so tuning defaults never alters an in-progress g
 
 ## Known gaps / accepted trade-offs
 
-- **HARD's winrate vs EASY sits at ~65%** (measured over 30 seeds / 60 mirror
-  games; `AiSimulationTest`'s bar stays 55% to absorb reshuffles). The old
-  retake-penalty turtle is FIXED (2026-08): `Evaluator` now caps the
-  `exposedBorderHexes` penalty by the balance of fielded force, so a long
-  threatened front can no longer compound into vetoing every expanding move.
-  The residual gap to the historical ≥70% is a *different* stall, measured by
-  diag on the stalled games (7/60 hit the 400-round cap, clustered on island
-  maps): EASY hoards an unspendable treasury (8k–89k coins) behind saturated
-  defense while HARD's income knee (`incomeScore` flattens past net +10) plus
-  the bankruptcy guard pin it at ~zero treasury — max sustainable army, no way
-  to fund an invasion war chest (transports + escort + beachhead). Next lever:
-  let HARD value savings again when its frontier is unbreakable and a sea
-  crossing is the only path to enemy land (NavalPolicy's WAR_CHEST exists but
-  the evaluator's treasury cap at 200 fights it). Also removing the penalty
-  entirely was measured WORSE (63%, fog 8/10) — the cap, not deletion, is
-  right. Fog termination stays 9/10 (seed 5 = this island stall).
+- **HARD's winrate vs EASY is restored to ~71%** (43/60 mirror games, 2 stalls;
+  `AiSimulationTest`'s bar raised back to 60%). Two structural fixes (2026-08):
+  the retake-penalty turtle — `Evaluator` caps the `exposedBorderHexes` penalty
+  by the balance of fielded force (removing the penalty entirely measured
+  WORSE, 63%; the cap, not deletion, is right) — and the island
+  invasion-funding stall — `NavalPolicy` 2d demobilizes an idle land army
+  (never the capital guard, never the designated marine, never while a loaded
+  transport is at sea or invaders stand on the homeland) so the refunds and
+  freed upkeep finance the fleet that the income knee + bankruptcy guard used
+  to make unaffordable. Fog termination went from a hand-picked-seed dodge to
+  **all of seeds 1–10 terminating**; that dodge is retired.
+
+- **Amphibious fortress stall** (the one remaining termination dodge —
+  mixed-civ seed 2 in `AiSimulationTest`): on an ARCHIPELAGO map a dominant AI
+  (97 hexes, 28 units) cannot finish a saturated small island (26 hexes, every
+  beach defending at landing strength) because nothing in the ladder softens
+  the shore first — NORMAL/HARD never buy a warship for assault support, and
+  bombard (which kills the beach garrison without taking ground) is exactly
+  the designed counter. Next lever: a NavalPolicy step that escorts a blocked
+  loaded transport with a warship and bombards its target beach; rebalance the
+  termination gates once when doing it.
 
 - **Tree-clear animation** is a generic sink, not the doc's "tip-over" (needs X/Z
   rotation support in `Transforms.trs`, which is translate+Y-rot+scale only).

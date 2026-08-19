@@ -288,6 +288,41 @@ internal object NavalPolicy {
 
         if (!overseasMode(state, partners)) return null
 
+        // 2d. War economy: with no breakable land frontier the standing army is
+        //     pure upkeep — exactly what pins net income at zero so the fleet
+        //     can never be financed (the diagnosed island stall: HARD parked at
+        //     3 coins for 350 rounds while EASY hoards thousands, roadmap.md).
+        //     Demobilize the costliest surplus soldier — never the capital
+        //     guard, never while invaders stand on the homeland — until even a
+        //     peasant marine is sustainable again; the refund seeds the war
+        //     chest and the freed upkeep becomes the invasion's income.
+        //     Easy keeps its rot: recycling a stranded army is expert play.
+        //     Never while an invasion is COMMITTED (a loaded transport at sea:
+        //     funded fleets routinely dip broke right after buying their kit),
+        //     and never the strongest soldier — it is the designated marine the
+        //     next empty boat exists to carry.
+        if (!easy && bestTier == null && transports.none { it.cargo != null }) {
+            val visibleNow = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
+            val invaded = state.units.values.any {
+                it.owner != me && !Rules.isNaval(it.type) && it.hex in homeland &&
+                    (visibleNow == null || it.hex in visibleNow)
+            }
+            if (!invaded) {
+                val guard: Set<Hex> = state.player(me).capital
+                    ?.let { HexMath.range(it, 1).toSet() } ?: emptySet()
+                val soldiers = myUnits.filter { it.type == UnitType.SOLDIER && it.hex !in guard }
+                val marine = soldiers.maxWithOrNull(
+                    compareBy({ Rules.strengthOf(state, it) }, { -it.id.value }),
+                )
+                val surplus = soldiers
+                    .filter { it.id != marine?.id }
+                    .maxWithOrNull(
+                        compareBy({ Rules.unitUpkeepOf(state, it) }, { -it.id.value }),
+                    )
+                if (surplus != null) return GameAction.DisbandUnit(surplus.id)
+            }
+        }
+
         // 3c. Empty boats steer to wherever the next passenger actually stands
         //     (a knight garrisoning a conquered island is fetched, not waited
         //     for), else home. The goal is the passenger's whole walking range,
