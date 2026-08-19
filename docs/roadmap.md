@@ -178,15 +178,23 @@ precisely for this — tested), so tuning defaults never alters an in-progress g
   to make unaffordable. Fog termination went from a hand-picked-seed dodge to
   **all of seeds 1–10 terminating**; that dodge is retired.
 
-- **Amphibious fortress stall** (the one remaining termination dodge —
-  mixed-civ seed 2 in `AiSimulationTest`): on an ARCHIPELAGO map a dominant AI
-  (97 hexes, 28 units) cannot finish a saturated small island (26 hexes, every
-  beach defending at landing strength) because nothing in the ladder softens
-  the shore first — NORMAL/HARD never buy a warship for assault support, and
-  bombard (which kills the beach garrison without taking ground) is exactly
-  the designed counter. Next lever: a NavalPolicy step that escorts a blocked
-  loaded transport with a warship and bombards its target beach; rebalance the
-  termination gates once when doing it.
+- **The standoff bleed-out is fixed too** — every termination dodge is now
+  retired (`AiSimulationTest` runs fog seeds 1–10 and mixed-civ seeds 1–4;
+  1–6 measured clean). The last stall (mixed-civ seed 2) was diagnosed by
+  probe, and it was NOT an amphibious fortress: the sea stayed one navigable
+  body with dozens of open beaches. It was a capital-pinned bridgehead
+  standoff — each side's knights could capture defense-0 farms but the move
+  dropped their own capital's cover, so the evaluator's −30 capital-guard
+  term vetoed every advance; meanwhile the frozen 30-unit garrison held net
+  income at −1, draining the treasury for ~250 rounds into a bankruptcy wipe,
+  rebuild, repeat — and the WAR_CHEST force-attack (which DID fire once at
+  treasury 308) could never refill. The fix extends NavalPolicy's war-economy
+  step: in overseas mode a net-non-positive army is trimmed until income runs
+  a surplus, so the surplus refills the war chest and 2b's force-attack breaks
+  the standoff instead of the bank. Residual known behavior: single-marine
+  landings are still a meat grinder against a defended island (each wave
+  ships one soldier); a coordinated multi-boat wave or warship shore support
+  would make island wars decisive faster — quality-of-play, not liveness.
 
 - **Tree-clear animation** is a generic sink, not the doc's "tip-over" (needs X/Z
   rotation support in `Transforms.trs`, which is translate+Y-rot+scale only).

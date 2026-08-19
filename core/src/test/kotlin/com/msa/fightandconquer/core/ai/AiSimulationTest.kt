@@ -214,13 +214,12 @@ class AiSimulationTest {
     fun `mixed-civ AI games terminate with a winner and invariants intact`() {
         // No winrate bands for civs (deterministic gates reshuffle chaotically —
         // balance is calibrated once on the final rule set): termination + invariants only.
-        // Seed 2 is dodged (5/6 of seeds 1-6 terminate on the 2026-08 rule set): an
-        // ARCHIPELAGO game where the dominant AI cannot crack a saturated small
-        // island — every beach defends at landing strength and NORMAL never buys
-        // bombard support. The amphibious-assault follow-up (docs/roadmap.md)
-        // will retire this dodge.
+        // 2026-08: seed 2 (a capital-pinned bridgehead standoff that bled its army
+        // into a bankruptcy loop) terminates since the war-economy step trims a
+        // net-negative standoff garrison — seeds 1-6 all measured clean; the gate
+        // runs 1-4 to keep suite time bounded.
         val civs = listOf(Civilization.VIKINGS, Civilization.SULTANATE, Civilization.SHOGUNATE)
-        for (seed in listOf(1L, 3L, 4L)) {
+        for (seed in 1L..4L) {
             var state = newAiGame(seed, List(3) { Difficulty.NORMAL }, civs = civs)
             val ais = List(3) { AiPlayer(Difficulty.NORMAL) }
             while (state.phase is GamePhase.Playing && state.turnNumber < 400) {

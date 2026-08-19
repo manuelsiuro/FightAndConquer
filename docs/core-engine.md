@@ -301,11 +301,13 @@ by land): disembark → sail loaded transports toward *beatable* beaches
 hugging loops) → embark → buy transport → build port → war-chest fallback
 (save for a stronger invader, or span a 1-hex strait with a bridge instead of
 running a ferry line) → war economy (when even a peasant marine is
-unsustainable and no loaded transport is at sea, demobilize the costliest
-surplus soldier — never the capital guard, never the strongest one, never
-while invaded — so refunds and freed upkeep finance the fleet instead of an
-idle garrison pinning net income at zero). Every destination is a pure
-function of the state so consecutive turns can't oscillate. Hard adds sea control: when enemy boats are
+unsustainable OR the standing army holds net income at or below zero, and no
+loaded transport is at sea, demobilize the costliest surplus soldier — never
+the capital guard, never the strongest one, never while invaded — so refunds
+and freed upkeep finance the fleet, and a standoff garrison is trimmed until
+income runs the surplus that refills the war chest instead of bleeding into
+bankruptcy). Every destination is a pure function of the state so consecutive
+turns can't oscillate. Hard adds sea control: when enemy boats are
 visible, buy one warship, shadow the ferries, and let the greedy loop land the
 kill. Easy gets no ladder at all — aimless at sea by design.
 

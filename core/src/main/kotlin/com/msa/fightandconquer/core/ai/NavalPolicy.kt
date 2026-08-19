@@ -301,7 +301,16 @@ internal object NavalPolicy {
         //     funded fleets routinely dip broke right after buying their kit),
         //     and never the strongest soldier — it is the designated marine the
         //     next empty boat exists to carry.
-        if (!easy && bestTier == null && transports.none { it.cargo != null }) {
+        //     Second trigger, same cure — a STANDOFF army at net <= 0: in
+        //     overseas mode the land army cannot advance (that is what overseas
+        //     mode means), so a garrison eating the whole income is pure waste
+        //     that first drains the treasury for hundreds of rounds and then
+        //     dies whole to bankruptcy (the civ-seed-2 cycle: freeze at net -1,
+        //     collapse at round ~340, rebuild, repeat). The greedy loop never
+        //     proposes a disband, so the policy trims until income runs a
+        //     surplus — the surplus refills the WAR_CHEST and 2b's force-attack
+        //     breaks the standoff instead of the bank.
+        if (!easy && (bestTier == null || net <= 0) && transports.none { it.cargo != null }) {
             val visibleNow = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
             val invaded = state.units.values.any {
                 it.owner != me && !Rules.isNaval(it.type) && it.hex in homeland &&
