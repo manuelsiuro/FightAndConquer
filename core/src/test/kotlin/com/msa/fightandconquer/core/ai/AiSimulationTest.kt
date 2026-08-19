@@ -110,11 +110,12 @@ class AiSimulationTest {
         // see marketNeighborCap). Fixing that bug reshuffled every deterministic
         // trajectory and HARD measured ~60% over 30 seeds; the bar was dropped to
         // 55% to absorb reshuffles while still catching lost-edge regressions.
-        // 2026-08: two structural fixes restored the historical edge — the Evaluator
-        // caps its retake penalty by force balance (the turtle), and NavalPolicy 2d
-        // demobilizes an idle army to fund the fleet (the island invasion-funding
-        // stall). HARD measures 71% (43/60, 2 stalls); the bar is 60% to keep a
-        // reshuffle margin while catching real regressions.
+        // 2026-08: three structural fix rounds took HARD from ~60% to 81% (49/60,
+        // ZERO 400-round stalls): the Evaluator caps its retake penalty by force
+        // balance (the turtle), NavalPolicy demobilizes idle armies to fund the
+        // fleet (the invasion-funding stall), and the decisive-marine ladder ships
+        // only landing-grade marines, escalating by wealth above that floor (the
+        // meat-grinder tail). The bar stays 60% for reshuffle margin.
         var hardWins = 0
         var games = 0
         for (seed in 1L..30L) {

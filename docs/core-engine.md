@@ -298,16 +298,25 @@ pump). Shoal positions are chart knowledge, occupancy is fog-honest. Overseas
 mode (enemies exist but none reachable
 by land): disembark → sail loaded transports toward *beatable* beaches
 (sea-BFS distance fields, never straight-line — local minima cause shore-
-hugging loops) → embark → buy transport → build port → war-chest fallback
-(save for a stronger invader, or span a 1-hex strait with a bridge instead of
-running a ferry line) → war economy (when even a peasant marine is
-unsustainable OR the standing army holds net income at or below zero, and no
-loaded transport is at sea, demobilize the costliest surplus soldier — never
-the capital guard, never the strongest one, never while invaded — so refunds
-and freed upkeep finance the fleet, and a standoff garrison is trimmed until
-income runs the surplus that refills the war chest instead of bleeding into
-bankruptcy). Every destination is a pure function of the state so consecutive
-turns can't oscillate. Hard adds sea control: when enemy boats are
+hugging loops) → march + embark the marine (a **marine floor** — the tier a
+landing needs to take and hold a beach: max(enemy's best visible soldier,
+weakest visible enemy coastal defense + 1), wealth-ladder fallback when fog
+has shown nothing; below the floor the ladder SAVES instead of dribbling
+doomed waves, above it ships the best the economy sustains; a marine beyond
+one action from the dock is marched coastward, and a delivered marine on an
+island still holding enemy ground is never re-boarded) → buy transport (only
+when the whole kit, hull + marine, is fundable) → build port (a rich
+blockaded AI demolishes an income building for room — entombed islands froze
+otherwise) → war-chest fallback (save for a stronger invader, or span a
+1-hex strait with a bridge instead of running a ferry line) → war economy
+(when even a peasant marine is unsustainable OR the standing army holds net
+income at or below zero, and no loaded transport is at sea, demobilize the
+costliest surplus soldier — never the capital guard, never the strongest
+one, never while invaded — or scuttle an idle hull no shipping-grade marine
+is waiting for; refunds and freed upkeep finance the fleet, and a standoff
+garrison is trimmed until income runs the surplus that refills the war chest
+instead of bleeding into bankruptcy). Every destination is a pure function
+of the state so consecutive turns can't oscillate. Hard adds sea control: when enemy boats are
 visible, buy one warship, shadow the ferries, and let the greedy loop land the
 kill. Easy gets no ladder at all — aimless at sea by design.
 
@@ -329,12 +338,12 @@ is the last obstacle, which keeps pacted duels from deadlocking.
 - Generator property test: 200 seeds × shapes × player counts must validate.
 - Engine facade: undo semantics, save/replay equivalence mid-turn and across turns.
 - AI simulations: full games terminate < 400 rounds with invariants; Hard ≥ 60 %
-  vs Easy over 30 mirror seeds (measures ~71 % since the 2026-08 turtle and
-  war-economy fixes — the evaluator caps its retake penalty by force balance,
-  and NavalPolicy demobilizes an idle army to fund the fleet; the remaining
-  amphibious-fortress stall is a known gap in roadmap.md); Easy expands within
-  3 rounds; turns < 1 s on LARGE; AI games fully deterministic; fog games
-  terminate across seeds 1–10 (the historical seed dodge is retired).
+  vs Easy over 30 mirror seeds (measures ~81 % with zero 400-round stalls
+  since the 2026-08 fixes — retake-penalty cap, war-economy demobilization,
+  and the decisive-marine ladder; see roadmap.md's landed entry); Easy expands
+  within 3 rounds; turns < 1 s on LARGE; AI games fully deterministic; fog
+  games terminate across seeds 1–10 and mixed-civ across 1–4 (every
+  historical seed dodge is retired).
 - Expansion suites: `DepositEconomyTest` (per-building income rules, spread
   suppression, capture semantics), `DepositGenerationTest` (fairness property
   tests), `SpecialUnitTest` (aura/bypass/range/merge/upkeep), `DiplomacyTest`

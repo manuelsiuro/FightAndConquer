@@ -113,6 +113,53 @@ internal object NavalPolicy {
             sustainable(rules.unitCost[t - 1], rules.unitUpkeep[t - 1])
         }
 
+        // The tier a landing needs to HOLD its beach: a defender retakes only
+        // with attack STRICTLY above the beachhead's defense, so a marine
+        // matching the enemy's best soldier cannot be thrown back. Shipping
+        // anything weaker is the meat-grinder tail — one cheap wave every few
+        // rounds, each retaken on the enemy's turn, forever. The ladder SAVES
+        // for this tier instead of dribbling. Fog-honest (visible units only)
+        // — and when NO enemy soldier has ever been seen, fall back to the
+        // wealth ladder ([bestTier]) rather than assuming peasants: a blind
+        // "default to tier 1" locks both fog AIs into unlandable t1 waves
+        // forever (neither ever sees the other, so neither ever escalates —
+        // the measured fog seeds 2/7 freeze).
+        val marineTier: Int = run {
+            val visibleFor = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
+            val enemyBest = state.units.values
+                .filter {
+                    it.owner != me && it.owner !in partners && !Rules.isNaval(it.type) &&
+                        (visibleFor == null || it.hex in visibleFor)
+                }
+                .maxOfOrNull { Rules.strengthOf(state, it) }
+            // The weakest landable beach: a coast armored wall-to-wall by
+            // overlapping (strong) towers demands more than the enemy's UNITS
+            // suggest — the fog-8 freeze shipped hold-tier marines against a
+            // fortified shore forever. Where the coast has gaps this stays at
+            // the hold tier; where it is sealed, it escalates to what actually
+            // gets ashore.
+            var minCoast = Int.MAX_VALUE
+            for ((hex, tile) in state.tiles) {
+                if (tile.terrain != Terrain.LAND || tile.owner == null ||
+                    tile.owner == me || tile.owner in partners
+                ) {
+                    continue
+                }
+                if (visibleFor != null && hex !in visibleFor) continue
+                if (HexMath.neighbors(hex).none { state.tiles[it]?.terrain == Terrain.SEA }) continue
+                val d = Rules.defenseOf(state, hex)
+                if (d < minCoast) minCoast = d
+            }
+            if (enemyBest == null && minCoast == Int.MAX_VALUE) {
+                // Blind (fog, nothing scouted): escalate by wealth, not by a
+                // t1 default that never lands and never learns.
+                bestTier ?: 1
+            } else {
+                val landTier = if (minCoast == Int.MAX_VALUE) 1 else minCoast + 1
+                minOf(rules.maxTier, maxOf(1, enemyBest ?: 0, landTier))
+            }
+        }
+
         // 2b. War-chest assault: a swollen treasury means the greedy loop has
         //     refused every purchase for many turns (its diminishing-income curve
         //     vetoes high-upkeep units) while a defended front stands. Spend the
@@ -329,6 +376,37 @@ internal object NavalPolicy {
                         compareBy({ Rules.unitUpkeepOf(state, it) }, { -it.id.value }),
                     )
                 if (surplus != null) return GameAction.DisbandUnit(surplus.id)
+                // No trimmable soldier: the bleed can also be an IDLE FLEET — a
+                // spent invasion's leftover ferries out-eat a small island's
+                // whole income (upkeep 4 vs income 3 deadlocked a repelled
+                // invader at net -1 forever). Scuttle one empty hull, unless a
+                // shipping-grade marine is waiting for exactly that boat — ANY
+                // soldier counts here, capital guard included (on a tiny island
+                // the whole army lives in the ring, and excluding it churned a
+                // buy-boat/scuttle-boat loop forever).
+                val marineWaiting = myUnits.any {
+                    it.type == UnitType.SOLDIER && Rules.strengthOf(state, it) >= marineTier
+                }
+                if (!marineWaiting) {
+                    transports.filter { it.cargo == null }
+                        .minByOrNull { it.id.value }
+                        ?.let { return GameAction.DisbandUnit(it.id) }
+                }
+            }
+        }
+
+        // A delivered marine is the LAND war's, not the ferry's: re-boarding a
+        // soldier from an island that still holds enemy ground shuttles the
+        // beachhead back and forth forever (measured in salt-and-sail: two
+        // boats embarked and re-landed the same marines every round while the
+        // enemy capital sat one capture away). Fetching from a CLEARED island
+        // (garrison duty over) stays legitimate.
+        fun onActiveFront(unit: GameUnit): Boolean {
+            if (unit.hex in homeland) return false
+            val island = HexMath.floodFill(unit.hex) { state.tiles[it]?.terrain == Terrain.LAND }
+            return island.any {
+                val owner = state.tiles.getValue(it).owner
+                owner != null && owner != me && owner !in partners
             }
         }
 
@@ -341,8 +419,8 @@ internal object NavalPolicy {
         //     range, one stranded inland knight freezes the entire fetch loop.
         val passengers = myUnits
             .filter {
-                !it.spent && !Rules.isNaval(it.type) &&
-                    (bestTier == null || Rules.strengthOf(state, it) >= bestTier)
+                !it.spent && !Rules.isNaval(it.type) && !onActiveFront(it) &&
+                    Rules.strengthOf(state, it) >= marineTier
             }
             .flatMap { Rules.reachable(state, it.id).moveTargets + it.hex }
         for (boat in transports) {
@@ -356,7 +434,7 @@ internal object NavalPolicy {
         //    a fully built-up island leaves no ground to muster on (then the
         //    marine we have beats the marine we can't recruit).
         val boarder = myUnits
-            .filter { !it.spent && !Rules.isNaval(it.type) }
+            .filter { !it.spent && !Rules.isNaval(it.type) && !onActiveFront(it) }
             .sortedWith(
                 compareByDescending<GameUnit> { Rules.strengthOf(state, it) }
                     .thenBy { it.id.value },
@@ -367,28 +445,77 @@ internal object NavalPolicy {
             }
         if (boarder != null) {
             val (unit, target) = boarder
-            if (bestTier == null || musterSpot == null ||
-                Rules.strengthOf(state, unit) >= bestTier
-            ) {
+            // Ship a below-mark marine only when a proper one is unobtainable
+            // BY ANY MEANS — no ground to muster AND no budget for the mark.
+            // (With budget, 4d demolishes for room instead; boarding the weak
+            // unit first loads a doomed cargo that can neither strike nor
+            // unload on a full island, jamming the whole ladder — measured in
+            // the salt-and-sail paralysis at 4,687 hoarded coins.)
+            val desperate = musterSpot == null && (bestTier == null || bestTier < marineTier)
+            if (desperate || Rules.strengthOf(state, unit) >= marineTier) {
                 return GameAction.MoveUnit(unit.id, target)
             }
         }
 
-        // 4b. Raise the marine the beach actually needs. Guarded so a stranded
-        //     strong unit (boat en route home) never triggers duplicate buys.
-        val emptyBoatWaiting = transports.any { it.cargo == null }
-        val hasStrongFresh = bestTier != null && myUnits.any {
-            !it.spent && !Rules.isNaval(it.type) && Rules.strengthOf(state, it) >= bestTier
+        // 4a. March the marine to the dock. On a cramped island the waiting
+        //     boat can lie beyond one action's reach, and the greedy loop has
+        //     no reason to walk anyone coastward — four shipping-grade
+        //     soldiers entombed mid-island froze salt-and-sail while the hull
+        //     waited one hex away. Strictly-closer only, so no pacing loops.
+        val emptyBoats = transports.filter { it.cargo == null }
+        if (boarder == null && emptyBoats.isNotEmpty()) {
+            fun toNearestBoat(hex: Hex): Int = emptyBoats.minOf { HexMath.distance(hex, it.hex) }
+            val marcher = myUnits
+                .filter {
+                    !it.spent && !Rules.isNaval(it.type) && !onActiveFront(it) &&
+                        Rules.strengthOf(state, it) >= marineTier
+                }
+                .sortedWith(
+                    compareByDescending<GameUnit> { Rules.strengthOf(state, it) }
+                        .thenBy { it.id.value },
+                )
+                .firstNotNullOfOrNull { unit ->
+                    val step = Rules.reachable(state, unit.id).moveTargets
+                        .filter { toNearestBoat(it) < toNearestBoat(unit.hex) }
+                        .minWithOrNull(compareBy({ toNearestBoat(it) }, { it.packed }))
+                    step?.let { unit to it }
+                }
+            marcher?.let { (unit, step) -> return GameAction.MoveUnit(unit.id, step) }
         }
-        if (emptyBoatWaiting && bestTier != null && !hasStrongFresh && musterSpot != null) {
+
+        // 4b. Raise the marine. [marineTier] is a FLOOR, not a target: below it
+        //     a wave is doomed (blocked at the beach or retaken next turn), so
+        //     until the floor is sustainable, SAVE — that discipline is what
+        //     ended the meat-grinder tail. Above it, ship the best the economy
+        //     carries ([bestTier]): a rich invader ending the war in two waves
+        //     beats an adequate one grinding to the mission clock.
+        //     Guarded so a stranded strong unit never triggers duplicate buys.
+        val emptyBoatWaiting = transports.any { it.cargo == null }
+        val hasStrongFresh = myUnits.any {
+            !it.spent && !Rules.isNaval(it.type) && Rules.strengthOf(state, it) >= marineTier
+        }
+        if (emptyBoatWaiting && bestTier != null && bestTier >= marineTier &&
+            !hasStrongFresh && musterSpot != null
+        ) {
             return GameAction.BuyUnit(bestTier, musterSpot)
         }
 
         // 5. Launch a fresh transport once every boat is loaded (stuck fleets off a
-        //    defended coast must not block the next, stronger wave).
+        //    defended coast must not block the next, stronger wave) — and only
+        //    when the WHOLE kit is fundable, hull AND marine: a hull launched
+        //    before its passenger is affordable just eats the income the marine
+        //    needed (measured churn: launch at 15, dip to net 0, scuttle,
+        //    repeat forever while the fishery never got its 14 coins).
+        val marineFresh = myUnits.any {
+            it.type == UnitType.SOLDIER && Rules.strengthOf(state, it) >= marineTier
+        }
+        val kitCost = eff.transportCost +
+            if (marineFresh) 0 else rules.unitCost[marineTier - 1]
+        val kitUpkeep = eff.transportUpkeep +
+            if (marineFresh) 0 else rules.unitUpkeep[marineTier - 1]
         if (transports.size < MAX_TRANSPORTS &&
             transports.none { it.cargo == null } &&
-            sustainable(eff.transportCost, eff.transportUpkeep)
+            sustainable(kitCost, kitUpkeep)
         ) {
             launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.TRANSPORT) }
         }
@@ -399,8 +526,53 @@ internal object NavalPolicy {
             portSpot(state, starvingOnly = false)?.let {
                 return GameAction.BuyBuilding(com.msa.fightandconquer.core.model.BuildingType.PORT, it)
             }
+            // 6b. ENTOMBED island: every hex is built over — there is no room
+            //     for the port (or the marine) that the whole ladder hangs on,
+            //     so a rich, blockaded AI passes turns forever (measured: the
+            //     HARD duel with 31k coins and open enemy beaches). Un-build:
+            //     raze the cheapest income building on a coastal hex to make
+            //     room. Wealth exists to buy capability.
+            if (!easy && treasury >= eff.portCost * 2) {
+                demolishForRoom(state, coastal = true)?.let { return it }
+            }
+        }
+        // 4d (late echo of 4b). No muster ground for a shipping-grade marine
+        //     anywhere: same entombment, inland flavor — clear one hex.
+        if (!easy && emptyBoatWaiting && !hasStrongFresh && musterSpot == null &&
+            bestTier != null && bestTier >= marineTier &&
+            treasury >= rules.unitCost[marineTier - 1] * 2
+        ) {
+            demolishForRoom(state, coastal = false)?.let { return it }
         }
         return null
+    }
+
+    /** Income buildings the ladder may raze to reclaim ground (never defenses/ports/bridges), cheapest first. */
+    private val expendable = listOf(
+        Building.FARM, Building.WATCHTOWER, Building.LUMBER_CAMP,
+        Building.MARKET, Building.MINE, Building.FISHERY,
+    )
+
+    /**
+     * An own, unit-free income building to raze so the invasion ladder gets
+     * ground to build or muster on — coastal when the port needs it. Cheapest
+     * class first (FARM before MINE), then lowest packed for determinism.
+     */
+    private fun demolishForRoom(state: GameState, coastal: Boolean): GameAction? {
+        val me = state.currentPlayer
+        return state.tiles.entries
+            .filter { (hex, tile) ->
+                tile.owner == me && tile.terrain == Terrain.LAND &&
+                    tile.unit == null && tile.building in expendable &&
+                    (!coastal || HexMath.neighbors(hex).any { state.tiles[it]?.terrain == Terrain.SEA })
+            }
+            .minWithOrNull(
+                compareBy(
+                    { (_, tile) -> expendable.indexOf(tile.building) },
+                    { (hex, _) -> hex.packed },
+                ),
+            )
+            ?.let { GameAction.DemolishBuilding(it.key) }
     }
 
     /**

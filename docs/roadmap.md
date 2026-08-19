@@ -196,23 +196,24 @@ precisely for this — tested), so tuning defaults never alters an in-progress g
   ships one soldier); a coordinated multi-boat wave or warship shore support
   would make island wars decisive faster — quality-of-play, not liveness.
 
-  A first decisiveness attempt was measured and **deliberately reverted**
-  (2026-08); its findings, for the next attempt: baseline finish rounds are
-  CONTINENT median 14 vs ISLANDS/ARCHIPELAGO median 55–69 with 400-cap tails.
-  A "ship only marines that can hold the beach" rule (tier >= enemy's best
-  soldier) measured HARD-vs-EASY at **83%** and collapsed the mixed-civ tails
-  (max 198 → 74 rounds) but reshuffled fog termination to 8/10 — regressing
-  the zero-dodge suite, so it was dropped. Escalating to the landing tier
-  (enemy best + 1) plus forging marines by merging idle same-tier garrison
-  (needed on fully built-up islands where no muster hex exists — a real
-  blocker found by probe) measured 76% / fog 9/10. The irreducible core each
-  variant exposed: when BOTH sides reach max tier, a ringed coast defends at
-  maxTier and no landing is legal at all — the true saturation fortress,
-  breakable only by shore bombardment (warship kills the beach garrison
-  first) or starving the island out. Any retry should implement assault
-  support FIRST, then run the full sweep (winrate seeds 1–30 × 2 seats, fog
-  1–10, mixed-civ 1–6) and accept only a variant that keeps every
-  termination gate dodge-free.
+  **Landed** (2026-08, second attempt — the first was reverted for regressing
+  the dodge-free suite): the decisive-marine ladder. `NavalPolicy` now derives
+  a **marine floor** — the tier a landing needs to take AND hold a beach:
+  max(enemy's best visible soldier, weakest visible enemy coastal defense + 1),
+  falling back to the wealth ladder when fog has shown nothing (a blind
+  tier-1 default froze both fog AIs forever). Below the floor it SAVES rather
+  than dribbling doomed waves; above it, it ships the best the economy
+  sustains. Supporting steps found by replay probes: the launcher funds the
+  whole kit (hull + marine) or waits; the trim can scuttle an idle hull whose
+  upkeep out-eats a small island (but never the hull a shipping-grade marine
+  is waiting for); a rich blockaded AI demolishes an income building to make
+  room for the port or the muster hex (entombed-island freezes); a marine
+  beyond one action from the dock is marched coastward (the ladder's last
+  mile); and a delivered marine on an island still holding enemy ground is
+  the land war's — re-boarding it shuttled beachheads forever. Measured:
+  HARD-vs-EASY **81% (49/60) with zero 400-round stalls** (from ~60% and
+  regular stalls), island finish tails max ~104 rounds (was 400-cap), fog
+  10/10, mixed-civ all ≤ 108, every campaign level green.
 
 - **Tree-clear animation** is a generic sink, not the doc's "tip-over" (needs X/Z
   rotation support in `Transforms.trs`, which is translate+Y-rot+scale only).
