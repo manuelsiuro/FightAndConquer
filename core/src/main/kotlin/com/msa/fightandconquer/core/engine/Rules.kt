@@ -30,12 +30,6 @@ data class ReachResult(
 /** Pure rule queries shared by Legality, the Reducer, the AI, and the UI. */
 object Rules {
 
-    /** The connected same-owner region containing [start]; empty if the hex is neutral/absent. */
-    fun region(state: GameState, start: Hex): Set<Hex> {
-        val owner = state.tiles[start]?.owner ?: return emptySet()
-        return HexMath.floodFill(start) { state.tiles[it]?.owner == owner }
-    }
-
     /** Boats: units that live on SEA hexes and move by sea BFS instead of region reach. */
     fun isNaval(type: UnitType): Boolean =
         type == UnitType.TRANSPORT || type == UnitType.WARSHIP || type == UnitType.FISHING_BOAT
