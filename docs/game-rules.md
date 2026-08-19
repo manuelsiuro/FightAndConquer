@@ -148,7 +148,8 @@ and elimination leave bridges standing as neutral spans.
 **Fishing.** Fish shoals are worked two ways, stacking freely. A **Fishery**
 (own land, shoal within `fisheryRange` = 2) earns +3 per shoal in range, cap 3 —
 rival fisheries may share a shoal. A **fishing dory** (bought at a Port like any
-boat; strength 0, never attacks) earns +6/turn whenever it *starts the turn*
+boat — it rides `navalEnabled` alone, not `specialUnitsEnabled`; strength 0,
+never attacks) earns +6/turn whenever it *starts the turn*
 parked on a shoal hex — the game's only income-producing unit. Hex occupancy
 makes shoals exclusive for boats: one dory per shoal, and an enemy hull parked
 there blocks yours. Anywhere else the dory is pure upkeep; anything sinks it,

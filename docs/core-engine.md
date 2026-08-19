@@ -283,12 +283,19 @@ deterministic, stateless threshold ladder consulted before the greedy loop
 (pattern copied from `DiplomacyPolicy`, and for the same reason: one-ply greedy
 never *starts* a multi-turn plan — a transport's upkeep repels the evaluator
 before any invasion pays off). A third ladder, `ai/FishingPolicy.kt`, follows
-NavalPolicy (war wins treasury contention): buy dories while open shoals
-outnumber the fleet (cap 3, income-funded only), sail each onto the nearest
-open shoal (`ai/Sailing.kt`, the shared steering primitives, with `ontoGoals`
-seeding the distance field AT sea goals), park forever, disband when visible
-squatters leave nothing to work; shoal positions are chart knowledge, occupancy
-is fog-honest. Overseas mode (enemies exist but none reachable
+NavalPolicy (war wins treasury contention) and gates on `navalEnabled` alone —
+dories are boats, not "specials", mirroring `checkBuyNaval`: buy a dory while
+open shoals outnumber the hulls still *sailing* for one (parked hulls already
+subtract themselves via occupancy — counting the whole fleet stranded a shoal
+per parked boat under staggered buying; cap 3, income-funded only), sail each
+onto the nearest open shoal (`ai/Sailing.kt`, the shared steering primitives,
+with `ontoGoals` seeding the distance field AT sea goals), park forever, and
+disband only a provably *surplus* hull — every shoal on the chart worked by an
+own parked dory, a fog-free fact. A visibly squatted or ferry-transited shoal
+is waited on, never written off: under fog the squatter fades from view when
+the hull dies and a stateless policy re-buys forever (a disband/re-buy money
+pump). Shoal positions are chart knowledge, occupancy is fog-honest. Overseas
+mode (enemies exist but none reachable
 by land): disembark → sail loaded transports toward *beatable* beaches
 (sea-BFS distance fields, never straight-line — local minima cause shore-
 hugging loops) → embark → buy transport → build port → war-chest fallback
