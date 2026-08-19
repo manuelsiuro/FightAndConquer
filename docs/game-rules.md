@@ -27,7 +27,7 @@ per game without breaking old saves.
 | Gold vein (deposit) | 1 per player (band 3–6 from capital) + 1 per 150 land hexes in the middle | Permanent terrain; the only place a Mine can stand |
 | Fertile ground (deposit) | +1 hex income; +2 extra for a Farm on it | 2 per player (band 2–5) + 3 % of neutral land; anchors a Farm without a chain; no Lumber camp allowed on it |
 | Mine | cost 20, +6 income | Gold-vein hexes only; destroyed on capture (vein survives) |
-| Market | cost 25, +1 per adjacent owned producing hex (cap 5) | Standard placement |
+| Market | cost 25, +1 per adjacent owned non-starving, flora-free hex (cap 5) | Standard placement; an owned bridge hex counts even though it produces nothing itself |
 | Lumber camp | cost 15, +2 per adjacent own tree (cap 4) | Adjacent trees never spread ("managed forest"); never on fertile ground |
 | Watchtower | cost 8, defense 0, vision radius 6 | Fog-of-war games only (hard legality gate) |
 | Archer | cost 14, upkeep 4, strength 1 | Defense aura 2 over its hex + adjacent own hexes; never merges |

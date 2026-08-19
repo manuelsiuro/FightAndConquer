@@ -1310,10 +1310,14 @@ class BoardScene(
         val covered = HashMap<Hex, Int>()
         for ((hex, tile) in state.tiles) {
             val owner = tile.owner ?: continue
+            // The OWNER's effective rules: rings must show the defense the engine
+            // will actually charge (identity today — no civ delta touches defense
+            // values — but resolved per owner so a future delta can't skew them).
+            val ownerRules = com.msa.fightandconquer.core.engine.Rules.effectiveRules(state, owner)
             val defense = when (tile.building) {
-                Building.TOWER -> state.config.rules.towerDefense
-                Building.STRONG_TOWER -> state.config.rules.strongTowerDefense
-                Building.CAPITAL -> state.config.rules.capitalDefense
+                Building.TOWER -> ownerRules.towerDefense
+                Building.STRONG_TOWER -> ownerRules.strongTowerDefense
+                Building.CAPITAL -> ownerRules.capitalDefense
                 else -> continue
             }
             // A source inside the fog contributes nothing — not even to a
@@ -1329,7 +1333,8 @@ class BoardScene(
             // Same for archers — their ring moving at the fog rim would track
             // an unseen unit's manoeuvres live.
             if (FogRules.auraSourceHidden(fogVisible, unit.hex)) continue
-            val aura = state.config.rules.archerAuraDefense
+            val aura = com.msa.fightandconquer.core.engine.Rules
+                .effectiveRules(state, unit.owner).archerAuraDefense
             covered.merge(unit.hex, aura, ::maxOf)
             com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(unit.hex) { n ->
                 if (state.tiles[n]?.owner == unit.owner) covered.merge(n, aura, ::maxOf)

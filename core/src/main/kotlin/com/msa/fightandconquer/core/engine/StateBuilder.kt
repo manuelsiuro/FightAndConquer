@@ -105,9 +105,12 @@ internal class StateBuilder(private val base: GameState) {
         val tile = tiles.getValue(hex)
         return when (tile.flora) {
             is Flora.Tree -> {
+                // Effective rules for symmetry with every other payout (identity
+                // today: no civ delta touches treeClearBonus).
+                val bonus = effectiveRules(beneficiary).treeClearBonus
                 updateTile(hex) { it.copy(flora = null) }
-                updatePlayer(beneficiary) { it.copy(treasury = it.treasury + rules.treeClearBonus) }
-                events.add(GameEvent.TreeCleared(hex, rules.treeClearBonus))
+                updatePlayer(beneficiary) { it.copy(treasury = it.treasury + bonus) }
+                events.add(GameEvent.TreeCleared(hex, bonus))
                 true
             }
             is Flora.Gravestone -> {

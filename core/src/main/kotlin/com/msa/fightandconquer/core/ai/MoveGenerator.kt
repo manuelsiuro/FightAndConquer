@@ -175,7 +175,7 @@ object MoveGenerator {
                     .filter { (hex, tile) ->
                         tile.owner == me && !tile.starving && tile.building == null &&
                             tile.unit == null && tile.flora == null &&
-                            Rules.defenseOf(state, hex) < rules.towerDefense &&
+                            Rules.defenseOf(state, hex) < eff.towerDefense &&
                             HexMath.neighbors(hex).any { n ->
                                 val t = state.tiles[n]
                                 t?.owner != null && t.owner != me
@@ -329,14 +329,14 @@ object MoveGenerator {
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
                                 tile.unit == null && tile.flora == null && tile.deposit == null &&
-                                Rules.shoalsWithin(state.tiles, hex, rules.fisheryRange) > 0
+                                Rules.shoalsWithin(state.tiles, hex, eff.fisheryRange) > 0
                         }
                         .sortedWith(
                             compareByDescending<Map.Entry<Hex, com.msa.fightandconquer.core.model.Tile>> { (hex, _) ->
                                 // Rank by CAPPED count: a 4-shoal spot cannot out-earn a 3-shoal one.
                                 minOf(
-                                    Rules.shoalsWithin(state.tiles, hex, rules.fisheryRange),
-                                    rules.fisheryShoalCap,
+                                    Rules.shoalsWithin(state.tiles, hex, eff.fisheryRange),
+                                    eff.fisheryShoalCap,
                                 )
                             }.thenBy { it.key.packed },
                         )
@@ -385,7 +385,7 @@ object MoveGenerator {
                 // Score by never-seen POSITIONS in range, from pure hex geometry: probing
                 // state.tiles for undiscovered hexes would leak the coastline through fog.
                 fun unseen(hex: Hex): Int =
-                    HexMath.range(hex, rules.watchtowerVisionRadius).count { it !in discovered }
+                    HexMath.range(hex, eff.watchtowerVisionRadius).count { it !in discovered }
                 state.tiles.entries
                     .filter { (_, tile) ->
                         tile.owner == me && !tile.starving && tile.building == null &&
@@ -415,7 +415,7 @@ object MoveGenerator {
 
     /** How many hexes (self + adjacent own) an archer's aura would raise above their current defense. */
     private fun auraGain(state: GameState, hex: Hex, me: com.msa.fightandconquer.core.model.PlayerId): Int {
-        val aura = state.config.rules.archerAuraDefense
+        val aura = Rules.effectiveRules(state, me).archerAuraDefense
         var gain = 0
         if (Rules.defenseOf(state, hex) < aura) gain++
         HexMath.forEachNeighbor(hex) { n ->

@@ -24,6 +24,10 @@ object Evaluator {
         val visible: Set<com.msa.fightandconquer.core.hex.Hex>? =
             if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
 
+        // Own buildings are valued at MY effective (civ) caps — same table their
+        // income is actually paid from, so the valuation can't drift from it.
+        val eff = Rules.effectiveRules(state, me)
+
         var myHexes = 0
         var myTrees = 0
         var enemyHexes = 0
@@ -55,17 +59,17 @@ object Evaluator {
                         when (tile.building) {
                             Building.MARKET ->
                                 buildingScore += 4.0 + 1.0 *
-                                    min(adjacentOwned(state, hex, me), state.config.rules.marketNeighborCap)
+                                    min(adjacentOwned(state, hex, me), eff.marketNeighborCap)
                             Building.LUMBER_CAMP ->
                                 buildingScore += 3.0 + 1.5 *
-                                    min(Adjacency.adjacentOwnTrees(state, hex, me), state.config.rules.lumberCampTreeCap)
+                                    min(Adjacency.adjacentOwnTrees(state, hex, me), eff.lumberCampTreeCap)
                             Building.WATCHTOWER -> myWatchtowers++
                             Building.PORT -> myPorts++
                             Building.FISHERY ->
                                 buildingScore += 2.0 + 1.5 *
                                     min(
-                                        Rules.shoalsWithin(state.tiles, hex, state.config.rules.fisheryRange),
-                                        state.config.rules.fisheryShoalCap,
+                                        Rules.shoalsWithin(state.tiles, hex, eff.fisheryRange),
+                                        eff.fisheryShoalCap,
                                     )
                             else -> {}
                         }
