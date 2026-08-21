@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,7 +39,7 @@ import com.msa.fightandconquer.ui.UiColors
 
 @Composable
 internal fun EconomyPanel(economy: EconomyBreakdown, topAnchor: Dp) {
-    HudSidePanel(topAnchor) {
+    HudSidePanel(topAnchor, pinned = { EconomySummary(economy) }) {
         Column {
             PanelHeader(stringResource(R.string.economy_income))
             EconomyRow(
@@ -92,69 +93,73 @@ internal fun EconomyPanel(economy: EconomyBreakdown, topAnchor: Dp) {
                 }
             }
         }
-        // Emphasis block: the two numbers the panel exists for.
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(UiColors.controlFill, RoundedCornerShape(12.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+    }
+}
+
+/** Pinned below the scrolling rows: the two numbers the panel exists for. */
+@Composable
+private fun ColumnScope.EconomySummary(economy: EconomyBreakdown) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(UiColors.controlFill, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Text(
+                stringResource(R.string.economy_net),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = UiColors.ink,
+            )
+            Text(
+                if (economy.net >= 0) {
+                    stringResource(R.string.economy_amount_positive, economy.net)
+                } else {
+                    stringResource(R.string.economy_amount_negative, -economy.net)
+                },
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (economy.net >= 0) UiColors.positive else UiColors.alert,
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.economy_treasury_next),
+                fontSize = 12.sp,
+                color = UiColors.inkMuted,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painterResource(R.drawable.ic_coin),
+                    contentDescription = null,
+                    Modifier.size(14.dp),
+                    tint = UiColors.coin,
+                )
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    stringResource(R.string.economy_net),
+                    stringResource(R.string.info_value_plain, economy.projected),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = UiColors.ink,
                 )
-                Text(
-                    if (economy.net >= 0) {
-                        stringResource(R.string.economy_amount_positive, economy.net)
-                    } else {
-                        stringResource(R.string.economy_amount_negative, -economy.net)
-                    },
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (economy.net >= 0) UiColors.positive else UiColors.alert,
-                )
-            }
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(R.string.economy_treasury_next),
-                    fontSize = 12.sp,
-                    color = UiColors.inkMuted,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        painterResource(R.drawable.ic_coin),
-                        contentDescription = null,
-                        Modifier.size(14.dp),
-                        tint = UiColors.coin,
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        stringResource(R.string.info_value_plain, economy.projected),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = UiColors.ink,
-                    )
-                }
             }
         }
-        when {
-            economy.bankruptcyImminent ->
-                WarningStrip(stringResource(R.string.economy_warn_bankruptcy), UiColors.alert)
-            economy.upkeepRisk ->
-                WarningStrip(stringResource(R.string.economy_warn_upkeep), UiColors.coin)
-        }
+    }
+    when {
+        economy.bankruptcyImminent ->
+            WarningStrip(stringResource(R.string.economy_warn_bankruptcy), UiColors.alert)
+        economy.upkeepRisk ->
+            WarningStrip(stringResource(R.string.economy_warn_upkeep), UiColors.coin)
     }
 }
 

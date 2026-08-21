@@ -9,12 +9,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -118,24 +126,36 @@ internal fun PiecePlinth(iconRes: Int, scale: PlinthScale, desaturated: Boolean 
  * diplomacy and mission objectives are mutually exclusive occupants
  * (see GameScreen), so they must agree on this frame. [topAnchor] is the
  * measured bottom of the top chrome in root space — never a constant, so the
- * panel can't slide under a taller-than-expected bar.
+ * panel can't slide under a taller-than-expected bar. The panel is bounded to
+ * the safe area: [content] scrolls when it overflows, [pinned] stays visible
+ * below it.
  */
 @Composable
 internal fun HudSidePanel(
     topAnchor: Dp,
+    pinned: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .align(Alignment.TopEnd)
-                .padding(end = HudGutter, top = topAnchor + HudSpacing)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+                .padding(end = HudGutter, top = topAnchor + HudSpacing, bottom = HudSpacing)
                 .width(264.dp)
                 .hudSurface(16.dp)
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            content = content,
-        )
+        ) {
+            Column(
+                Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                content = content,
+            )
+            pinned?.invoke(this)
+        }
     }
 }
 
