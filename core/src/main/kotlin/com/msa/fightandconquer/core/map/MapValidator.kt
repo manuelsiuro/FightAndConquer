@@ -47,14 +47,7 @@ object MapValidator {
                 violations.add("expected ${it.playerCount} capitals, got ${map.capitals.size}")
             }
         }
-        map.capitals.forEachIndexed { player, capital ->
-            val tile = map.tiles.find { it.hex == capital }
-            when {
-                tile == null -> violations.add("capital $player off-map")
-                tile.building != Building.CAPITAL -> violations.add("capital $player not marked on tile")
-                tile.owner != player -> violations.add("capital $player on tile owned by ${tile.owner}")
-            }
-        }
+        violations += capitalCodes(map).map { it.describe() }
         if (map.capitals.size >= 2) {
             val minDistance = MapGenerator.minPairwiseDistance(map.capitals)
             val required = MapGenerator.requiredCapitalDistance(land.size, map.capitals.size)
@@ -155,16 +148,7 @@ object MapValidator {
         if (map.capitals.size != map.capitals.toSet().size) {
             violations.add(MapViolation.DuplicateCapitals)
         }
-        map.capitals.forEachIndexed { player, capital ->
-            val tile = map.tiles.find { it.hex == capital }
-            when {
-                tile == null -> violations.add(MapViolation.CapitalOffMap(player))
-                tile.building != Building.CAPITAL ->
-                    violations.add(MapViolation.CapitalUnmarked(player))
-                tile.owner != player ->
-                    violations.add(MapViolation.CapitalWrongOwner(player, tile.owner))
-            }
-        }
+        violations += capitalCodes(map)
 
         // A seat's opening territory must be one region reachable from its capital,
         // otherwise the level starts with tiles already cut off and starving.
@@ -182,6 +166,22 @@ object MapValidator {
         }
         owned.keys.filter { it !in map.capitals.indices }.forEach {
             violations.add(MapViolation.OrphanOwner(it))
+        }
+        return violations
+    }
+
+    /** Per-seat capital checks (present on-map, marked, owned) shared by both validators. */
+    private fun capitalCodes(map: MapDefinition): List<MapViolation> {
+        val violations = ArrayList<MapViolation>()
+        map.capitals.forEachIndexed { player, capital ->
+            val tile = map.tiles.find { it.hex == capital }
+            when {
+                tile == null -> violations.add(MapViolation.CapitalOffMap(player))
+                tile.building != Building.CAPITAL ->
+                    violations.add(MapViolation.CapitalUnmarked(player))
+                tile.owner != player ->
+                    violations.add(MapViolation.CapitalWrongOwner(player, tile.owner))
+            }
         }
         return violations
     }

@@ -59,7 +59,7 @@ object Evaluator {
                         when (tile.building) {
                             Building.MARKET ->
                                 buildingScore += 4.0 + 1.0 *
-                                    min(adjacentOwned(state, hex, me), eff.marketNeighborCap)
+                                    min(Rules.marketNeighbors(state.tiles, hex, me), eff.marketNeighborCap)
                             Building.LUMBER_CAMP ->
                                 buildingScore += 3.0 + 1.5 *
                                     min(Adjacency.adjacentOwnTrees(state, hex, me), eff.lumberCampTreeCap)
@@ -262,15 +262,6 @@ object Evaluator {
             }
         }
         return score
-    }
-
-    private fun adjacentOwned(state: GameState, hex: com.msa.fightandconquer.core.hex.Hex, me: PlayerId): Int {
-        var count = 0
-        com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
-            val t = state.tiles[n]
-            if (t != null && t.owner == me && !t.starving && t.flora == null) count++
-        }
-        return count
     }
 
     /**

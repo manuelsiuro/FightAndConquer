@@ -167,24 +167,25 @@ internal object NavalPolicy {
         //     guaranteed forward progress in any stalled war, land or sea.
         //     Easy hoards instead — cracking walls is what it is bad at.
         if (!easy && treasury >= WAR_CHEST) {
-            val frontier = ArrayList<Pair<Hex, Int>>()
+            val frontier = HashMap<Hex, Int>()
             for ((hex, tile) in state.tiles) {
                 if (tile.owner != me || tile.starving) continue
                 HexMath.forEachNeighbor(hex) { n ->
                     val t = state.tiles[n]
                     if (t != null && t.terrain == Terrain.LAND && t.owner != me &&
-                        t.owner != null && t.owner !in partners &&
-                        frontier.none { it.first == n }
+                        t.owner != null && t.owner !in partners && n !in frontier
                     ) {
-                        frontier.add(n to Rules.defenseOf(state, n))
+                        frontier[n] = Rules.defenseOf(state, n)
                     }
                 }
             }
-            val target = frontier
-                .filter { (_, defense) -> defense + 1 <= rules.maxTier }
-                .minWithOrNull(compareBy({ it.second }, { it.first.packed }))
+            // Selection is order-independent: the (defense, packed) comparator has a
+            // unique tiebreak, so the map's iteration order can't reshuffle it.
+            val target = frontier.entries
+                .filter { it.value + 1 <= rules.maxTier }
+                .minWithOrNull(compareBy({ it.value }, { it.key.packed }))
             if (target != null) {
-                val action = GameAction.BuyUnit(target.second + 1, target.first)
+                val action = GameAction.BuyUnit(target.value + 1, target.key)
                 if (Legality.check(state, action) is LegalityResult.Ok) return action
             }
             // Bridge shortcut: a single span from our shore to foreign land turns
@@ -281,8 +282,8 @@ internal object NavalPolicy {
                 // when their approach is blocked (often by the convoy's own
                 // hulls), fall back to any beach the cargo can take, or the
                 // fleet freezes at sea forever while the war stalemates.
-                sailToward(state, boat, nearCapital)?.let { return it }
-                sailToward(state, boat, strikeable)?.let { return it }
+                Sailing.sailToward(state, boat, nearCapital)?.let { return it }
+                Sailing.sailToward(state, boat, strikeable)?.let { return it }
             } else {
                 // 3b: nothing to strike — bring the marine home as garrison.
                 val homeLanding = HexMath.neighbors(boat.hex)
@@ -294,7 +295,7 @@ internal object NavalPolicy {
                     val t = state.tiles[h]
                     t != null && t.owner == me && t.unit == null && t.building == null
                 }
-                sailToward(state, boat, landable)?.let { return it }
+                Sailing.sailToward(state, boat, landable)?.let { return it }
             }
         }
 
@@ -318,7 +319,7 @@ internal object NavalPolicy {
             if (prey.isNotEmpty()) {
                 val myWarships = myUnits.filter { it.type == UnitType.WARSHIP }
                 if (myWarships.isEmpty() && sustainable(eff.warshipCost, eff.warshipUpkeep)) {
-                    launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.WARSHIP) }
+                    Sailing.launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.WARSHIP) }
                 }
                 // Chase FERRIES only, and never pre-empt a kill the greedy loop
                 // can already take this turn — sailing spends the ship, and a
@@ -328,7 +329,7 @@ internal object NavalPolicy {
                 for (ship in myWarships) {
                     if (ship.spent) continue
                     if (Rules.reachable(state, ship.id).captureTargets.isNotEmpty()) continue
-                    sailToward(state, ship, ferries)?.let { return it }
+                    Sailing.sailToward(state, ship, ferries)?.let { return it }
                 }
             }
         }
@@ -426,7 +427,7 @@ internal object NavalPolicy {
         for (boat in transports) {
             if (boat.spent || boat.cargo != null) continue
             val goals = passengers.ifEmpty { homeland.toList() }
-            sailToward(state, boat, goals)?.let { return it }
+            Sailing.sailToward(state, boat, goals)?.let { return it }
         }
 
         // 4. Board the strongest fresh land unit onto a waiting empty transport —
@@ -517,7 +518,7 @@ internal object NavalPolicy {
             transports.none { it.cargo == null } &&
             sustainable(kitCost, kitUpkeep)
         ) {
-            launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.TRANSPORT) }
+            Sailing.launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.TRANSPORT) }
         }
 
         // 6. Found the first port on our best coastal hex.
@@ -628,14 +629,6 @@ internal object NavalPolicy {
                 .thenBy { it.to.packed },
         ).firstOrNull()
     }
-
-    /** See [Sailing.sailToward] — extracted so FishingPolicy sails the same water. */
-    private fun sailToward(state: GameState, boat: GameUnit, goals: Collection<Hex>): GameAction? =
-        Sailing.sailToward(state, boat, goals)
-
-    /** See [Sailing.launchSpot]. */
-    private fun launchSpot(state: GameState, difficulty: Difficulty): Hex? =
-        Sailing.launchSpot(state, difficulty)
 
     /** Own buildable coastal hex with the most adjacent sea (ties: lowest packed). */
     private fun portSpot(state: GameState, starvingOnly: Boolean): Hex? {

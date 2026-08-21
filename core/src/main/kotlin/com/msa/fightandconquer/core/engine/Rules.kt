@@ -58,6 +58,54 @@ object Rules {
     ): Int = shoalHexesWithin(tiles, hex, radius).size
 
     /**
+     * Producing own neighbors of [hex] — the MARKET rule's countable: owned by
+     * [player], non-starving, flora-free. Same sharing contract as [shoalsWithin]:
+     * [incomeFrom], the AI's market valuation, and the app's income breakdown all
+     * count through here — they must never drift apart.
+     */
+    fun marketNeighbors(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        hex: Hex,
+        player: PlayerId,
+    ): Int {
+        var count = 0
+        HexMath.forEachNeighbor(hex) { n ->
+            val t = tiles[n]
+            if (t != null && t.owner == player && !t.starving && t.flora == null) count++
+        }
+        return count
+    }
+
+    /** Own tree hexes next to [hex] — the LUMBER_CAMP rule's countable (same sharing contract as [marketNeighbors]). */
+    fun adjacentOwnTrees(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        hex: Hex,
+        player: PlayerId,
+    ): Int {
+        var count = 0
+        HexMath.forEachNeighbor(hex) { n ->
+            val t = tiles[n]
+            if (t != null && t.owner == player && t.flora is com.msa.fightandconquer.core.model.Flora.Tree) count++
+        }
+        return count
+    }
+
+    /**
+     * True when [unit] earns [RuleConstants.fishingBoatIncome]: a FISHING_BOAT
+     * parked on a FISH_SHOAL sea hex. Ownership is the caller's concern —
+     * [boatIncomeFrom] and the app's income breakdown share this predicate.
+     */
+    fun isEarningFishingBoat(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        unit: GameUnit,
+    ): Boolean {
+        if (unit.type != UnitType.FISHING_BOAT) return false
+        val t = tiles[unit.hex] ?: return false
+        return t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
+    }
+
+    /**
      * The rules [player] actually plays with: the game's [RuleConstants] filtered
      * through their civilization's delta table ([CivModifiers.effective] — identity
      * for KINGDOM and when [RuleConstants.civBonusesEnabled] is off). Every
@@ -131,24 +179,22 @@ object Rules {
     /** [unitUpkeepOf] against pre-resolved effective [rules] — the single source shared with [upkeepFrom]. */
     private fun upkeepIn(unit: GameUnit, rules: RuleConstants): Int {
         val own = when (unit.type) {
-            UnitType.SOLDIER -> rules.unitUpkeep[unit.tier - 1]
-            UnitType.ARCHER -> rules.archerUpkeep
-            UnitType.CATAPULT -> rules.catapultUpkeep
             UnitType.TRANSPORT -> rules.transportUpkeep
             UnitType.WARSHIP -> rules.warshipUpkeep
             UnitType.FISHING_BOAT -> rules.fishingBoatUpkeep
+            else -> landUpkeep(unit.tier, unit.type, rules)
         }
-        val cargo = unit.cargo?.let { cargoUpkeep(it, rules) } ?: 0
+        val cargo = unit.cargo?.let { landUpkeep(it.tier, it.type, rules) } ?: 0
         return own + cargo
     }
 
-    private fun cargoUpkeep(cargo: com.msa.fightandconquer.core.model.CargoUnit, rules: RuleConstants): Int =
-        when (cargo.type) {
-            UnitType.SOLDIER -> rules.unitUpkeep[cargo.tier - 1]
-            UnitType.ARCHER -> rules.archerUpkeep
-            UnitType.CATAPULT -> rules.catapultUpkeep
-            UnitType.TRANSPORT, UnitType.WARSHIP, UnitType.FISHING_BOAT -> 0 // boats never carry boats
-        }
+    /** Upkeep of a land unit — the only kinds that ride as cargo (boats never carry boats). */
+    private fun landUpkeep(tier: Int, type: UnitType, rules: RuleConstants): Int = when (type) {
+        UnitType.SOLDIER -> rules.unitUpkeep[tier - 1]
+        UnitType.ARCHER -> rules.archerUpkeep
+        UnitType.CATAPULT -> rules.catapultUpkeep
+        UnitType.TRANSPORT, UnitType.WARSHIP, UnitType.FISHING_BOAT -> 0
+    }
 
     /**
      * What a unit contributes to the defense of its hex and adjacent own hexes,
@@ -369,6 +415,7 @@ object Rules {
 
         val move = HashSet<Hex>()
         val capture = HashSet<Hex>()
+        val blocked = HashSet<Hex>() // enemy hulls that out-gun this ship (UI chips)
         val visited = HashSet<Hex>().apply { add(unit.hex) }
         var frontier = listOf(unit.hex)
         var depth = 0
@@ -382,15 +429,17 @@ object Rules {
                             visited.add(n)
                             move.add(n)
                             next.add(n)
-                        } else if (unit.type == UnitType.WARSHIP && n !in capture) {
+                        } else if (unit.type == UnitType.WARSHIP && n !in capture && n !in blocked) {
                             // Attack: an enemy boat blocks the water it sits on.
+                            // Too strong a hull -> blockedTargets, exactly as the
+                            // land BFS reports too-defended frontier hexes.
                             val defender = state.unitAt(n)
                             if (defender != null && defender.owner != unit.owner &&
                                 isNaval(defender.type) &&
-                                state.tiles[n]?.building == null &&
-                                strength >= strengthOf(state, defender)
+                                state.tiles[n]?.building == null
                             ) {
-                                capture.add(n)
+                                if (strength >= strengthOf(state, defender)) capture.add(n)
+                                else blocked.add(n)
                             }
                         }
                     }
@@ -399,7 +448,7 @@ object Rules {
             frontier = next
             depth++
         }
-        return ReachResult(move, capture, mergeTargets = emptySet())
+        return ReachResult(move, capture, mergeTargets = emptySet(), blockedTargets = blocked)
     }
 
     /** Cost of the player's NEXT farm: base + step per farm already owned (civ-priced). */
@@ -409,20 +458,31 @@ object Rules {
     }
 
     /** What [player] pays for a fresh building, at their effective rules. */
-    fun buildingCost(state: GameState, player: PlayerId, type: com.msa.fightandconquer.core.model.BuildingType): Int {
-        val rules = effectiveRules(state, player)
-        return when (type) {
-            com.msa.fightandconquer.core.model.BuildingType.FARM -> nextFarmCost(state, player)
-            com.msa.fightandconquer.core.model.BuildingType.TOWER -> rules.towerCost
-            com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER -> rules.strongTowerCost
-            com.msa.fightandconquer.core.model.BuildingType.MINE -> rules.mineCost
-            com.msa.fightandconquer.core.model.BuildingType.MARKET -> rules.marketCost
-            com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> rules.lumberCampCost
-            com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> rules.watchtowerCost
-            com.msa.fightandconquer.core.model.BuildingType.PORT -> rules.portCost
-            com.msa.fightandconquer.core.model.BuildingType.FISHERY -> rules.fisheryCost
-            com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> rules.bridgeCost
-        }
+    fun buildingCost(state: GameState, player: PlayerId, type: com.msa.fightandconquer.core.model.BuildingType): Int =
+        structureCost(effectiveRules(state, player), type, state.farmCount(player))
+
+    /**
+     * The one price table for structures, shared by [buildingCost] and
+     * [demolishRefund]. [farmCount] is the number of farms already standing that
+     * the next farm is priced against — the buy path passes the current count,
+     * the refund path the count minus the farm being torn down.
+     */
+    private fun structureCost(
+        rules: RuleConstants,
+        type: com.msa.fightandconquer.core.model.BuildingType,
+        farmCount: Int,
+    ): Int = when (type) {
+        com.msa.fightandconquer.core.model.BuildingType.FARM ->
+            rules.farmCostBase + rules.farmCostStep * farmCount
+        com.msa.fightandconquer.core.model.BuildingType.TOWER -> rules.towerCost
+        com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER -> rules.strongTowerCost
+        com.msa.fightandconquer.core.model.BuildingType.MINE -> rules.mineCost
+        com.msa.fightandconquer.core.model.BuildingType.MARKET -> rules.marketCost
+        com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP -> rules.lumberCampCost
+        com.msa.fightandconquer.core.model.BuildingType.WATCHTOWER -> rules.watchtowerCost
+        com.msa.fightandconquer.core.model.BuildingType.PORT -> rules.portCost
+        com.msa.fightandconquer.core.model.BuildingType.FISHERY -> rules.fisheryCost
+        com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> rules.bridgeCost
     }
 
     /**
@@ -433,22 +493,10 @@ object Rules {
      * CAPITAL never reaches here (Legality forbids demolishing it).
      */
     fun demolishRefund(state: GameState, player: PlayerId, building: Building): Int {
+        val type = com.msa.fightandconquer.core.model.BuildingType.entries
+            .firstOrNull { it.building == building } ?: return 0 // CAPITAL
         val rules = effectiveRules(state, player)
-        val cost = when (building) {
-            Building.CAPITAL -> return 0
-            Building.FARM ->
-                rules.farmCostBase +
-                    rules.farmCostStep * (state.farmCount(player) - 1).coerceAtLeast(0)
-            Building.TOWER -> rules.towerCost
-            Building.STRONG_TOWER -> rules.strongTowerCost
-            Building.MINE -> rules.mineCost
-            Building.MARKET -> rules.marketCost
-            Building.LUMBER_CAMP -> rules.lumberCampCost
-            Building.WATCHTOWER -> rules.watchtowerCost
-            Building.PORT -> rules.portCost
-            Building.FISHERY -> rules.fisheryCost
-            Building.BRIDGE -> rules.bridgeCost
-        }
+        val cost = structureCost(rules, type, (state.farmCount(player) - 1).coerceAtLeast(0))
         return cost * rules.demolishRefundPercent / 100
     }
 
@@ -463,6 +511,18 @@ object Rules {
         val cargo = unit.cargo?.let { costIn(rules, it.tier, it.type) } ?: 0
         return (own + cargo) * rules.demolishRefundPercent / 100
     }
+
+    /**
+     * The treasury penalty [breaker] pays for aggression against a pact partner —
+     * the exact charge `StateBuilder.breakPact` transfers, so UI confirmations
+     * can promise the engine's own number.
+     */
+    fun pactBreakPenalty(state: GameState, breaker: PlayerId): Int =
+        pactBreakPenaltyOf(state.player(breaker).treasury, state.config.rules)
+
+    /** [pactBreakPenalty] against a raw treasury — the formula StateBuilder shares. */
+    internal fun pactBreakPenaltyOf(treasury: Int, rules: RuleConstants): Int =
+        treasury * rules.pactBreakPenaltyPercent / 100
 
     /** Income the player will collect at turn start: producing hexes, deposits, buildings, parked boats. */
     fun incomeOf(state: GameState, player: PlayerId): Int {
@@ -484,15 +544,7 @@ object Rules {
         rules: RuleConstants,
         player: PlayerId,
     ): Int = units.sumOf { u ->
-        val t = tiles[u.hex]
-        if (u.owner == player && u.type == UnitType.FISHING_BOAT &&
-            t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-            t.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
-        ) {
-            rules.fishingBoatIncome
-        } else {
-            0
-        }
+        if (u.owner == player && isEarningFishingBoat(tiles, u)) rules.fishingBoatIncome else 0
     }
 
     /**
@@ -520,22 +572,12 @@ object Rules {
                     if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) income += rules.fertileFarmBonus
                 }
                 Building.MINE -> income += rules.mineIncome
-                Building.MARKET -> {
-                    var neighbors = 0
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = tiles[n]
-                        if (t != null && t.owner == player && !t.starving && t.flora == null) neighbors++
-                    }
-                    income += rules.marketNeighborIncome * minOf(neighbors, rules.marketNeighborCap)
-                }
-                Building.LUMBER_CAMP -> {
-                    var trees = 0
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = tiles[n]
-                        if (t != null && t.owner == player && t.flora is com.msa.fightandconquer.core.model.Flora.Tree) trees++
-                    }
-                    income += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
-                }
+                Building.MARKET ->
+                    income += rules.marketNeighborIncome *
+                        minOf(marketNeighbors(tiles, hex, player), rules.marketNeighborCap)
+                Building.LUMBER_CAMP ->
+                    income += rules.lumberCampTreeIncome *
+                        minOf(adjacentOwnTrees(tiles, hex, player), rules.lumberCampTreeCap)
                 Building.PORT -> income += rules.portIncome
                 Building.FISHERY -> {
                     val shoals = shoalsWithin(tiles, hex, rules.fisheryRange)

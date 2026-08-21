@@ -9,6 +9,9 @@ import androidx.compose.ui.graphics.toArgb
 import com.msa.fightandconquer.core.editor.CustomMapDef
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Terrain
+import com.msa.fightandconquer.render.HexWorld
+import com.msa.fightandconquer.render.material.Palette
+import com.msa.fightandconquer.render.mesh.Primitives
 import com.msa.fightandconquer.ui.LightUiColors
 import kotlin.math.cos
 import kotlin.math.max
@@ -34,12 +37,13 @@ object MinimapRenderer {
 
         val tiles = def.level.map.tiles
         if (tiles.isNotEmpty()) {
-            // Axial -> plane: x = sqrt3 * (q + r/2), y = 1.5 * r (unit circumradius).
+            // Axial -> plane via the 3D board's own mapping (HexWorld), normalized
+            // to unit circumradius so the fit math below stays radius-free.
             var minX = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE
             var minY = Float.MAX_VALUE; var maxY = -Float.MAX_VALUE
             val centers = tiles.map { tile ->
-                val x = SQRT3 * (tile.hex.q + tile.hex.r / 2f)
-                val y = 1.5f * tile.hex.r
+                val x = HexWorld.centerX(tile.hex) / Primitives.HEX_RADIUS
+                val y = HexWorld.centerZ(tile.hex) / Primitives.HEX_RADIUS
                 minX = min(minX, x); maxX = max(maxX, x)
                 minY = min(minY, y); maxY = max(maxY, y)
                 Triple(tile, x, y)
@@ -95,10 +99,12 @@ object MinimapRenderer {
     private val SQRT3 = sqrt(3f)
     private const val CAPTION = 44f
 
-    // Mirrors the board's fixed look in sRGB (Palette holds the same values in linear).
-    private const val GROUND = 0xFFF4F2EF.toInt()
-    private const val NEUTRAL = 0xFFEAE6E1.toInt()
-    private const val SEA = 0xFFA3C6CC.toInt()
-    private const val INK = 0xFF3E3A36.toInt()
+    // The board's fixed look, from the renderer's own sRGB sources.
+    private val GROUND = opaque(Palette.BACKGROUND_SRGB)
+    private val NEUTRAL = opaque(Palette.NEUTRAL_SRGB)
+    private val SEA = opaque(Palette.SEA_SRGB)
+    private const val INK = 0xFF3E3A36.toInt() // the fixed onFaction ink, not Palette.INK
     private val CAPITAL_DOT = Color.argb(255, 62, 58, 54)
+
+    private fun opaque(srgb: Int): Int = 0xFF000000.toInt() or srgb
 }

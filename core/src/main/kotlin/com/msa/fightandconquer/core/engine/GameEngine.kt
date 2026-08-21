@@ -73,13 +73,13 @@ class GameEngine private constructor(
 
     fun submit(action: GameAction): LegalityResult {
         val current = _state.value
-        val legality = Legality.check(current, action)
-        if (legality is LegalityResult.Rejected) {
-            lastEvents = emptyList()
-            return legality
-        }
-
+        // The reducer runs Legality itself and answers an illegal action with an
+        // unchanged state plus a single ActionRejected — one check, one verdict.
         val result = Reducer.reduce(current, action)
+        (result.events.firstOrNull() as? GameEvent.ActionRejected)?.let {
+            lastEvents = emptyList()
+            return LegalityResult.Rejected(it.reason, it.amount)
+        }
         lastEvents = result.events
         if (action is GameAction.EndTurn || action is GameAction.Surrender) {
             undoStack.clear()
@@ -130,13 +130,10 @@ class GameEngine private constructor(
                 options.add(PurchaseOption.Unit(tier, s.config.rules.unitCost[tier - 1]))
             }
         }
-        for (special in listOf(
-            com.msa.fightandconquer.core.model.UnitType.ARCHER,
-            com.msa.fightandconquer.core.model.UnitType.CATAPULT,
-            com.msa.fightandconquer.core.model.UnitType.TRANSPORT,
-            com.msa.fightandconquer.core.model.UnitType.WARSHIP,
-            com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT,
-        )) {
+        // Every non-soldier type is a special — the enum is the roster, so a new
+        // unit type shows up in the tray without touching this loop.
+        for (special in com.msa.fightandconquer.core.model.UnitType.entries) {
+            if (special == com.msa.fightandconquer.core.model.UnitType.SOLDIER) continue
             if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
                 options.add(
                     PurchaseOption.Unit(

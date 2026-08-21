@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,8 +41,6 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.map.MapShape
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.ui.UiColors
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.math.sqrt
 
 internal fun mapSizeLabelRes(size: MapSize) = when (size) {
@@ -224,18 +221,6 @@ private fun HexCluster(shape: MapShape, tint: Color) {
             x += wPx + gap.dp.toPx()
         }
     }
-}
-
-private fun hexPath(cx: Float, cy: Float, radius: Float): Path {
-    val path = Path()
-    for (i in 0 until 6) {
-        val angle = Math.toRadians(60.0 * i - 30.0)
-        val x = cx + radius * cos(angle).toFloat()
-        val y = cy + radius * sin(angle).toFloat()
-        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    path.close()
-    return path
 }
 
 private val SQRT3 = sqrt(3f)

@@ -60,14 +60,9 @@ class UiColorScheme(
     val inkMuted = ink.copy(alpha = 0.6f)
     val inkFaint = ink.copy(alpha = 0.45f)
 
-    val factions = listOf(
-        Color(0xFF8FA89B), // Soft Sage Green
-        Color(0xFFDE9B8B), // Dusty Coral
-        Color(0xFFE6C594), // Muted Ochre
-        Color(0xFF8FA3B5), // Slate Blue
-        Color(0xFFB59BAD), // Dusty Mauve
-        Color(0xFFA8B58F), // Moss Olive
-    )
+    // The renderer's raw sRGB values wrapped for Compose — one palette, two spaces.
+    val factions = com.msa.fightandconquer.render.material.Palette.FACTION_SRGB
+        .map { Color(0xFF000000.toInt() or it) }
 
     fun faction(index: Int): Color = factions[index % factions.size]
 

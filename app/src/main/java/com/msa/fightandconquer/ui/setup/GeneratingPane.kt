@@ -25,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -37,7 +36,6 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.map.MapShape
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.ui.UiColors
-import kotlin.math.cos
 import kotlin.math.sin
 
 /**
@@ -116,15 +114,7 @@ private fun BreathingHex(width: Dp, height: Dp, color: Color, delayMs: Int) {
             },
     ) {
         val radius = this.size.height / 2f
-        val path = Path()
-        for (i in 0 until 6) {
-            val angle = Math.toRadians(60.0 * i - 30.0)
-            val x = this.size.width / 2f + radius * cos(angle).toFloat()
-            val y = this.size.height / 2f + radius * sin(angle).toFloat()
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        path.close()
-        drawPath(path, color)
+        drawPath(hexPath(cx = this.size.width / 2f, cy = this.size.height / 2f, radius = radius), color)
     }
 }
 

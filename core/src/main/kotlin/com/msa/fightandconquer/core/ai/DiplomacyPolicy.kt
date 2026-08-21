@@ -51,17 +51,20 @@ object DiplomacyPolicy {
         val d = state.diplomacy
         val myPower = powerOf(state, me, me)
         val neighbors = adjacentEnemies(state, me)
+        // powerOf is a full-board (and, under fog, full-vision) scan — resolve it
+        // once per neighbor instead of inside every filter and comparator below.
+        val neighborPower = neighbors.associateWith { powerOf(state, me, it) }
         if (neighbors.size >= 2) {
             val target = neighbors
                 .filter { enemy ->
-                    powerOf(state, me, enemy) * 10 >= myPower * 11 &&
+                    neighborPower.getValue(enemy) * 10 >= myPower * 11 &&
                         d.pactBetween(me, enemy) == null &&
                         d.proposalBetween(me, enemy) == null &&
                         d.proposalBetween(enemy, me) == null &&
                         (d.lastProposalRound(me, enemy) ?: Int.MIN_VALUE) +
                         rules.pactProposalCooldownRounds <= state.turnNumber
                 }
-                .maxWithOrNull(compareBy({ powerOf(state, me, it) }, { -it.value }))
+                .maxWithOrNull(compareBy({ neighborPower.getValue(it) }, { -it.value }))
             if (target != null) {
                 val duration = (rules.pactMinDurationRounds + rules.pactMaxDurationRounds) / 2
                 return GameAction.ProposePact(target, duration)
@@ -72,14 +75,14 @@ object DiplomacyPolicy {
         if (treasury >= 45) {
             val bully = neighbors
                 .filter { enemy ->
-                    powerOf(state, me, enemy) * 2 >= myPower * 3 &&
+                    neighborPower.getValue(enemy) * 2 >= myPower * 3 &&
                         d.pactBetween(me, enemy) == null &&
                         (d.lastProposalRound(me, enemy) ?: Int.MIN_VALUE) +
                         rules.pactProposalCooldownRounds > state.turnNumber &&
                         (d.lastTributeRound(me, enemy) ?: Int.MIN_VALUE) + TRIBUTE_COOLDOWN_ROUNDS <=
                         state.turnNumber
                 }
-                .maxWithOrNull(compareBy({ powerOf(state, me, it) }, { -it.value }))
+                .maxWithOrNull(compareBy({ neighborPower.getValue(it) }, { -it.value }))
             if (bully != null) {
                 return GameAction.SendTribute(bully, minOf(15, treasury / 4))
             }
@@ -107,7 +110,7 @@ object DiplomacyPolicy {
             if (pact.expiresAtRound - state.turnNumber < 3) continue // just wait it out
             val dominant = myPower >= 2 * powerOf(state, me, partner)
             val lastObstacle = aliveCount(state) == 2 ||
-                state.tiles.values.count { it.owner == partner } * 2 >= enemyLand
+                state.ownedHexCount(partner) * 2 >= enemyLand
             if (dominant && lastObstacle) out.add(partner)
         }
         return out

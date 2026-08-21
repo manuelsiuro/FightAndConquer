@@ -83,18 +83,19 @@ object Reducer {
             // Beachhead growth: a capture made from a grace tile extends the
             // landing's stores to the new ground, so the invasion can expand
             // before its expedition port exists without resetting the clock.
+            // Recompute after the re-stamp so a fed hex sheds the stores again;
+            // without a re-stamp captureHex's own recompute already settled it.
             val sourceGrace = state.tiles.getValue(unit.hex).graceTurns
-            if (sourceGrace > 0) b.updateTile(action.to) { it.copy(graceTurns = sourceGrace) }
+            if (sourceGrace > 0) {
+                b.updateTile(action.to) { it.copy(graceTurns = sourceGrace) }
+                b.recomputeStarving()
+            }
         }
         // Arrive (tile ownership already transferred if capturing).
         b.updateTile(action.to) { it.copy(unit = unit.id) }
         b.units[unit.id] = b.units.getValue(unit.id).copy(hex = action.to, spent = true)
         b.events.add(GameEvent.UnitMoved(unit.id, unit.hex, action.to))
         b.clearFloraAt(action.to, unit.owner)
-        if (isCapture && !navalStrike) {
-            // captureHex already recomputed; arriving may reconnect regions for the attacker.
-            b.recomputeStarving()
-        }
     }
 
     private fun applyDisembark(state: GameState, b: StateBuilder, action: GameAction.Disembark) {
@@ -171,11 +172,12 @@ object Reducer {
             }
             else -> {
                 // Buy directly onto a capturable adjacent hex: arrives spent.
+                // captureHex recomputes starving itself; nothing after it here
+                // touches an input of that computation.
                 b.captureHex(buyer, action.at)
                 val unit = b.spawnUnit(buyer, action.tier, action.at, spent = true, type = action.type)
                 b.events.add(GameEvent.UnitSpawned(unit))
                 b.clearFloraAt(action.at, buyer)
-                b.recomputeStarving()
             }
         }
     }

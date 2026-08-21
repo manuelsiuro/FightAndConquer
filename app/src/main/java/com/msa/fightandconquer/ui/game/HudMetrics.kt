@@ -47,13 +47,17 @@ internal val HudSpacing = 8.dp
 /** Top bar distance from the top of the immersive window. */
 internal val TopBarTopInset = 16.dp
 
-/** Opaque surface + 1 dp hairline + boardLift — the universal HUD chrome. */
+/** Opaque surface + 1 dp border (hairline by default) + boardLift — the universal HUD chrome. */
 @Composable
-internal fun Modifier.hudSurface(radius: Dp, fill: Color = UiColors.surface): Modifier {
+internal fun Modifier.hudSurface(
+    radius: Dp,
+    fill: Color = UiColors.surface,
+    border: Color = UiColors.hairline,
+): Modifier {
     val shape = RoundedCornerShape(radius)
     return shadow(2.dp, shape, ambientColor = UiColors.boardShadow, spotColor = UiColors.boardShadow)
         .background(fill, shape)
-        .border(1.dp, UiColors.hairline, shape)
+        .border(1.dp, border, shape)
         .clip(shape)
 }
 

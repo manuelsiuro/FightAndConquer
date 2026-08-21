@@ -213,24 +213,28 @@ data class InfoCard(
     val actions: List<InfoCardAction> = emptyList(),
 )
 
-/** Rules snapshot the purchase tray needs for upkeep/defense lines. */
+/**
+ * Rules snapshot the purchase tray needs for upkeep/defense lines. No defaults
+ * on purpose: every value comes from the live effective rules in refreshHud —
+ * a second copy of the balance table here would only exist to drift.
+ */
 data class ShopInfo(
-    val unitUpkeep: List<Int> = listOf(2, 6, 18, 54),
-    val towerDefense: Int = 2,
-    val strongTowerDefense: Int = 3,
-    val farmIncome: Int = 4,
-    val mineIncome: Int = 6,
-    val marketIncomeMax: Int = 5,
-    val lumberCampIncomeMax: Int = 8,
-    val watchtowerVision: Int = 6,
-    val archerUpkeep: Int = 4,
-    val catapultUpkeep: Int = 10,
-    val transportUpkeep: Int = 4,
-    val warshipUpkeep: Int = 8,
-    val portIncome: Int = 2,
-    val fisheryIncomeMax: Int = 9,
-    val fishingBoatUpkeep: Int = 3,
-    val fishingBoatIncome: Int = 6,
+    val unitUpkeep: List<Int>,
+    val towerDefense: Int,
+    val strongTowerDefense: Int,
+    val farmIncome: Int,
+    val mineIncome: Int,
+    val marketIncomeMax: Int,
+    val lumberCampIncomeMax: Int,
+    val watchtowerVision: Int,
+    val archerUpkeep: Int,
+    val catapultUpkeep: Int,
+    val transportUpkeep: Int,
+    val warshipUpkeep: Int,
+    val portIncome: Int,
+    val fisheryIncomeMax: Int,
+    val fishingBoatUpkeep: Int,
+    val fishingBoatIncome: Int,
 )
 
 data class HudState(
@@ -660,9 +664,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         lastHumanSeat = null
         _visibility.value = null
         clearCampaignRun()
-        // Synchronous backstop: the finished-game deletion above is async, and
-        // the menu must never offer to continue a game that is already over.
-        if (engine?.state?.value?.phase is GamePhase.Finished) autosaveFile.delete()
         _screen.value = Screen.Menu(autosaveFile.exists())
     }
 
@@ -721,18 +722,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 // Bombarding a pact partner (their coast, or their boat on open
                 // sea) is aggression like a capture — arm the same second-tap
                 // confirmation instead of firing immediately.
-                val bombardVictim = state.tiles[hex]?.owner ?: state.unitAt(hex)?.owner
-                if (bombardVictim != null &&
-                    engine.pactBetween(state.currentPlayer, bombardVictim) != null &&
-                    pendingPactBreak != hex
-                ) {
-                    pendingPactBreak = hex
-                    val penalty = state.player(state.currentPlayer).treasury *
-                        state.config.rules.pactBreakPenaltyPercent / 100
-                    pushToast(UiText.of(R.string.toast_pact_break_confirm, penalty), ToastKind.WARNING)
-                    return
-                }
-                pendingPactBreak = null
+                if (armPactBreak(state, hex)) return
                 submit(GameAction.Bombard(heldUnit, hex))
                 clearSelection()
                 refreshHud()
@@ -744,17 +734,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     // Capturing a pact partner's hex (or sinking their boat)
                     // breaks the pact — arm a second-tap confirmation instead
                     // of striking immediately.
-                    val targetOwner = state.tiles[hex]?.owner ?: state.unitAt(hex)?.owner
-                    if (hex in reach.captureTargets && targetOwner != null &&
-                        engine.pactBetween(state.currentPlayer, targetOwner) != null &&
-                        pendingPactBreak != hex
-                    ) {
-                        pendingPactBreak = hex
-                        val penalty = state.player(state.currentPlayer).treasury *
-                            state.config.rules.pactBreakPenaltyPercent / 100
-                        pushToast(UiText.of(R.string.toast_pact_break_confirm, penalty), ToastKind.WARNING)
-                        return
-                    }
+                    if (hex in reach.captureTargets && armPactBreak(state, hex)) return
                     pendingPactBreak = null
                     submit(GameAction.MoveUnit(heldUnit, hex))
                     clearSelection()
@@ -770,6 +750,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         select(hex)
+    }
+
+    /**
+     * Two-tap guard for aggression against a pact partner (capture, sink,
+     * bombard): the first tap on [hex] arms [pendingPactBreak] and toasts the
+     * exact penalty the engine will charge; the second tap disarms and falls
+     * through to the strike. Returns true when the confirmation was armed.
+     */
+    private fun armPactBreak(state: GameState, hex: Hex): Boolean {
+        val victim = state.tiles[hex]?.owner ?: state.unitAt(hex)?.owner
+        if (victim != null &&
+            engine?.pactBetween(state.currentPlayer, victim) != null &&
+            pendingPactBreak != hex
+        ) {
+            pendingPactBreak = hex
+            val penalty = Rules.pactBreakPenalty(state, state.currentPlayer)
+            pushToast(UiText.of(R.string.toast_pact_break_confirm, penalty), ToastKind.WARNING)
+            return true
+        }
+        pendingPactBreak = null
+        return false
     }
 
     /** Board tap that missed the board entirely (the void): cancel any selection. */
@@ -813,7 +814,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 selectedHex = hex
                 // A fishery-legal hex previews its catch: the tray is about to
                 // offer the fishery, so show which shoals it would work.
-                val offersFishery = engine.buyableAt(hex).any {
+                val offersFishery = buyableAt(state, hex).any {
                     it is PurchaseOption.Structure &&
                         it.type == com.msa.fightandconquer.core.model.BuildingType.FISHERY
                 }
@@ -828,7 +829,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
         // Open sea beside an own port: the boat yard (purchase tray on a sea hex).
         if (tile != null && tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-            tile.unit == null && tile.building == null && engine.buyableAt(hex).isNotEmpty()
+            tile.unit == null && tile.building == null && buyableAt(state, hex).isNotEmpty()
         ) {
             selectedHex = hex
             _highlights.value = HighlightSet(selected = hex)
@@ -1119,11 +1120,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     ?.unit?.let { state.units[it] }?.takeIf { Rules.isNaval(it.type) }
                 if (defender != null) {
                     val strength = Rules.strengthOf(state, defender)
-                    if (strength == 0) continue // sinkable transport: the disc already says it
+                    if (capturable && strength == 0) continue // sinkable transport: the disc already says it
                     add(
                         OverlayLabel(
-                            hex, strength, LabelKind.CAPTURABLE, LabelGlyph.SWORD,
-                            UiText.of(R.string.cd_ship_sinkable, strength),
+                            hex, strength,
+                            if (capturable) LabelKind.CAPTURABLE else LabelKind.BLOCKED,
+                            LabelGlyph.SWORD,
+                            UiText.of(
+                                if (capturable) R.string.cd_ship_sinkable else R.string.cd_ship_too_strong,
+                                strength,
+                            ),
                         ),
                     )
                 } else {
@@ -1158,32 +1164,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
-            // Out-gunned enemy hulls beside this warship's water: reach lists only the
-            // sinkable ones, so the too-strong boats need their own red explainer —
-            // same target preconditions as seaReachable, with the comparison flipped.
-            if (unit.type == com.msa.fightandconquer.core.model.UnitType.WARSHIP) {
-                val myStrength = Rules.strengthOf(state, unit)
-                val seen = HashSet<Hex>()
-                for (water in reach.moveTargets + unit.hex) {
-                    HexMath.forEachNeighbor(water) { n ->
-                        if (n in seen || n in reach.captureTargets) return@forEachNeighbor
-                        val tile = state.tiles[n] ?: return@forEachNeighbor
-                        if (tile.terrain != Terrain.SEA || tile.building != null) return@forEachNeighbor
-                        val defender = tile.unit?.let { state.units[it] } ?: return@forEachNeighbor
-                        if (defender.owner == unit.owner || !Rules.isNaval(defender.type)) return@forEachNeighbor
-                        val strength = Rules.strengthOf(state, defender)
-                        if (strength > myStrength) {
-                            seen.add(n)
-                            add(
-                                OverlayLabel(
-                                    n, strength, LabelKind.BLOCKED, LabelGlyph.SWORD,
-                                    UiText.of(R.string.cd_ship_too_strong, strength),
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
+            // Out-gunned enemy hulls need no bespoke scan: seaReachable reports them
+            // as blockedTargets, exactly as the land BFS reports too-defended hexes,
+            // so the loop above chips them from the same scan that drew the discs.
         }
         // Fog: chips are derived from reach and stay within vision by construction,
         // but filter defensively so a rules change can never leak an unseen number.
@@ -1294,7 +1277,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         var campCount = 0; var campTotal = 0
         var portCount = 0; var portTotal = 0
         var fisheryCount = 0; var fisheryTotal = 0
-        // Mirrors Rules.incomeFrom exactly so the panel rows always sum to `income`.
+        // Same tile walk and skip order as Rules.incomeFrom; the per-building
+        // countables are shared Rules helpers, so the rows sum to `income` by
+        // construction rather than by a hand-kept mirror.
         for ((hex, tile) in state.tiles) {
             if (tile.owner != me) continue
             if (tile.starving) { starving++; continue }
@@ -1311,21 +1296,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 Building.MINE -> { mineCount++; mineTotal += rules.mineIncome }
                 Building.MARKET -> {
                     marketCount++
-                    var neighbors = 0
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = state.tiles[n]
-                        if (t != null && t.owner == me && !t.starving && t.flora == null) neighbors++
-                    }
-                    marketTotal += rules.marketNeighborIncome * minOf(neighbors, rules.marketNeighborCap)
+                    marketTotal += rules.marketNeighborIncome *
+                        minOf(Rules.marketNeighbors(state.tiles, hex, me), rules.marketNeighborCap)
                 }
                 Building.LUMBER_CAMP -> {
                     campCount++
-                    var trees = 0
-                    HexMath.forEachNeighbor(hex) { n ->
-                        val t = state.tiles[n]
-                        if (t != null && t.owner == me && t.flora is Flora.Tree) trees++
-                    }
-                    campTotal += rules.lumberCampTreeIncome * minOf(trees, rules.lumberCampTreeCap)
+                    campTotal += rules.lumberCampTreeIncome *
+                        minOf(Rules.adjacentOwnTrees(state.tiles, hex, me), rules.lumberCampTreeCap)
                 }
                 Building.PORT -> { portCount++; portTotal += rules.portIncome }
                 Building.FISHERY -> {
@@ -1352,11 +1329,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             // The unit half of the income sum: dories parked on shoals (Rules.boatIncomeFrom).
             run {
                 val parked = state.units.values.count { u ->
-                    u.owner == me && u.type == com.msa.fightandconquer.core.model.UnitType.FISHING_BOAT &&
-                        state.tiles[u.hex]?.let {
-                            it.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
-                                it.deposit == com.msa.fightandconquer.core.model.Deposit.FISH_SHOAL
-                        } == true
+                    u.owner == me && Rules.isEarningFishingBoat(state.tiles, u)
                 }
                 IncomeRow(
                     R.string.unit_fishing_boat, parked, parked * rules.fishingBoatIncome,
@@ -1740,146 +1713,66 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             // This building already belongs to someone — its numbers are the OWNER's
             // effective ones (a Sultanate mine pays 7, its lumber camp 3 per tree).
             val rules = tile.owner?.let { Rules.effectiveRules(state, it) } ?: rules
-            val card = when (building) {
-                Building.CAPITAL -> InfoCard(
-                    UiText.of(R.string.building_capital),
+            // Per-building content only — the card shell (owner chip, baked icon)
+            // is assembled once below, so a new building adds one row here.
+            fun stat(labelRes: Int, value: UiText) = InfoStat(UiText.of(labelRes), value)
+            fun income(value: Int) = stat(R.string.info_stat_income, UiText.of(R.string.info_value_income, value))
+            fun incomeMax(value: Int) = stat(R.string.info_stat_income, UiText.of(R.string.info_value_income_max, value))
+            val (titleRes, subtitle, buildingStat) = when (building) {
+                Building.CAPITAL -> Triple(
+                    R.string.building_capital,
                     UiText.of(R.string.info_capital, rules.capitalLootPercent),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_defense),
-                            UiText.of(R.string.info_value_defense_area, rules.capitalDefense),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
+                    stat(R.string.info_stat_defense, UiText.of(R.string.info_value_defense_area, rules.capitalDefense)),
                 )
-                Building.TOWER -> InfoCard(
-                    UiText.of(R.string.building_tower),
+                Building.TOWER -> Triple(
+                    R.string.building_tower,
                     UiText.of(R.string.info_tower),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_defense),
-                            UiText.of(R.string.info_value_plain, rules.towerDefense),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
+                    stat(R.string.info_stat_defense, UiText.of(R.string.info_value_plain, rules.towerDefense)),
                 )
-                Building.STRONG_TOWER -> InfoCard(
-                    UiText.of(R.string.building_castle),
+                Building.STRONG_TOWER -> Triple(
+                    R.string.building_castle,
                     UiText.of(R.string.info_castle),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_defense),
-                            UiText.of(R.string.info_value_plain, rules.strongTowerDefense),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
+                    stat(R.string.info_stat_defense, UiText.of(R.string.info_value_plain, rules.strongTowerDefense)),
                 )
-                Building.FARM -> InfoCard(
-                    UiText.of(R.string.building_farm),
+                Building.FARM -> Triple(
+                    R.string.building_farm,
                     UiText.of(R.string.info_farm),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_income),
-                            UiText.of(
-                                R.string.info_value_income,
-                                rules.farmIncome + if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) rules.fertileFarmBonus else 0,
-                            ),
-                        ),
+                    income(
+                        rules.farmIncome +
+                            if (tile.deposit == com.msa.fightandconquer.core.model.Deposit.FERTILE) rules.fertileFarmBonus else 0,
                     ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
                 )
-                Building.MINE -> InfoCard(
-                    UiText.of(R.string.building_mine),
-                    UiText.of(R.string.info_mine),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_income),
-                            UiText.of(R.string.info_value_income, rules.mineIncome),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
-                )
-                Building.MARKET -> InfoCard(
-                    UiText.of(R.string.building_market),
+                Building.MINE -> Triple(R.string.building_mine, UiText.of(R.string.info_mine), income(rules.mineIncome))
+                Building.MARKET -> Triple(
+                    R.string.building_market,
                     UiText.of(R.string.info_market),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_income),
-                            UiText.of(
-                                R.string.info_value_income_max,
-                                rules.marketNeighborIncome * rules.marketNeighborCap,
-                            ),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
+                    incomeMax(rules.marketNeighborIncome * rules.marketNeighborCap),
                 )
-                Building.LUMBER_CAMP -> InfoCard(
-                    UiText.of(R.string.building_lumber_camp),
+                Building.LUMBER_CAMP -> Triple(
+                    R.string.building_lumber_camp,
                     UiText.of(R.string.info_lumber_camp),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_income),
-                            UiText.of(
-                                R.string.info_value_income_max,
-                                rules.lumberCampTreeIncome * rules.lumberCampTreeCap,
-                            ),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
+                    incomeMax(rules.lumberCampTreeIncome * rules.lumberCampTreeCap),
                 )
-                Building.WATCHTOWER -> InfoCard(
-                    UiText.of(R.string.building_watchtower),
+                Building.WATCHTOWER -> Triple(
+                    R.string.building_watchtower,
                     UiText.of(R.string.info_watchtower),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_vision),
-                            UiText.of(R.string.info_value_plain, rules.watchtowerVisionRadius),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
+                    stat(R.string.info_stat_vision, UiText.of(R.string.info_value_plain, rules.watchtowerVisionRadius)),
                 )
-                Building.PORT -> InfoCard(
-                    UiText.of(R.string.building_port),
-                    UiText.of(R.string.info_port),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_income),
-                            UiText.of(R.string.info_value_income, rules.portIncome),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
-                )
-                Building.FISHERY -> InfoCard(
-                    UiText.of(R.string.building_fishery),
+                Building.PORT -> Triple(R.string.building_port, UiText.of(R.string.info_port), income(rules.portIncome))
+                Building.FISHERY -> Triple(
+                    R.string.building_fishery,
                     UiText.of(R.string.info_fishery),
-                    listOf(
-                        InfoStat(
-                            UiText.of(R.string.info_stat_income),
-                            UiText.of(
-                                R.string.info_value_income_max,
-                                rules.fisheryShoalIncome * rules.fisheryShoalCap,
-                            ),
-                        ),
-                    ),
-                    ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
+                    incomeMax(rules.fisheryShoalIncome * rules.fisheryShoalCap),
                 )
-                Building.BRIDGE -> InfoCard(
-                    UiText.of(R.string.building_bridge),
-                    UiText.of(R.string.info_bridge),
-                    factionIndex = ownerIndex,
-                    iconRes = PieceIcons.building(ownerCiv, building),
-                )
+                Building.BRIDGE -> Triple(R.string.building_bridge, UiText.of(R.string.info_bridge), null)
             }
+            val card = InfoCard(
+                UiText.of(titleRes),
+                subtitle,
+                listOfNotNull(buildingStat),
+                ownerIndex,
+                iconRes = PieceIcons.building(ownerCiv, building),
+            )
             // Owner's buildings act from their card: bridges rotate, and anything
             // but the capital can be razed for a partial refund. (A bridge carrying
             // a unit shows the unit's card instead, so no stranding case arises.)
@@ -2108,6 +2001,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     // ----- HUD -----
 
+    /**
+     * One-slot memo over [GameEngine.buyableAt] (~15 Legality checks per call):
+     * select() probes the same hex refreshHud immediately re-asks for, on the
+     * same immutable state, so identity of (state, hex) proves the answer.
+     */
+    private var buyableMemo: Triple<GameState, Hex, List<PurchaseOption>>? = null
+
+    private fun buyableAt(state: GameState, hex: Hex): List<PurchaseOption> {
+        buyableMemo?.let { (s, h, options) -> if (s === state && h == hex) return options }
+        val options = engine?.buyableAt(hex).orEmpty()
+        buyableMemo = Triple(state, hex, options)
+        return options
+    }
+
     private fun refreshHud() {
         val engine = engine ?: run { _hud.value = null; return }
         val state = engine.state.value
@@ -2117,7 +2024,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val selected = selectedUnit?.let { state.units[it] }
         val selectedName = selected?.let { unitNameRes(it.type, it.tier) }
         val purchases = if (selectedUnit == null) {
-            selectedHex?.let { engine.buyableAt(it) } ?: emptyList()
+            selectedHex?.let { buyableAt(state, it) } ?: emptyList()
         } else {
             emptyList()
         }

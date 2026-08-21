@@ -37,6 +37,19 @@ import com.msa.fightandconquer.ui.GameMode
 import com.msa.fightandconquer.ui.PieceIcons
 import com.msa.fightandconquer.ui.UiColors
 
+/** Pointy-top hexagon outline centered at ([cx], [cy]) — the setup screens' shared glyph. */
+internal fun hexPath(cx: Float, cy: Float, radius: Float): androidx.compose.ui.graphics.Path {
+    val path = androidx.compose.ui.graphics.Path()
+    for (i in 0 until 6) {
+        val angle = Math.toRadians(60.0 * i - 30.0)
+        val x = cx + radius * kotlin.math.cos(angle).toFloat()
+        val y = cy + radius * kotlin.math.sin(angle).toFloat()
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    return path
+}
+
 /** Saves an enum by name so setup choices survive Activity recreation. */
 internal inline fun <reified T : Enum<T>> enumSaver(): Saver<T, String> =
     Saver(save = { it.name }, restore = { enumValueOf<T>(it) })

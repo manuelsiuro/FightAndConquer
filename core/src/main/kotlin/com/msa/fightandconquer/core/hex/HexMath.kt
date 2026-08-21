@@ -37,22 +37,6 @@ object HexMath {
         return out
     }
 
-    /** The ring of hexes at exactly [radius] from [center]. radius must be >= 1. */
-    fun ring(center: Hex, radius: Int): List<Hex> {
-        require(radius >= 1)
-        val out = ArrayList<Hex>(6 * radius)
-        var q = center.q + DIRECTIONS[4].first * radius
-        var r = center.r + DIRECTIONS[4].second * radius
-        for (side in 0 until 6) {
-            repeat(radius) {
-                out.add(Hex.of(q, r))
-                q += DIRECTIONS[side].first
-                r += DIRECTIONS[side].second
-            }
-        }
-        return out
-    }
-
     /**
      * BFS flood fill from [start] over hexes accepted by [canEnter].
      * [start] is included in the result iff canEnter(start).

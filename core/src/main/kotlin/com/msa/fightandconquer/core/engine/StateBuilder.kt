@@ -42,10 +42,7 @@ internal class StateBuilder(private val base: GameState) {
         tiles[hex] = transform(tiles.getValue(hex))
     }
 
-    fun rollPercent(): Int {
-        rngState = Rng.advance(rngState)
-        return Rng.nextInt(rngState, 100)
-    }
+    fun rollPercent(): Int = rollIndex(100)
 
     fun rollIndex(bound: Int): Int {
         rngState = Rng.advance(rngState)
@@ -132,9 +129,8 @@ internal class StateBuilder(private val base: GameState) {
         val victim = tile.owner
         // Aggression against a pact partner breaks the pact first (penalty transfer)
         // — this single site covers both move-capture and buy-capture.
-        if (victim != null && victim != attacker) {
-            diplomacy.pactBetween(attacker, victim)?.let { breakPact(attacker, victim) }
-        }
+        // breakPact is a no-op when no pact stands.
+        if (victim != null && victim != attacker) breakPact(attacker, victim)
         tile.unit?.let { killUnit(it, DeathCause.KILLED) }
         when (tile.building) {
             Building.CAPITAL -> captureCapital(attacker, victim!!, hex)
@@ -221,7 +217,7 @@ internal class StateBuilder(private val base: GameState) {
     /** Removes the pact, transfers the penalty to the victim, counts the betrayal. */
     fun breakPact(breaker: PlayerId, victim: PlayerId) {
         val pact = diplomacy.pactBetween(breaker, victim) ?: return
-        val penalty = player(breaker).treasury * rules.pactBreakPenaltyPercent / 100
+        val penalty = Rules.pactBreakPenaltyOf(player(breaker).treasury, rules)
         updatePlayer(breaker) { it.copy(treasury = it.treasury - penalty) }
         updatePlayer(victim) { it.copy(treasury = it.treasury + penalty) }
         val breaks = MutableList(maxOf(diplomacy.pactBreaks.size, players.size)) {
@@ -301,11 +297,15 @@ internal class StateBuilder(private val base: GameState) {
 
     /** Eliminates players with no LAND hexes; declares victory when one remains. */
     fun checkElimination() {
+        // One board pass instead of one per player; eliminating a player only
+        // neutralizes their OWN tiles, so the counts stay valid across the loop.
+        val landOwned = IntArray(players.size)
+        for (tile in tiles.values) {
+            val owner = tile.owner ?: continue
+            if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.LAND) landOwned[owner.value]++
+        }
         for (p in players.toList()) {
-            if (!p.eliminated && tiles.values.none {
-                    it.owner == p.id && it.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
-                }
-            ) {
+            if (!p.eliminated && landOwned[p.id.value] == 0) {
                 // Any surviving units of an eliminated player die (their tiles are gone,
                 // so this is normally a no-op safety net).
                 units.values.filter { it.owner == p.id }.forEach { killUnit(it.id, DeathCause.STARVED) }

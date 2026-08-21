@@ -30,7 +30,12 @@ data class MapParams(
     val shape: MapShape = MapShape.CONTINENT,
 ) {
     init {
-        require(playerCount in 2..6) { "playerCount must be 2..6" }
+        require(playerCount in 2..MAX_PLAYERS) { "playerCount must be 2..$MAX_PLAYERS" }
+    }
+
+    companion object {
+        /** Engine-wide seat ceiling — the editor and the seat-name table honor it too. */
+        const val MAX_PLAYERS = 6
     }
 }
 

@@ -587,15 +587,11 @@ private fun UndoButton(onClick: () -> Unit) {
 /** The 56 dp end-turn FAB in the current player's pastel. */
 @Composable
 private fun EndTurnFab(pastel: Color, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
     val description = stringResource(R.string.hud_end_turn)
     Column(
         Modifier
             .size(56.dp)
-            .shadow(2.dp, shape, ambientColor = UiColors.boardShadow, spotColor = UiColors.boardShadow)
-            .background(pastel, shape)
-            .border(1.dp, Color(0x243E3A36), shape)
-            .clip(shape)
+            .hudSurface(20.dp, fill = pastel, border = Color(0x243E3A36))
             .scaleClickable(onClick = onClick)
             .semantics {
                 role = Role.Button
@@ -685,14 +681,10 @@ private fun OutlinedHudButton(
     fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(radius)
     Box(
         modifier
             .height(height)
-            .shadow(2.dp, shape, ambientColor = UiColors.boardShadow, spotColor = UiColors.boardShadow)
-            .background(UiColors.surface, shape)
-            .border(1.dp, UiColors.ink, shape)
-            .clip(shape)
+            .hudSurface(radius, border = UiColors.ink)
             .scaleClickable(onClick = onClick)
             .semantics { role = Role.Button }
             .padding(horizontal = 16.dp),

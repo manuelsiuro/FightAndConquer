@@ -441,7 +441,7 @@ class EditorSession(
         /** Snapshots are cheap (immutable, structurally shared) — 50 strokes is plenty. */
         private const val UNDO_LIMIT = 50
 
-        /** MapParams allows 2..6 players; the editor honors the same ceiling. */
-        const val MAX_SEATS = 6
+        /** The engine-wide player ceiling, from the one place that defines it. */
+        const val MAX_SEATS = com.msa.fightandconquer.core.map.MapParams.MAX_PLAYERS
     }
 }

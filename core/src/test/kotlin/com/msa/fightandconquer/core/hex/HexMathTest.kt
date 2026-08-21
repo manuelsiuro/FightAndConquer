@@ -79,17 +79,6 @@ class HexMathTest {
     }
 
     @Test
-    fun `ring has exactly 6r hexes at distance r`() {
-        val center = Hex.of(2, 2)
-        for (radius in 1..3) {
-            val ring = HexMath.ring(center, radius)
-            assertEquals(6 * radius, ring.size)
-            assertEquals(6 * radius, ring.toSet().size)
-            ring.forEach { assertEquals(radius, HexMath.distance(center, it)) }
-        }
-    }
-
-    @Test
     fun `flood fill covers connected region and stops at borders`() {
         // Two blobs connected by nothing: {origin ring1} and a far single hex
         val blob = HexMath.range(Hex.of(0, 0), 1).toSet()

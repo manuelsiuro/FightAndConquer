@@ -6,6 +6,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.BuildingType
 import com.msa.fightandconquer.core.model.Civilization
+import com.msa.fightandconquer.core.model.RuleConstants
 import com.msa.fightandconquer.core.model.UnitType
 import com.msa.fightandconquer.ui.PieceIcons
 
@@ -26,7 +27,7 @@ data class GuideStat(
  * Everything is a resource id so the whole catalog is static, context-free data that the
  * [FieldGuide] and the purchase tray both render from (no duplicated copy).
  *
- * Numeric [stats] use the shipped [com.msa.fightandconquer.core.model.RuleConstants]
+ * Numeric [stats] read the shipped [com.msa.fightandconquer.core.model.RuleConstants]
  * defaults — the guide is educational, not a live readout of a modified config.
  */
 data class GuideEntry(
@@ -47,6 +48,13 @@ data class GuideSection(@StringRes val titleRes: Int, val entries: List<GuideEnt
  * the purchase cards resolve the same entry they render in the guide.
  */
 object GuideCatalog {
+
+    /**
+     * The shipped defaults every stat below reads from — the guide is
+     * educational, not a live readout of a modified config, but reading the
+     * numbers from [RuleConstants] keeps it drift-proof across rebalances.
+     */
+    private val defaults = RuleConstants()
 
     private val basics = GuideSection(
         R.string.guide_section_basics,
@@ -111,9 +119,9 @@ object GuideCatalog {
         howToRes = R.string.guide_how_archer,
         requirementRes = R.string.guide_req_special,
         stats = listOf(
-            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, 1),
-            GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, 2),
-            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 4),
+            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, defaults.archerStrength),
+            GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, defaults.archerAuraDefense),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, defaults.archerUpkeep),
         ),
     )
 
@@ -125,10 +133,10 @@ object GuideCatalog {
         howToRes = R.string.guide_how_catapult,
         requirementRes = R.string.guide_req_special,
         stats = listOf(
-            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, 2),
-            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 2),
-            GuideStat(R.string.info_stat_range, R.string.info_value_plain, 2),
-            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 10),
+            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, defaults.catapultStrength),
+            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, defaults.catapultStrength),
+            GuideStat(R.string.info_stat_range, R.string.info_value_plain, defaults.catapultMoveRange),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, defaults.catapultUpkeep),
         ),
     )
 
@@ -142,9 +150,9 @@ object GuideCatalog {
         stats = listOf(
             GuideStat(R.string.info_stat_attack, R.string.info_value_none),
             GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 0),
-            GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
+            GuideStat(R.string.info_stat_range, R.string.info_value_plain, defaults.transportMoveRange),
             GuideStat(R.string.info_stat_cargo, R.string.info_value_plain, 1),
-            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 4),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, defaults.transportUpkeep),
         ),
     )
 
@@ -156,10 +164,10 @@ object GuideCatalog {
         howToRes = R.string.guide_how_warship,
         requirementRes = R.string.guide_req_port,
         stats = listOf(
-            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, 2),
-            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 2),
-            GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
-            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 8),
+            GuideStat(R.string.info_stat_attack, R.string.info_value_plain, defaults.warshipStrength),
+            GuideStat(R.string.info_stat_defense, R.string.info_value_plain, defaults.warshipStrength),
+            GuideStat(R.string.info_stat_range, R.string.info_value_plain, defaults.warshipMoveRange),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, defaults.warshipUpkeep),
         ),
     )
 
@@ -173,9 +181,9 @@ object GuideCatalog {
         stats = listOf(
             GuideStat(R.string.info_stat_attack, R.string.info_value_none),
             GuideStat(R.string.info_stat_defense, R.string.info_value_plain, 0),
-            GuideStat(R.string.info_stat_range, R.string.info_value_plain, 3),
-            GuideStat(R.string.info_stat_income, R.string.info_value_income_on_shoal, 6),
-            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, 3),
+            GuideStat(R.string.info_stat_range, R.string.info_value_plain, defaults.fishingBoatMoveRange),
+            GuideStat(R.string.info_stat_income, R.string.info_value_income_on_shoal, defaults.fishingBoatIncome),
+            GuideStat(R.string.info_stat_upkeep, R.string.info_value_per_turn, defaults.fishingBoatUpkeep),
         ),
     )
 
@@ -191,7 +199,7 @@ object GuideCatalog {
         descRes = R.string.info_farm,
         howToRes = R.string.guide_how_farm,
         requirementRes = R.string.guide_req_farm,
-        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 4)),
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, defaults.farmIncome)),
     )
     private val tower = GuideEntry(
         id = "building_tower",
@@ -199,7 +207,7 @@ object GuideCatalog {
         nameRes = R.string.building_tower,
         descRes = R.string.info_tower,
         howToRes = R.string.guide_how_tower,
-        stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, 2)),
+        stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, defaults.towerDefense)),
     )
     private val castle = GuideEntry(
         id = "building_castle",
@@ -207,7 +215,7 @@ object GuideCatalog {
         nameRes = R.string.building_castle,
         descRes = R.string.info_castle,
         howToRes = R.string.guide_how_castle,
-        stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, 3)),
+        stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, defaults.strongTowerDefense)),
     )
     private val mine = GuideEntry(
         id = "building_mine",
@@ -216,7 +224,7 @@ object GuideCatalog {
         descRes = R.string.info_mine,
         howToRes = R.string.guide_how_mine,
         requirementRes = R.string.guide_req_mine,
-        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 6)),
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, defaults.mineIncome)),
     )
     private val market = GuideEntry(
         id = "building_market",
@@ -224,7 +232,7 @@ object GuideCatalog {
         nameRes = R.string.building_market,
         descRes = R.string.info_market,
         howToRes = R.string.guide_how_market,
-        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income_max, 5)),
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income_max, defaults.marketNeighborIncome * defaults.marketNeighborCap)),
     )
     private val lumberCamp = GuideEntry(
         id = "building_lumber_camp",
@@ -233,7 +241,7 @@ object GuideCatalog {
         descRes = R.string.info_lumber_camp,
         howToRes = R.string.guide_how_lumber,
         requirementRes = R.string.guide_req_lumber,
-        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income_max, 8)),
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income_max, defaults.lumberCampTreeIncome * defaults.lumberCampTreeCap)),
     )
     private val watchtower = GuideEntry(
         id = "building_watchtower",
@@ -242,7 +250,7 @@ object GuideCatalog {
         descRes = R.string.info_watchtower,
         howToRes = R.string.guide_how_watchtower,
         requirementRes = R.string.guide_req_watchtower,
-        stats = listOf(GuideStat(R.string.info_stat_vision, R.string.info_value_plain, 6)),
+        stats = listOf(GuideStat(R.string.info_stat_vision, R.string.info_value_plain, defaults.watchtowerVisionRadius)),
     )
     private val port = GuideEntry(
         id = "building_port",
@@ -251,7 +259,7 @@ object GuideCatalog {
         descRes = R.string.info_port,
         howToRes = R.string.guide_how_port,
         requirementRes = R.string.guide_req_port_coast,
-        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 2)),
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, defaults.portIncome)),
     )
     private val fishery = GuideEntry(
         id = "building_fishery",
@@ -260,7 +268,7 @@ object GuideCatalog {
         descRes = R.string.info_fishery,
         howToRes = R.string.guide_how_fishery,
         requirementRes = R.string.guide_req_fishery,
-        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income_max, 9)),
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income_max, defaults.fisheryShoalIncome * defaults.fisheryShoalCap)),
     )
     private val bridge = GuideEntry(
         id = "building_bridge",
@@ -276,7 +284,7 @@ object GuideCatalog {
         nameRes = R.string.building_capital,
         descRes = R.string.guide_desc_capital,
         howToRes = R.string.guide_how_capital,
-        stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, 1)),
+        stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, defaults.capitalDefense)),
     )
 
     private val buildings = GuideSection(
@@ -300,7 +308,7 @@ object GuideCatalog {
                 nameRes = R.string.piece_fertile,
                 descRes = R.string.info_fertile,
                 howToRes = R.string.guide_how_fertile,
-                stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 1)),
+                stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, defaults.fertileHexBonus)),
             ),
             GuideEntry(
                 id = "res_tree",
@@ -308,7 +316,7 @@ object GuideCatalog {
                 nameRes = R.string.piece_tree,
                 descRes = R.string.info_tree,
                 howToRes = R.string.guide_how_tree,
-                stats = listOf(GuideStat(R.string.info_stat_clear_bonus, R.string.info_value_coins, 3)),
+                stats = listOf(GuideStat(R.string.info_stat_clear_bonus, R.string.info_value_coins, defaults.treeClearBonus)),
             ),
             GuideEntry(
                 id = "res_fish_shoal",
@@ -316,7 +324,7 @@ object GuideCatalog {
                 nameRes = R.string.piece_fish_shoal,
                 descRes = R.string.info_fish_shoal,
                 howToRes = R.string.guide_how_fish_shoal,
-                stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, 3)),
+                stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, defaults.fisheryShoalIncome)),
             ),
             GuideEntry(
                 id = "res_gravestone",
