@@ -518,6 +518,38 @@
     <string name="outcome_menu">Leave</string>
     <string name="outcome_campaign_complete">You have finished this campaign.</string>
 
+    <!-- Post-match chronicle (debrief) -->
+    <string name="debrief_view">View debrief</string>
+    <string name="debrief_conquers">%1$s conquers!</string>
+    <string name="debrief_meta">%1$s · %2$s</string>
+    <string name="debrief_section_shape">The shape of the war</string>
+    <string name="debrief_section_moments">Turning points</string>
+    <string name="debrief_section_honours">Honours</string>
+    <string name="debrief_lens_territory">Territory</string>
+    <string name="debrief_lens_income">Income</string>
+    <string name="debrief_lens_treasury">Treasury</string>
+    <string name="debrief_legend_you">%1$s — you</string>
+    <string name="debrief_no_moments">A quiet war — no betrayals, no lootings, no bankruptcies.</string>
+    <string name="debrief_round">Round %1$d</string>
+    <string name="moment_capital_looted">%1$s looted the capital of %2$s for %3$d gold</string>
+    <string name="moment_pact_broken">%1$s betrayed %2$s, paying %3$d gold</string>
+    <string name="moment_bankruptcy">%1$s went bankrupt — their whole army perished</string>
+    <string name="moment_ship_sunk">%1$s sank a ship of %2$s</string>
+    <string name="moment_eliminated">%1$s was wiped from the map</string>
+    <string name="moment_crowned">%1$s conquered the last realm</string>
+    <string name="superlative_realm">Largest realm</string>
+    <string name="superlative_hoard">Richest hoard</string>
+    <string name="superlative_conqueror">Conqueror</string>
+    <string name="superlative_butcher">Butcher</string>
+    <string name="superlative_admiral">Admiral</string>
+    <string name="superlative_oathbreaker">Oathbreaker</string>
+    <string name="superlative_value_hexes">%1$d hexes</string>
+    <string name="superlative_value_gold">%1$d gold</string>
+    <string name="superlative_value_captured">%1$d taken</string>
+    <string name="superlative_value_kills">%1$d kills</string>
+    <string name="superlative_value_ships">%1$d ships sunk</string>
+    <string name="superlative_value_pacts">%1$d pacts broken</string>
+
     <!-- In-game campaign HUD -->
     <string name="campaign_coach_dismiss">Got it</string>
     <string name="campaign_coach_hint">Hint</string>

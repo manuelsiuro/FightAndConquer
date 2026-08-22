@@ -25,6 +25,7 @@ import com.msa.fightandconquer.ui.PlaceholderScreen
 import com.msa.fightandconquer.ui.Screen
 import com.msa.fightandconquer.ui.campaign.BriefingScreen
 import com.msa.fightandconquer.ui.campaign.CampaignScreen
+import com.msa.fightandconquer.ui.debrief.DebriefScreen
 import com.msa.fightandconquer.ui.editor.MapEditorScreen
 import com.msa.fightandconquer.ui.editor.MapManagerScreen
 import com.msa.fightandconquer.ui.setup.SetupScreen
@@ -119,6 +120,16 @@ class MainActivity : ComponentActivity() {
                     )
                     Screen.About -> AboutScreen(onBack = viewModel::backToMenu)
                     Screen.Game -> GameScreen(viewModel)
+                    Screen.Debrief -> {
+                        val data = viewModel.debriefData
+                        if (data == null) {
+                            // Only reachable if the screen outlived its capture (process
+                            // recreation); same LaunchedEffect idiom as Briefing.
+                            LaunchedEffect(s) { viewModel.closeDebrief() }
+                        } else {
+                            DebriefScreen(data = data, onBack = viewModel::closeDebrief)
+                        }
+                    }
                 }
             }
         }

@@ -180,6 +180,7 @@ internal fun CampaignOutcomeOverlay(
     missionName: String,
     onNext: () -> Unit,
     onRetry: () -> Unit,
+    onDebrief: (() -> Unit)?,
     onMenu: () -> Unit,
 ) {
     OverlayScrim {
@@ -244,6 +245,16 @@ internal fun CampaignOutcomeOverlay(
                 textColor = UiColors.ink,
                 onClick = onRetry,
             )
+            // The chronicle sits between Retry and Leave: Next stays the mission's
+            // forward path (null = unrecorded match, e.g. resumed from an autosave).
+            if (onDebrief != null) {
+                OverlayButton(
+                    text = stringResource(R.string.debrief_view),
+                    fill = null,
+                    textColor = UiColors.ink,
+                    onClick = onDebrief,
+                )
+            }
             OverlayButton(
                 text = stringResource(R.string.outcome_menu),
                 fill = UiColors.controlFill,

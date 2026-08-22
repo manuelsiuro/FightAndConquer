@@ -50,6 +50,9 @@ import com.msa.fightandconquer.core.model.RuleConstants
 import com.msa.fightandconquer.core.model.UnitId
 import com.msa.fightandconquer.core.persist.SaveCodec
 import com.msa.fightandconquer.core.persist.SaveGame
+import com.msa.fightandconquer.core.record.MatchKind
+import com.msa.fightandconquer.core.record.MatchMeta
+import com.msa.fightandconquer.core.record.MatchRecorderState
 import com.msa.fightandconquer.ui.campaign.CampaignProgressStore
 import com.msa.fightandconquer.ui.campaign.CampaignRepository
 import com.msa.fightandconquer.ui.campaign.CampaignText
@@ -285,7 +288,24 @@ sealed interface Screen {
     data object Settings : Screen
     data object About : Screen
     data object Game : Screen
+
+    /** The post-match chronicle; shows [GameViewModel.debriefData], captured at open. */
+    data object Debrief : Screen
 }
+
+/**
+ * Everything the debrief screen needs, captured when the player opens it — the match
+ * itself is torn down on the way in, so this must be self-contained.
+ */
+data class DebriefData(
+    val record: MatchRecorderState,
+    /** Campaign/custom verdict; null for a conquest skirmish (winner is in the record). */
+    val campaignWon: Boolean? = null,
+    /** Campaign mission title resource; null in a skirmish. */
+    val levelNameRes: Int? = null,
+    /** A custom map's user-typed title. */
+    val levelNameText: String? = null,
+)
 
 /**
  * The teaching moments a coach step can wait on that no board state implies. Names must
@@ -422,6 +442,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     /** Re-entrancy guard: firing a story beat re-enters refreshCampaign through submit. */
     private var firingScript = false
 
+    // ----- match chronicle (post-match debrief) -----
+
+    /**
+     * The debrief's data source, folded live because the engine keeps no full-game log.
+     * In-memory only by design (docs/debrief.md): null for a match resumed from an
+     * autosave, which therefore finishes without a debrief.
+     */
+    private var recorder: MatchRecorderState? = null
+
+    /** What the debrief screen shows; survives match teardown, set by [openDebrief]. */
+    var debriefData: DebriefData? = null
+        private set
+
+    /** Whether the finish overlays can offer the debrief. */
+    val debriefAvailable: Boolean get() = recorder?.finished == true
+
     // ----- menu -----
 
     fun newGame(setup: GameSetup) {
@@ -459,6 +495,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 },
             )
             withContext(Dispatchers.Main.immediate) {
+                // The chronicle captures the setup here because nothing retains it later.
+                recorder = MatchRecorderState.start(
+                    state,
+                    MatchMeta(
+                        kind = if (setup.mode == GameMode.PASS_AND_PLAY) {
+                            MatchKind.PASS_AND_PLAY
+                        } else {
+                            MatchKind.SKIRMISH_VS_AI
+                        },
+                        seed = setup.seed,
+                        landHexes = state.tiles.values.count { it.terrain == Terrain.LAND },
+                        fogOfWar = setup.fogOfWar,
+                        size = setup.size,
+                        shape = setup.shape,
+                    ),
+                )
                 startEngine(GameEngine(state), showOpeningBanner = setup.mode == GameMode.PASS_AND_PLAY)
             }
         }
@@ -495,6 +547,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     tracker = CampaignTracker()
                     uiSignals = mutableSetOf()
                 }
+                // The chronicle is in-memory only: a resumed match plays unrecorded
+                // rather than fabricating half a story (docs/debrief.md).
+                recorder = null
                 startEngine(GameEngine.fromSave(save), showOpeningBanner = false)
             }
         }
@@ -541,7 +596,19 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         tracker = CampaignTracker()
         turnStartTracker = tracker
         uiSignals = mutableSetOf()
-        startEngine(GameEngine(LevelFactory.instantiate(def.level)), showOpeningBanner = false)
+        val state = LevelFactory.instantiate(def.level)
+        recorder = MatchRecorderState.start(
+            state,
+            MatchMeta(
+                kind = MatchKind.CUSTOM_MAP,
+                seed = state.config.seed,
+                landHexes = state.tiles.values.count { it.terrain == Terrain.LAND },
+                fogOfWar = state.config.rules.fogOfWar,
+                levelId = id,
+                customMapName = def.level.map.name,
+            ),
+        )
+        startEngine(GameEngine(state), showOpeningBanner = false)
     }
 
     /** Starts (or restarts) a campaign mission from its opening position. */
@@ -557,7 +624,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         tracker = CampaignTracker()
         turnStartTracker = tracker
         uiSignals = mutableSetOf()
-        startEngine(GameEngine(LevelFactory.instantiate(level)), showOpeningBanner = false)
+        val state = LevelFactory.instantiate(level)
+        recorder = MatchRecorderState.start(
+            state,
+            MatchMeta(
+                kind = MatchKind.CAMPAIGN,
+                seed = state.config.seed,
+                landHexes = state.tiles.values.count { it.terrain == Terrain.LAND },
+                fogOfWar = state.config.rules.fogOfWar,
+                levelId = levelId,
+            ),
+        )
+        startEngine(GameEngine(state), showOpeningBanner = false)
     }
 
     /**
@@ -646,6 +724,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun backToMenu() {
+        teardownMatch()
+        _screen.value = Screen.Menu(autosaveFile.exists())
+    }
+
+    private fun teardownMatch() {
         closeEditorSession()
         mapGenJob?.cancel()
         aiJob?.cancel()
@@ -663,7 +746,40 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         selectedUnit = null; selectedHex = null; banner = null; pendingPactBreak = null
         lastHumanSeat = null
         _visibility.value = null
+        recorder = null
         clearCampaignRun()
+    }
+
+    // ----- post-match debrief -----
+
+    /** Seals the chronicle at a settle point; idempotent — the first settle wins. */
+    private fun finalizeRecord() {
+        val engine = engine ?: return
+        val current = recorder ?: return
+        if (current.finished) return
+        recorder = current.finish(engine.state.value)
+    }
+
+    /**
+     * Opens the chronicle. The match is over and stays over — everything the screen
+     * shows is captured here, then the run is torn down like a return to the menu.
+     */
+    fun openDebrief() {
+        val record = recorder?.takeIf { it.finished } ?: return
+        val run = _campaignRun.value
+        debriefData = DebriefData(
+            record = record,
+            campaignWon = run?.outcome?.won,
+            levelNameRes = run?.levelName?.takeIf { run.levelNameText == null },
+            levelNameText = run?.levelNameText,
+        )
+        teardownMatch()
+        _screen.value = Screen.Debrief
+    }
+
+    /** The match was already torn down on the way in; only the screen goes back. */
+    fun closeDebrief() {
+        debriefData = null
         _screen.value = Screen.Menu(autosaveFile.exists())
     }
 
@@ -987,23 +1103,30 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             ?: return LegalityResult.Rejected(com.msa.fightandconquer.core.engine.RejectionReason.NO_GAME)
         val before = engine.state.value
         val result = engine.submit(action)
-        foldCampaign(before, engine, action)
+        foldScoreboards(before, engine, action)
         // A game can finish mid-turn (capturing the last capital) — the turn-
         // boundary autosave sites never run then, so the stale resume file
         // must be dropped here or the menu keeps offering Continue Game.
-        if (engine.state.value.phase is GamePhase.Finished) autosave()
+        if (engine.state.value.phase is GamePhase.Finished) {
+            finalizeRecord()
+            autosave()
+        }
         refreshHud()
         return result
     }
 
     /**
-     * Advances the campaign scoreboard across one accepted action.
+     * Advances the scoreboards across one accepted action: the match chronicle always,
+     * the campaign tracker while a mission is running.
      *
      * It reads [GameEngine.lastEvents] rather than the events flow because the flow is
      * drop-oldest by design — fine for a renderer that reconciles from state, fatal for a
      * tally of facts no later state reveals (a boat sunk, a unit lost).
      */
-    private fun foldCampaign(before: GameState, engine: GameEngine, action: GameAction) {
+    private fun foldScoreboards(before: GameState, engine: GameEngine, action: GameAction) {
+        recorder?.let {
+            recorder = MatchRecorderState.step(it, before, engine.state.value, engine.lastEvents)
+        }
         val level = activeLevel ?: return
         tracker = CampaignTracker.step(
             prev = tracker,
@@ -1918,9 +2041,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.Main.immediate) {
                     val before = engine.state.value
                     engine.submit(if (guard >= AiPlayer.MAX_ACTIONS_PER_TURN) GameAction.EndTurn else action)
-                    // The scoreboard counts the AI's turn too — a boat it sinks is a unit
+                    // The scoreboards count the AI's turn too — a boat it sinks is a unit
                     // the player lost.
-                    foldCampaign(before, engine, action)
+                    foldScoreboards(before, engine, action)
                     refreshHud()
                 }
                 if (turnEnds) {
@@ -1940,7 +2063,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 // An AI can win mid-turn; the loop breaks before its turn-end
                 // autosave, so drop the stale resume file (autosave deletes
                 // when the game is finished).
-                if (engine.state.value.phase is GamePhase.Finished) autosave()
+                if (engine.state.value.phase is GamePhase.Finished) {
+                    finalizeRecord()
+                    autosave()
+                }
                 refreshHud()
             }
         }
@@ -2237,6 +2363,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (outcome.won && activeCampaignId != CUSTOM_CAMPAIGN) {
             campaignProgress.record(level.id, outcome.stars, outcome.rounds)
         }
+        // A mission can settle off-board (turn limit, lost ground) with the conquest
+        // still unfinished — the chronicle closes with the mission.
+        finalizeRecord()
         viewModelScope.launch(Dispatchers.IO) { autosaveFile.delete() }
     }
 

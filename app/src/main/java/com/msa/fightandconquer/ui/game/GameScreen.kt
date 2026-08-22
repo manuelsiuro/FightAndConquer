@@ -171,6 +171,8 @@ fun GameScreen(viewModel: GameViewModel) {
                 TurnBanner(seat, state.turnNumber, state.currentCiv) { viewModel.beginTurn() }
             }
             val outcome = campaignRun?.outcome
+            val onDebrief: (() -> Unit)? =
+                if (viewModel.debriefAvailable) viewModel::openDebrief else null
             when {
                 outcome != null -> CampaignOutcomeOverlay(
                     outcome = outcome,
@@ -178,11 +180,12 @@ fun GameScreen(viewModel: GameViewModel) {
                         ?: stringResource(campaignRun!!.levelName),
                     onNext = viewModel::startNextLevel,
                     onRetry = viewModel::retryLevel,
+                    onDebrief = onDebrief,
                     onMenu = viewModel::backToMenu,
                 )
                 // A campaign level reports against its own terms, never "player N wins".
                 campaignRun == null -> state.winner?.let { winner ->
-                    GameOverOverlay(winner) { viewModel.backToMenu() }
+                    GameOverOverlay(winner, onDebrief = onDebrief) { viewModel.backToMenu() }
                 }
             }
         }

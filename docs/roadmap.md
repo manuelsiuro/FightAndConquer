@@ -119,6 +119,22 @@ the determinism tests in `:core` are the tripwire.
   and an economic victory condition. (The menu toggle rows for
   `specialUnitsEnabled`/`diplomacyEnabled` shipped with the UI-polish pass.)
 - Tablet/landscape layout (HUD is the only portrait-specific part).
+- **Enjoyment proposals (2026-08 design pass)** — evaluated alongside the
+  post-match debrief ([debrief.md](debrief.md)), which was picked first:
+  - *Decisive endgame* — AI concession when hopelessly behind, an
+    "outcome inevitable — auto-resolve?" offer, or the economic victory above;
+    attacks the genre's mop-up tail. Rule change → one deliberate
+    balance-gate rebalance pass.
+  - *AI personalities* — per-seat difficulty (above) plus named
+    `Evaluator`-weight presets (raider / turtle / admiral / schemer) so
+    skirmish opponents feel like someones. Same gate-reshuffle caveat.
+  - *Seeded & daily challenges* — seed entry + "beat my map" share codes
+    (the `FCM1` envelope machinery exists) and a daily fixed-seed map scored
+    by rounds-to-win with local personal bests.
+  - *Match history* — persist the debrief's `MatchRecord`s
+    (`CustomMapStore`-style one-file-per-match store, autosave piggyback for
+    the in-flight draft) behind a History screen; deliberately cut from the
+    debrief's first scope.
 - Translations: the string *extraction* is done (every user-facing string is in
   `res/values/strings.xml`, with `UiText` carrying resource ids out of the
   ViewModel), so shipping a language is just adding `values-<lang>/strings.xml`.

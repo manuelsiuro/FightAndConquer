@@ -16,6 +16,7 @@ Google Filament 3D renderer inside Jetpack Compose, Blender-authored low-poly mi
 | [campaign.md](campaign.md) | Campaign mode — level format, objectives, coach hints, story beats, authoring |
 | [map-editor.md](map-editor.md) | Map editor — custom scenarios, validation, storage, play path, sharing (code/file/QR/stego) |
 | [civilizations.md](civilizations.md) | Civilizations — per-seat identity, bonus deltas, effective-rules resolution, per-civ art sets |
+| [debrief.md](debrief.md) | Post-match debrief — the Chronicle screen, in-memory match recorder, timeline chart |
 | [roadmap.md](roadmap.md) | Extension points, how-to recipes, known gaps |
 | [game-idea.md](game-idea.md) | The original design brief (vision doc — rules + art direction) |
 

@@ -124,7 +124,7 @@ internal fun TurnBanner(seat: Int, turnNumber: Int, civ: Civilization, onBegin: 
 }
 
 @Composable
-internal fun GameOverOverlay(winner: Int, onBackToMenu: () -> Unit) {
+internal fun GameOverOverlay(winner: Int, onDebrief: (() -> Unit)?, onBackToMenu: () -> Unit) {
     OverlayScrim {
         Box(Modifier.size(72.dp).background(UiColors.faction(winner), CircleShape))
         // The winner's capital as the trophy on the plinth-L hero box.
@@ -148,11 +148,28 @@ internal fun GameOverOverlay(winner: Int, onBackToMenu: () -> Unit) {
             color = UiColors.ink,
             textAlign = TextAlign.Center,
         )
-        OverlayButton(
-            text = stringResource(R.string.game_over_back_to_menu),
-            fill = UiColors.faction(winner),
-            textColor = UiColors.onFaction,
-            onClick = onBackToMenu,
-        )
+        // The chronicle is the finish's hero action; the menu drops to secondary when it
+        // exists (null = unrecorded match, e.g. resumed from an autosave).
+        if (onDebrief != null) {
+            OverlayButton(
+                text = stringResource(R.string.debrief_view),
+                fill = UiColors.faction(winner),
+                textColor = UiColors.onFaction,
+                onClick = onDebrief,
+            )
+            OverlayButton(
+                text = stringResource(R.string.game_over_back_to_menu),
+                fill = null,
+                textColor = UiColors.ink,
+                onClick = onBackToMenu,
+            )
+        } else {
+            OverlayButton(
+                text = stringResource(R.string.game_over_back_to_menu),
+                fill = UiColors.faction(winner),
+                textColor = UiColors.onFaction,
+                onClick = onBackToMenu,
+            )
+        }
     }
 }

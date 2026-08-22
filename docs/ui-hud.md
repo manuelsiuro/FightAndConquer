@@ -217,8 +217,13 @@ opening position through the same `Objectives.evaluate` the HUD uses (so it cann
 defeat clauses, "new in this mission" chips that open the `FieldGuide` at the right entry,
 and Begin/Play-again. Both are described in [campaign.md](campaign.md).
 
-`PlaceholderScreen`: shared "Coming soon" screen, currently backing Map
-Editor and Settings. Replacing one means swapping a single `when` branch in
+`DebriefScreen` (`ui/debrief/`, `Screen.Debrief`): the post-match chronicle —
+verdict hero, one lens-switchable `TimelineChart`, turning-point feed, honours
+grid — shown from the finish overlays' "View debrief" and fed by the in-memory
+match recorder. Full spec in [debrief.md](debrief.md).
+
+`PlaceholderScreen`: shared "Coming soon" screen, currently backing Settings
+only. Replacing it means swapping a single `when` branch in
 `MainActivity` — the `Screen` case and its `openX()` method already exist.
 
 `FieldGuide` (`ui/guide/`) is **not** a `Screen` — it is a self-contained overlay
