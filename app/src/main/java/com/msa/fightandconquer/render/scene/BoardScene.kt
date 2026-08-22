@@ -1004,6 +1004,7 @@ class BoardScene(
             is GameEvent.PactExpired, is GameEvent.PactProposalExpired,
             is GameEvent.PactBroken, is GameEvent.TributeSent,
             is GameEvent.ScriptFired, is GameEvent.RefundPaid,
+            is GameEvent.ResearchStarted, is GameEvent.ResearchCompleted,
             -> Unit
         }
     }

@@ -63,6 +63,20 @@ sealed interface GameEvent {
     @Serializable data class PactBroken(val breaker: PlayerId, val victim: PlayerId, val penalty: Int) : GameEvent
     @Serializable data class TributeSent(val from: PlayerId, val to: PlayerId, val amount: Int) : GameEvent
 
+    // --- Research (HUD-level facts; the board renders nothing for these) ---
+    /** Research began: [cost] already debited. No per-tick event follows — state is truth. */
+    @Serializable data class ResearchStarted(
+        val player: PlayerId,
+        val tech: com.msa.fightandconquer.core.model.Tech,
+        val cost: Int,
+    ) : GameEvent
+
+    /** A technology completed at [player]'s turn start; its effects are already live. */
+    @Serializable data class ResearchCompleted(
+        val player: PlayerId,
+        val tech: com.msa.fightandconquer.core.model.Tech,
+    ) : GameEvent
+
     // --- Campaign ---
     /**
      * A scripted story beat fired ([GameAction.RunScript.tag]). HUD-level only: the

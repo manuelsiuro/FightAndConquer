@@ -10,10 +10,12 @@ import com.msa.fightandconquer.core.model.Flora
  * 1. Q's gravestones one full round old become trees.
  * 2. Trees on/adjacent to Q's territory may spread (state RNG).
  * 3. Income and upkeep are applied atomically.
- * 4. Bankruptcy: treasury < 0 -> 0 and ALL of Q's units die.
- * 5. Starvation: units on hexes cut off from Q's capital die.
- * 6. Q's units refresh (spent = false).
- * 7. Elimination / victory check.
+ * 4. Research progresses: +1 point per standing University; a completing tech's
+ *    effects are live for the turn Q is about to take.
+ * 5. Bankruptcy: treasury < 0 -> 0 and ALL of Q's units die.
+ * 6. Starvation: units on hexes cut off from Q's capital die.
+ * 7. Q's units refresh (spent = false).
+ * 8. Elimination / victory check.
  */
 internal object TurnPipeline {
 
@@ -41,6 +43,8 @@ internal object TurnPipeline {
         val upkeep = upkeepIn(b)
         b.updatePlayer(playerId) { it.copy(treasury = it.treasury + income - upkeep) }
         b.events.add(GameEvent.TurnStarted(playerId, income, upkeep))
+
+        tickResearch(b)
 
         // Bankruptcy: everything dies.
         if (b.player(playerId).treasury < 0) {
@@ -176,6 +180,32 @@ internal object TurnPipeline {
             if (u != null && u.owner == player && Rules.isNaval(u.type)) supplied = true
         }
         return supplied
+    }
+
+    /**
+     * Research progress: +1 point per standing, non-starving own University; the
+     * tech completes when progress reaches its duration (overshoot discarded —
+     * no banking into the next tech). Runs right after income so a razed or
+     * cut-off lab has already stopped counting, and before bankruptcy — the
+     * research was prepaid, and bankruptcy kills units, not scholarship. With
+     * zero labs the slot freezes (no refund) and resumes when one stands again.
+     */
+    private fun tickResearch(b: StateBuilder) {
+        if (!b.rules.researchEnabled) return // hand-authored active state never advances
+        val me = b.currentPlayer
+        val active = b.player(me).research.active ?: return
+        val labs = Rules.workingUniversities(b.tiles, me)
+        if (labs == 0) return
+        val duration = b.effectiveRules(me).techDurationByTier[active.tech.tier - 1]
+        val progress = active.progress + labs
+        if (progress >= duration) {
+            b.updatePlayer(me) { it.copy(research = it.research.completing(active.tech)) }
+            b.events.add(GameEvent.ResearchCompleted(me, active.tech))
+        } else {
+            b.updatePlayer(me) {
+                it.copy(research = it.research.copy(active = active.copy(progress = progress)))
+            }
+        }
     }
 
     private fun incomeIn(b: StateBuilder): Int {

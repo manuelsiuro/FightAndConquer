@@ -33,6 +33,7 @@ object Legality {
             is GameAction.ProposePact -> checkProposePact(state, action)
             is GameAction.RespondPact -> checkRespondPact(state, action)
             is GameAction.SendTribute -> checkSendTribute(state, action)
+            is GameAction.StartResearch -> checkStartResearch(state, action)
             is GameAction.RunScript -> checkRunScript(state, action)
             GameAction.EndTurn -> LegalityResult.Ok
             GameAction.Surrender -> LegalityResult.Ok
@@ -332,6 +333,34 @@ object Legality {
                     (t.building == Building.CAPITAL || t.building == Building.FARM)
             }
             if (!adjacentToChain) return reject(RejectionReason.FARM_NEEDS_ADJACENCY)
+        }
+        return LegalityResult.Ok
+    }
+
+    /**
+     * Starting a research: one active slot per player, linear branch order, a
+     * standing (non-starving) University required — pay-up-front with no lab
+     * would be a money pit that can never progress. Gate order is a pinned
+     * contract (one test per line in ResearchLegalityTest).
+     */
+    private fun checkStartResearch(state: GameState, action: GameAction.StartResearch): LegalityResult {
+        val rules = state.config.rules
+        if (!rules.researchEnabled) return reject(RejectionReason.RESEARCH_DISABLED)
+        if (action.tech.branch == com.msa.fightandconquer.core.model.TechBranch.SAIL && !rules.navalEnabled) {
+            return reject(RejectionReason.NAVAL_DISABLED)
+        }
+        val research = state.player(state.currentPlayer).research
+        if (action.tech in research.completed) return reject(RejectionReason.RESEARCH_ALREADY_COMPLETE)
+        if (research.active != null) return reject(RejectionReason.RESEARCH_IN_PROGRESS)
+        action.tech.prerequisite?.let { prereq ->
+            if (prereq !in research.completed) return reject(RejectionReason.RESEARCH_NEEDS_PREREQUISITE)
+        }
+        if (Rules.workingUniversities(state.tiles, state.currentPlayer) == 0) {
+            return reject(RejectionReason.NO_UNIVERSITY)
+        }
+        val cost = Rules.techCost(state, state.currentPlayer, action.tech)
+        if (state.player(state.currentPlayer).treasury < cost) {
+            return reject(RejectionReason.CANNOT_AFFORD, cost)
         }
         return LegalityResult.Ok
     }

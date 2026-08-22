@@ -31,6 +31,7 @@ object Reducer {
             is GameAction.ProposePact -> applyProposePact(b, action)
             is GameAction.RespondPact -> applyRespondPact(b, action)
             is GameAction.SendTribute -> applySendTribute(b, action)
+            is GameAction.StartResearch -> applyStartResearch(state, b, action)
             is GameAction.RunScript -> applyRunScript(b, action)
             GameAction.EndTurn -> TurnPipeline.endTurn(b)
             GameAction.Surrender -> applySurrender(b)
@@ -289,6 +290,20 @@ object Reducer {
                 com.msa.fightandconquer.core.model.PairRound(me, action.to, b.turnNumber),
         )
         b.events.add(GameEvent.TributeSent(me, action.to, action.amount))
+    }
+
+    private fun applyStartResearch(state: GameState, b: StateBuilder, action: GameAction.StartResearch) {
+        val me = state.currentPlayer
+        val cost = Rules.techCost(state, me, action.tech)
+        b.updatePlayer(me) {
+            it.copy(
+                treasury = it.treasury - cost,
+                research = it.research.copy(
+                    active = com.msa.fightandconquer.core.model.ActiveResearch(action.tech, 0),
+                ),
+            )
+        }
+        b.events.add(GameEvent.ResearchStarted(me, action.tech, cost))
     }
 
     /**

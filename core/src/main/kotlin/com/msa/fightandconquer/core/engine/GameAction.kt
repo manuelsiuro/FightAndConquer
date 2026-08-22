@@ -121,6 +121,16 @@ sealed interface GameAction {
         val amount: Int,
     ) : GameAction
 
+    /**
+     * Pay [tech]'s gold cost up front and make it the player's single active
+     * research (progress accrues at turn start per standing University).
+     * The property is named `tech`, never `type` — the sealed-class JSON
+     * discriminator collision that once killed mid-turn autosaves.
+     */
+    @Serializable
+    @SerialName("startResearch")
+    data class StartResearch(val tech: com.msa.fightandconquer.core.model.Tech) : GameAction
+
     @Serializable
     @SerialName("endTurn")
     data object EndTurn : GameAction

@@ -267,6 +267,7 @@
     <string name="economy_hexes_row">%1$d hexes × %2$d</string>
     <string name="economy_fertile_row">Fertile ground</string>
     <string name="economy_research_row">Research bonus</string>
+    <string name="toast_research_complete">%1$s researched</string>
     <string name="economy_building_row">%1$d × %2$s</string>
     <string name="economy_cut_off_row">%d hexes cut off</string>
     <string name="economy_cut_off_value">·0</string>

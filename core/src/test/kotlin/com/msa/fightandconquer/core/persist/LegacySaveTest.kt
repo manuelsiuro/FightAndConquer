@@ -101,6 +101,7 @@ class LegacySaveTest {
                 GameAction.RotateBuilding(hex(3), 2),
                 GameAction.DemolishBuilding(hex(4)),
                 GameAction.DisbandUnit(com.msa.fightandconquer.core.model.UnitId(7)),
+                GameAction.StartResearch(com.msa.fightandconquer.core.model.Tech.COINAGE),
             ),
         )
         assertEquals(save, SaveCodec.decode(SaveCodec.encode(save)))

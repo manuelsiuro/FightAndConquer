@@ -1564,6 +1564,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (actorIsHuman) pushPopup(event.hex, UiText.of(R.string.popup_coins, event.amount))
             }
 
+            // Human completions only: AI research stays private until the Chronicle.
+            // No per-tick progress toast anywhere — the panel is the progress surface.
+            is GameEvent.ResearchCompleted -> {
+                if (state.players[event.player.value].kind is PlayerKind.Human) {
+                    pushToast(
+                        UiText.of(R.string.toast_research_complete, UiText.of(techNameRes(event.tech))),
+                        ToastKind.INFO,
+                    )
+                }
+            }
+
             is GameEvent.CapitalMoved -> {
                 if (event.loot > 0) {
                     if (actorIsHuman) {
