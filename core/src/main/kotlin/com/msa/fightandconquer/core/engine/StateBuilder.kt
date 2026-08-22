@@ -32,7 +32,10 @@ internal class StateBuilder(private val base: GameState) {
 
     /** [Rules.effectiveRules] for builder-side callers (TurnPipeline has no GameState). */
     fun effectiveRules(id: PlayerId): com.msa.fightandconquer.core.model.RuleConstants =
-        com.msa.fightandconquer.core.model.CivModifiers.effective(rules, player(id).civ)
+        com.msa.fightandconquer.core.model.ResearchModifiers.effective(
+            com.msa.fightandconquer.core.model.CivModifiers.effective(rules, player(id).civ),
+            player(id).research,
+        )
 
     fun updatePlayer(id: PlayerId, transform: (com.msa.fightandconquer.core.model.PlayerState) -> com.msa.fightandconquer.core.model.PlayerState) {
         players[id.value] = transform(players[id.value])

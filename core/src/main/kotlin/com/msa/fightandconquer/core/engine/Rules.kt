@@ -7,6 +7,7 @@ import com.msa.fightandconquer.core.model.CivModifiers
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.GameUnit
 import com.msa.fightandconquer.core.model.PlayerId
+import com.msa.fightandconquer.core.model.ResearchModifiers
 import com.msa.fightandconquer.core.model.RuleConstants
 import com.msa.fightandconquer.core.model.UnitId
 import com.msa.fightandconquer.core.model.UnitType
@@ -108,15 +109,20 @@ object Rules {
     /**
      * The rules [player] actually plays with: the game's [RuleConstants] filtered
      * through their civilization's delta table ([CivModifiers.effective] — identity
-     * for KINGDOM and when [RuleConstants.civBonusesEnabled] is off). Every
-     * owner-dependent accessor below resolves through this; the soldier ladder is
-     * universal by design, so raw `state.config.rules.unitCost`/`unitUpkeep`/
-     * `soldierMoveRanges`/`maxTier` reads stay valid everywhere.
+     * for KINGDOM and when [RuleConstants.civBonusesEnabled] is off), then their
+     * completed research ([ResearchModifiers.effective] — identity with research
+     * off or nothing completed). Every owner-dependent accessor below resolves
+     * through this. Raw `state.config.rules.unitCost`/`unitUpkeep`/
+     * `soldierMoveRanges`/`maxTier` reads stay valid everywhere — but soldier
+     * STRENGTH is `tier + unitAttackBonus` under research (the audited
+     * exception), so strength must always be read through [strengthOf]/[buyStrength].
      */
-    fun effectiveRules(state: GameState, player: PlayerId): RuleConstants =
-        CivModifiers.effective(state.config.rules, state.player(player).civ)
+    fun effectiveRules(state: GameState, player: PlayerId): RuleConstants {
+        val p = state.player(player)
+        return ResearchModifiers.effective(CivModifiers.effective(state.config.rules, p.civ), p.research)
+    }
 
-    /** Attack/capture power of a unit: tier for soldiers, per-type (and per-civ) for specials. */
+    /** Attack/capture power of a unit: tier for soldiers, per-type for specials — plus the owner's attack research. */
     fun strengthOf(state: GameState, unit: GameUnit): Int =
         strengthIn(effectiveRules(state, unit.owner), unit.tier, unit.type)
 
@@ -125,11 +131,13 @@ object Rules {
         strengthIn(effectiveRules(state, player), tier, type)
 
     private fun strengthIn(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
-        UnitType.SOLDIER -> tier
-        UnitType.ARCHER -> rules.archerStrength
-        UnitType.CATAPULT -> rules.catapultStrength
+        UnitType.SOLDIER -> tier + rules.unitAttackBonus
+        UnitType.ARCHER -> rules.archerStrength + rules.unitAttackBonus
+        UnitType.CATAPULT -> rules.catapultStrength + rules.unitAttackBonus
+        // Working hulls have no attack to improve: giving them one would perturb
+        // the attacker-wins tie rule at sea for boats that can never initiate.
         UnitType.TRANSPORT, UnitType.FISHING_BOAT -> 0
-        UnitType.WARSHIP -> rules.warshipStrength
+        UnitType.WARSHIP -> rules.warshipStrength + rules.unitAttackBonus
     }
 
     /**
@@ -149,11 +157,16 @@ object Rules {
     fun buyDefense(state: GameState, player: PlayerId, tier: Int, type: UnitType): Int =
         defenseIn(effectiveRules(state, player), tier, type)
 
+    // Explicit arms (no strengthIn fallthrough): the attack research bonus must
+    // never leak into defense. ARMORY's unitDefenseBonus lifts the land garrison
+    // kinds; the warship's sink threshold deliberately follows warshipStrength
+    // alone (SIEGECRAFT/SHIPWRIGHTS raise it, ARMORY does not).
     private fun defenseIn(rules: RuleConstants, tier: Int, type: UnitType): Int = when (type) {
-        UnitType.ARCHER -> rules.archerAuraDefense
+        UnitType.SOLDIER -> tier + rules.unitDefenseBonus
+        UnitType.ARCHER -> rules.archerAuraDefense + rules.unitDefenseBonus
+        UnitType.CATAPULT -> rules.catapultStrength + rules.unitDefenseBonus
         UnitType.TRANSPORT, UnitType.FISHING_BOAT -> 0
         UnitType.WARSHIP -> rules.warshipStrength
-        else -> strengthIn(rules, tier, type)
     }
 
     /** What [player] pays for a fresh unit (civ-priced for specials; soldiers universal). */
@@ -586,9 +599,19 @@ object Rules {
     /** Income the player will collect at turn start: producing hexes, deposits, buildings, parked boats. */
     fun incomeOf(state: GameState, player: PlayerId): Int {
         val eff = effectiveRules(state, player)
-        return incomeFrom(state.tiles, eff, player) +
-            boatIncomeFrom(state.tiles, state.units.values, eff, player)
+        return scaleIncome(
+            incomeFrom(state.tiles, eff, player) +
+                boatIncomeFrom(state.tiles, state.units.values, eff, player),
+            eff,
+        )
     }
+
+    /**
+     * The one place [RuleConstants.incomePercent] applies (Coinage/Treasury):
+     * once, to the TOTAL — shared by [incomeOf] and TurnPipeline's incomeIn,
+     * which must never drift (the [incomeFrom] sharing contract).
+     */
+    internal fun scaleIncome(raw: Int, rules: RuleConstants): Int = raw * rules.incomePercent / 100
 
     /**
      * Per-turn earnings of [player]'s fishing boats parked on FISH_SHOAL sea

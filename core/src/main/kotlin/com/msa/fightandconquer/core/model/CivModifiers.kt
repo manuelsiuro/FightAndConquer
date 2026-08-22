@@ -4,8 +4,11 @@ package com.msa.fightandconquer.core.model
  * The per-civilization rule-delta table: light asymmetry only. Civilizations modify
  * special-unit stats (archer/catapult/transport/warship cost, upkeep, strength, move
  * range), building costs, building/deposit income, and the vision-building cost —
- * NEVER the soldier ladder (tier 1–4 cost/upkeep/strength == tier/move ranges stays
- * universal; the AI's MoveGenerator/NavalPolicy hardcode those assumptions).
+ * NEVER the soldier ladder (tier 1–4 cost/upkeep/move ranges stay universal). The
+ * one audited exception to "strength == tier" is the RESEARCH layer
+ * ([ResearchModifiers]): Smithing/Armory add flat per-player combat bonuses, and
+ * the AI's tier arithmetic solves strength through `Rules.buyStrength`/`buyDefense`
+ * instead of assuming the raw tier (see core/ai/Tiers.kt).
  *
  * Resolution happens through [effective]: the rest of the engine asks
  * `Rules.effectiveRules(state, player)` and reads plain [RuleConstants] fields, so no
