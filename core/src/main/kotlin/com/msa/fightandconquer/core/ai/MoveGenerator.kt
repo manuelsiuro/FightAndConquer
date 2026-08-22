@@ -18,6 +18,10 @@ object MoveGenerator {
     /** AI market cap: markets are an economy garnish, not a wall-to-wall strategy. */
     private const val MAX_AI_MARKETS = 3
 
+    /** Research-line caps: banks are markets' cousins, fortresses are the turtle risk. */
+    private const val MAX_AI_BANKS = 2
+    private const val MAX_AI_FORTRESSES = 2
+
     fun candidates(state: GameState, difficulty: Difficulty): List<GameAction> {
         val me = state.currentPlayer
         val rules = state.config.rules
@@ -72,29 +76,15 @@ object MoveGenerator {
         // within striking range of the throne, offer moves and buys onto its
         // neighboring hexes — the evaluator's capital-guard term picks them up).
         val capital = state.player(me).capital
-        val capitalGuardHexes: Set<Hex>
-        val capitalThreat: Int
-        if (capital != null && state.tiles[capital]?.owner == me) {
-            val capDefense = Rules.defenseOf(state, capital)
-            capitalThreat = state.units.values
-                .filter { u ->
-                    u.owner != me && !Rules.isNaval(u.type) &&
-                        HexMath.distance(u.hex, capital) <= Rules.moveRangeOf(state, u) &&
-                        Rules.strengthOf(state, u) > capDefense
-                }
-                .maxOfOrNull { Rules.strengthOf(state, it) } ?: 0
-            capitalGuardHexes = if (capitalThreat == 0) {
-                emptySet()
-            } else {
-                HexMath.neighbors(capital).filter { n ->
-                    val t = state.tiles[n]
-                    t != null && t.owner == me && !t.starving &&
-                        t.unit == null && t.building == null
-                }.toSet()
-            }
+        val capitalThreat = Tiers.capitalThreat(state, me)
+        val capitalGuardHexes: Set<Hex> = if (capitalThreat == 0 || capital == null) {
+            emptySet()
         } else {
-            capitalGuardHexes = emptySet()
-            capitalThreat = 0
+            HexMath.neighbors(capital).filter { n ->
+                val t = state.tiles[n]
+                t != null && t.owner == me && !t.starving &&
+                    t.unit == null && t.building == null
+            }.toSet()
         }
         if (capitalThreat > 0) {
             for (hex in capitalGuardHexes.sortedBy { it.packed }) {
@@ -275,6 +265,83 @@ object MoveGenerator {
                         .take(2)
                         .forEach { out.add(GameAction.BuyBuilding(BuildingType.LUMBER_CAMP, it.key)) }
                 }
+
+                // Strong towers where a plain tower wouldn't hold (new behavior,
+                // research games only — the flag keeps pre-research worlds
+                // bit-identical; the AI historically never bought castles).
+                if (rules.researchEnabled &&
+                    Rules.buildingAvailable(state, me, BuildingType.STRONG_TOWER) &&
+                    treasury >= eff.strongTowerCost
+                ) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null &&
+                                Rules.defenseOf(state, hex) < eff.strongTowerDefense &&
+                                HexMath.neighbors(hex).any { n ->
+                                    state.unitAt(n)?.let { u ->
+                                        u.owner != me && Rules.strengthOf(state, u) > eff.towerDefense
+                                    } == true
+                                }
+                        }
+                        .sortedBy { it.key.packed }
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.STRONG_TOWER, it.key)) }
+                }
+
+                // Banks: markets' placement discipline (interior, capped) without
+                // the neighbor bookkeeping. Unavailable until BANKING completes.
+                val myBanks = state.tiles.values.count {
+                    it.owner == me && it.building == com.msa.fightandconquer.core.model.Building.BANK
+                }
+                if (Rules.buildingAvailable(state, me, BuildingType.BANK) &&
+                    myBanks < MAX_AI_BANKS && treasury >= eff.bankCost + 10
+                ) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.owner == me && !tile.starving && tile.building == null &&
+                                tile.unit == null && tile.flora == null && tile.deposit == null &&
+                                HexMath.neighbors(hex).all { state.tiles[it]?.owner == me }
+                        }
+                        .sortedBy { it.key.packed }
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.BANK, it.key)) }
+                }
+
+                // Fortresses: HARD only, capped, and only where the border is under
+                // pressure a castle could not hold — anti-turtle by construction.
+                if (difficulty == Difficulty.HARD &&
+                    Rules.buildingAvailable(state, me, BuildingType.FORTRESS) &&
+                    treasury >= eff.fortressCost + 10
+                ) {
+                    val myFortresses = state.tiles.values.count {
+                        it.owner == me && it.building == com.msa.fightandconquer.core.model.Building.FORTRESS
+                    }
+                    if (myFortresses < MAX_AI_FORTRESSES) {
+                        state.tiles.entries
+                            .filter { (hex, tile) ->
+                                tile.owner == me && !tile.starving && tile.building == null &&
+                                    tile.unit == null && tile.flora == null &&
+                                    Rules.defenseOf(state, hex) < eff.fortressDefense &&
+                                    HexMath.neighbors(hex).any { n ->
+                                        state.unitAt(n)?.let { u ->
+                                            u.owner != me &&
+                                                Rules.strengthOf(state, u) > eff.strongTowerDefense
+                                        } == true
+                                    }
+                            }
+                            .sortedWith(
+                                compareByDescending<Map.Entry<Hex, com.msa.fightandconquer.core.model.Tile>> { (hex, _) ->
+                                    HexMath.neighbors(hex).count { n ->
+                                        val t = state.tiles[n]
+                                        t?.owner != null && t.owner != me
+                                    }
+                                }.thenBy { it.key.packed },
+                            )
+                            .take(1)
+                            .forEach { out.add(GameAction.BuyBuilding(BuildingType.FORTRESS, it.key)) }
+                    }
+                }
             }
 
             // --- Special units (Normal/Hard) ---
@@ -319,7 +386,9 @@ object MoveGenerator {
 
             if (rules.navalEnabled && difficulty != Difficulty.EASY) {
                 // Ports: the gateway asset of sea maps (income + boat yard + supply).
-                if (treasury >= eff.portCost + 10) {
+                // Research-gated behind NAVIGATION; generating doomed candidates
+                // would only waste reducer runs (the AI's per-turn perf budget).
+                if (Rules.buildingAvailable(state, me, BuildingType.PORT) && treasury >= eff.portCost + 10) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&

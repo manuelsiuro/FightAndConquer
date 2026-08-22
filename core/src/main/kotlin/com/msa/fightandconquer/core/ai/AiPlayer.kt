@@ -38,6 +38,15 @@ class AiPlayer(private val difficulty: Difficulty) {
             }
         }
 
+        // Research is a threshold policy for the same structural reason: its
+        // payoff is turns away, invisible to a one-ply argmax (see ResearchPolicy).
+        // Before the naval ladder — it funds the NAVIGATION that ladder waits on.
+        if (state.config.rules.researchEnabled) {
+            ResearchPolicy.action(state, difficulty)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
+        }
+
         // Naval invasion is a threshold policy too: a single-action greedy search
         // can never justify the intermediate ferry steps (see NavalPolicy).
         // Fishing follows for the same structural reason, and AFTER invasion —

@@ -92,7 +92,8 @@ internal object NavalPolicy {
         //    (same landmass as the capital) are deliberately left to starve:
         //    port-rescuing every cut region would neutralize slicing entirely
         //    and stalemate land wars.
-        if (state.player(me).treasury >= eff.portCost &&
+        if (Rules.buildingAvailable(state, me, com.msa.fightandconquer.core.model.BuildingType.PORT) &&
+            state.player(me).treasury >= eff.portCost &&
             state.tiles.values.any { it.owner == me && it.starving }
         ) {
             portSpot(state, starvingOnly = true)?.let { spot ->
@@ -533,9 +534,15 @@ internal object NavalPolicy {
             Sailing.launchSpot(state, difficulty)?.let { return GameAction.BuyUnit(1, it, UnitType.TRANSPORT) }
         }
 
-        // 6. Found the first port on our best coastal hex.
+        // 6. Found the first port on our best coastal hex. Research-gated: until
+        //    NAVIGATION completes, ports (and the demolish that makes room for
+        //    one) are off the ladder — ResearchPolicy, which runs first, owns
+        //    the pre-steps (build the University, research NAVIGATION).
         val hasPort = state.tiles.values.any { it.owner == me && it.building == Building.PORT }
-        if (!hasPort && state.player(me).treasury >= eff.portCost) {
+        if (!hasPort &&
+            Rules.buildingAvailable(state, me, com.msa.fightandconquer.core.model.BuildingType.PORT) &&
+            state.player(me).treasury >= eff.portCost
+        ) {
             portSpot(state, starvingOnly = false)?.let {
                 return GameAction.BuyBuilding(com.msa.fightandconquer.core.model.BuildingType.PORT, it)
             }
@@ -560,10 +567,10 @@ internal object NavalPolicy {
         return null
     }
 
-    /** Income buildings the ladder may raze to reclaim ground (never defenses/ports/bridges), cheapest first. */
+    /** Income buildings the ladder may raze to reclaim ground (never defenses, ports, bridges — or the University the research plan hangs on), cheapest first. */
     private val expendable = listOf(
         Building.FARM, Building.WATCHTOWER, Building.LUMBER_CAMP,
-        Building.MARKET, Building.MINE, Building.FISHERY,
+        Building.MARKET, Building.MINE, Building.FISHERY, Building.BANK,
     )
 
     /**
@@ -571,7 +578,7 @@ internal object NavalPolicy {
      * ground to build or muster on — coastal when the port needs it. Cheapest
      * class first (FARM before MINE), then lowest packed for determinism.
      */
-    private fun demolishForRoom(state: GameState, coastal: Boolean): GameAction? {
+    internal fun demolishForRoom(state: GameState, coastal: Boolean): GameAction? {
         val me = state.currentPlayer
         return state.tiles.entries
             .filter { (hex, tile) ->

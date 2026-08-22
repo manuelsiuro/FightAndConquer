@@ -71,6 +71,16 @@ object Evaluator {
                                         Rules.shoalsWithin(state.tiles, hex, eff.fisheryRange),
                                         eff.fisheryShoalCap,
                                     )
+                            // Research line. The UNIVERSITY term anchors the sunk
+                            // asset (ResearchPolicy buys it — this prices keeping
+                            // and defending it); BANK fills the same income-curve
+                            // hole the mine term documents above. Deliberately NO
+                            // per-tech or active-research terms: research state
+                            // only mutates at turn start, so it is constant within
+                            // any one-ply comparison — a term could never steer a
+                            // decision, only distort cross-position comparisons.
+                            Building.UNIVERSITY -> if (!tile.starving) buildingScore += 8.0
+                            Building.BANK -> buildingScore += 6.0
                             else -> {}
                         }
                     }
