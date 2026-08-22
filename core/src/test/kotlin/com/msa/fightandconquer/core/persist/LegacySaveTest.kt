@@ -67,6 +67,14 @@ class LegacySaveTest {
         // RuleConstants (fishing overhaul)
         "fisheryRange",
         "fishingBoatCost", "fishingBoatUpkeep", "fishingBoatIncome", "fishingBoatMoveRange",
+        // PlayerState / RuleConstants (research) — the nested ResearchState keys
+        // (completed/active/tech/progress) are deliberately absent: they only occur
+        // inside objects a legacy save cannot contain.
+        "research",
+        "researchEnabled", "techCostByTier", "techDurationByTier",
+        "universityCost", "bankCost", "bankIncome",
+        "fortressCost", "fortressDefense",
+        "incomePercent", "unitAttackBonus", "unitDefenseBonus",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

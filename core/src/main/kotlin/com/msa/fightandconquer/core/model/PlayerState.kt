@@ -30,4 +30,6 @@ data class PlayerState(
     val discovered: Set<Hex> = emptySet(),
     /** Defaulted so pre-civilization saves decode as all-Kingdom (LegacySaveTest). */
     val civ: Civilization = Civilization.KINGDOM,
+    /** Defaulted so pre-research saves decode with nothing researched (LegacySaveTest). */
+    val research: ResearchState = ResearchState(),
 )

@@ -194,6 +194,24 @@ object TestStates {
                 assertEquals("capital on own tile", player.id, state.tiles[cap]?.owner)
             }
             assertTrue("treasury never negative after enforcement", player.treasury >= 0 || state.phase != com.msa.fightandconquer.core.model.GamePhase.Playing)
+            // Research invariants: canonical order (byte-stable JSON), the active
+            // slot never duplicates a completed tech, progress is non-negative,
+            // and completed sets are prerequisite-closed (linear branches).
+            val research = player.research
+            assertEquals(
+                "completed techs sorted by ordinal: ${player.id}",
+                research.completed.sortedBy { it.ordinal },
+                research.completed.toList(),
+            )
+            research.active?.let { active ->
+                assertTrue("active tech not already completed: ${player.id}", active.tech !in research.completed)
+                assertTrue("research progress >= 0: ${player.id}", active.progress >= 0)
+            }
+            for (tech in research.completed) {
+                tech.prerequisite?.let { prereq ->
+                    assertTrue("completed set prerequisite-closed: ${player.id} $tech", prereq in research.completed)
+                }
+            }
         }
     }
 }

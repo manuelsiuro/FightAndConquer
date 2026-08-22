@@ -76,8 +76,11 @@ class ShareCodecTest {
 
     @Test
     fun `a small authored scenario compresses to a short code`() {
-        // The preset dictionary absorbs the fixed boilerplate: measured 196 chars.
-        assertTrue(ShareCodec.encodeText(def).length <= 400)
+        // The preset dictionary absorbs the fixed boilerplate: measured 196 chars
+        // pre-research; the research rule keys (absent from the FROZEN dictionary,
+        // which must never be regenerated) lifted it to 408.
+        val length = ShareCodec.encodeText(def).length
+        assertTrue("small code ballooned: $length", length <= 550)
     }
 
     @Test

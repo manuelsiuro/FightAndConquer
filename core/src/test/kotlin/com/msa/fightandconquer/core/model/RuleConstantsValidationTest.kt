@@ -106,4 +106,32 @@ class RuleConstantsValidationTest {
         assertThrows(IllegalArgumentException::class.java) { RuleConstants(treeSpreadPercent = -1) }
         assertThrows(IllegalArgumentException::class.java) { RuleConstants(pactBreakPenaltyPercent = 101) }
     }
+
+    @Test
+    fun `research tier tables must cover all three tiers`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            RuleConstants(techCostByTier = listOf(20, 35))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            RuleConstants(techDurationByTier = listOf(3, 4))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            RuleConstants(techCostByTier = listOf(20, 35, -1))
+        }
+    }
+
+    @Test
+    fun `zero tech duration throws - it would insta-complete research`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            RuleConstants(techDurationByTier = listOf(3, 4, 0))
+        }
+    }
+
+    @Test
+    fun `negative research modifiers throw`() {
+        assertThrows(IllegalArgumentException::class.java) { RuleConstants(incomePercent = -1) }
+        assertThrows(IllegalArgumentException::class.java) { RuleConstants(fortressDefense = -1) }
+        assertThrows(IllegalArgumentException::class.java) { RuleConstants(unitAttackBonus = -1) }
+        assertThrows(IllegalArgumentException::class.java) { RuleConstants(unitDefenseBonus = -1) }
+    }
 }

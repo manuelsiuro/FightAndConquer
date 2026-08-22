@@ -197,6 +197,40 @@ data class RuleConstants(
      */
     val civBonusesEnabled: Boolean = true,
 
+    // --- Research (expansion) ---
+    /**
+     * Master gate for the University research system. Off: no research action, the
+     * research-line buildings (University/Bank/Fortress) are not offered, and Strong
+     * Tower / Port sell ungated — exactly the pre-research game, which every
+     * already-baked campaign level relies on. Defaulted off until the AI learns to
+     * research; flipped on (skirmish) in the same change as the AI, with the
+     * one-time balance-gate re-baseline.
+     */
+    val researchEnabled: Boolean = false,
+    /** Gold paid up front when starting a tech, by tech tier (index = tier - 1). */
+    val techCostByTier: List<Int> = listOf(20, 35, 55),
+    /**
+     * Progress points to complete a tech, by tech tier (index = tier - 1). Each
+     * standing, non-starving University adds one point at its owner's turn start.
+     */
+    val techDurationByTier: List<Int> = listOf(3, 4, 5),
+    val universityCost: Int = 30,
+    val bankCost: Int = 35,
+    /** Flat income of a Bank (no placement requirement — its edge over the mine). */
+    val bankIncome: Int = 7,
+    val fortressCost: Int = 55,
+    /** Above the strong tower's 3; still zeroed by catapults, so never stall-proof. */
+    val fortressDefense: Int = 4,
+    /**
+     * Percent applied once to a player's total income (research: Coinage 110,
+     * Treasury 120). 100 is the identity.
+     */
+    val incomePercent: Int = 100,
+    /** Flat attack added to every fighting unit (research: Smithing). 0 is the identity. */
+    val unitAttackBonus: Int = 0,
+    /** Flat garrison defense added to land units (research: Armory). 0 is the identity. */
+    val unitDefenseBonus: Int = 0,
+
     // --- Campaign ---
     /**
      * Buildings this game does not offer at all. Empty in skirmish; a campaign level
@@ -262,6 +296,18 @@ data class RuleConstants(
         }
         require(pactMinDurationRounds <= pactMaxDurationRounds) {
             "pact duration band inverted: $pactMinDurationRounds..$pactMaxDurationRounds"
+        }
+        // Research: one entry per tech tier; durations >= 1 (0 would insta-complete).
+        require(techCostByTier.size >= 3 && techCostByTier.all { it >= 0 }) {
+            "techCostByTier needs an entry per tier, all >= 0: $techCostByTier"
+        }
+        require(techDurationByTier.size >= 3 && techDurationByTier.all { it >= 1 }) {
+            "techDurationByTier needs an entry per tier, all >= 1: $techDurationByTier"
+        }
+        require(incomePercent >= 0) { "incomePercent must stay >= 0: $incomePercent" }
+        require(fortressDefense >= 0) { "fortressDefense must stay >= 0: $fortressDefense" }
+        require(unitAttackBonus >= 0 && unitDefenseBonus >= 0) {
+            "unit combat bonuses must stay >= 0: attack $unitAttackBonus, defense $unitDefenseBonus"
         }
     }
 }
