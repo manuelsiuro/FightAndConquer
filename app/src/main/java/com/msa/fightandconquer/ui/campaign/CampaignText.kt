@@ -78,6 +78,11 @@ object CampaignText {
             R.string.level_academy_words_before_swords_briefing,
             R.string.level_academy_words_before_swords_debrief,
         ),
+        "academy_ink_and_iron" to LevelCopy(
+            R.string.level_academy_ink_and_iron_name,
+            R.string.level_academy_ink_and_iron_briefing,
+            R.string.level_academy_ink_and_iron_debrief,
+        ),
         "isles_landfall" to LevelCopy(
             R.string.level_isles_landfall_name,
             R.string.level_isles_landfall_briefing,
@@ -168,6 +173,10 @@ object CampaignText {
         "academy_words_before_swords/outnumbered" to R.string.hint_academy_words_before_swords_outnumbered,
         "academy_words_before_swords/pact" to R.string.hint_academy_words_before_swords_pact,
         "academy_words_before_swords/betray" to R.string.hint_academy_words_before_swords_betray,
+        "academy_ink_and_iron/scroll" to R.string.hint_academy_ink_and_iron_scroll,
+        "academy_ink_and_iron/university" to R.string.hint_academy_ink_and_iron_university,
+        "academy_ink_and_iron/smithing" to R.string.hint_academy_ink_and_iron_smithing,
+        "academy_ink_and_iron/gate" to R.string.hint_academy_ink_and_iron_gate,
         "isles_landfall/embark" to R.string.hint_isles_landfall_embark,
         "isles_landfall/sail" to R.string.hint_isles_landfall_sail,
         "isles_landfall/supply" to R.string.hint_isles_landfall_supply,

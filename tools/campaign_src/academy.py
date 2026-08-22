@@ -1,6 +1,6 @@
 """The Academy — the tutorial campaign.
 
-Eight missions, one new idea each. The teaching lever is `rules`: a level simply
+Nine missions, one new idea each. The teaching lever is `rules`: a level simply
 switches off everything it has not taught yet, so the purchase tray narrows
 itself and the coach never has to say "ignore that button". Run
 
@@ -14,6 +14,7 @@ to bake this into app/src/main/assets/campaigns/academy.json.
 ALL_BUILDINGS = [
     "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET",
     "LUMBER_CAMP", "WATCHTOWER", "PORT", "FISHERY", "BRIDGE",
+    "UNIVERSITY", "BANK", "FORTRESS",
 ]
 
 
@@ -48,6 +49,7 @@ FIRST_STEPS = dict(
 """,
     seats=["player", DORMANT],
     rules=dict(
+        researchEnabled=False,
         maxTier=1,
         hexIncome=0,
         unitUpkeep=[0, 0, 0, 0],
@@ -96,7 +98,8 @@ COIN_AND_CROWN = dict(
   ~  ~  ~   ~   ~  ~          ~  ~  ~  ~  ~
 """,
     seats=["player", DORMANT],
-    rules=dict(maxTier=1, disabledBuildings=buildings("FARM"), **LAND_ONLY),
+    rules=dict(
+        researchEnabled=False, maxTier=1, disabledBuildings=buildings("FARM"), **LAND_ONLY),
     treasury=[14, DORMANT_PURSE],
     objectives=[
         {"type": "income", "coins": 14},
@@ -129,7 +132,8 @@ SHOULDER_TO_SHOULDER = dict(
 ~  ~   ~  ~  ~          ~   ~  ~  ~  ~
 """,
     seats=["player", DORMANT],
-    rules=dict(maxTier=2, disabledBuildings=buildings("FARM"), **LAND_ONLY),
+    rules=dict(
+        researchEnabled=False, maxTier=2, disabledBuildings=buildings("FARM"), **LAND_ONLY),
     treasury=[12, DORMANT_PURSE],
     units=[
         {"seat": 0, "hex": "@capital0", "unitType": "SOLDIER", "tier": 1},
@@ -165,6 +169,7 @@ STONE_AND_TIMBER = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         maxTier=3,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "LUMBER_CAMP"),
         **LAND_ONLY,
@@ -206,6 +211,7 @@ CUT_THE_LINE = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         maxTier=4,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP"),
         **LAND_ONLY,
@@ -242,6 +248,7 @@ RANGED_AND_SIEGE = dict(
     # not a strength problem, so the opponent turtles rather than out-fighting you.
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         maxTier=4,
         navalEnabled=False,
         diplomacyEnabled=False,
@@ -281,7 +288,8 @@ SALT_AND_SAIL = dict(
   ~  ~  ~   ~  ~       ~   ~  ~        ~  ~  ~
 """,
     seats=["player", ("ai", "EASY")],
-    rules=dict(maxTier=4, diplomacyEnabled=False, disabledBuildings=buildings(
+    rules=dict(
+        researchEnabled=False, maxTier=4, diplomacyEnabled=False, disabledBuildings=buildings(
         "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP", "PORT", "FISHERY", "BRIDGE",
     )),
     treasury=[70, 25],
@@ -321,7 +329,8 @@ WORDS_BEFORE_SWORDS = dict(
   ~  ~  ~  ~   ~  ~   ~  ~   ~  ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "EASY")],
-    rules=dict(maxTier=4),
+    rules=dict(
+        researchEnabled=False, maxTier=4),
     treasury=[35, 45, 45],
     objectives=[
         {"type": "survive", "rounds": 8},
@@ -338,6 +347,54 @@ WORDS_BEFORE_SWORDS = dict(
 )
 
 
+# --- 9. Ink and Iron ---------------------------------------------------------
+# Research. The only road east runs through two castle gates holding at
+# defense 3 — and the tier cap is 3, so a baron TIES and a tie is not enough.
+# Only Smithing (+1 attack) opens the pass: build a University, buy sharper
+# steel, take the gates. The second research is a free choice — branches
+# compete for one slot. Specials are off, so scholarship is the only key.
+
+INK_AND_IRON = dict(
+    id="academy_ink_and_iron",
+    seed=109,
+    map="""
+-        -        .        .        -        1        1        1
+  0        0        .        .t       -        1        1F       1
+0        0C       .:yard   .$       1K:gate_a 1        1C       1
+  0        0        .        .t       1K:gate_b 1        1F       1
+-        0        .        .        -        1        1        1
+""",
+    seats=["player", ("ai", "EASY")],
+    rules=dict(
+        researchEnabled=True,
+        maxTier=3,
+        disabledBuildings=buildings("FARM", "TOWER", "MINE", "UNIVERSITY", "BANK", "FORTRESS"),
+        **LAND_ONLY,
+    ),
+    treasury=[45, 30],
+    objectives=[
+        {"type": "build", "building": "UNIVERSITY", "count": 1},
+        {"type": "research", "count": 2},
+        {"type": "captureHexes", "hexes": ["@gate_a", "@gate_b"]},
+    ],
+    failures=[{"type": "turnLimit", "rounds": 30}],
+    par=16,
+    hints=[
+        {"id": "scroll", "until": {"type": "uiSignal", "name": "researchOpened"}},
+        {
+            "id": "university",
+            "until": {"type": "buildings", "building": "UNIVERSITY", "count": 1},
+            "focus": ["@yard"],
+        },
+        {"id": "smithing", "until": {"type": "objectiveDone", "index": 1}},
+        {"id": "gate", "until": {"type": "objectiveDone", "index": 2}, "focus": ["@gate_a", "@gate_b"]},
+    ],
+    # TODO(research calibration): flip once the AI researches its way through
+    # the gates — winning REQUIRES research, which the opponent model ignores.
+    aiSolvable=False,
+)
+
+
 CAMPAIGN = dict(
     id="academy",
     order=0,
@@ -350,5 +407,6 @@ CAMPAIGN = dict(
         RANGED_AND_SIEGE,
         SALT_AND_SAIL,
         WORDS_BEFORE_SWORDS,
+        INK_AND_IRON,
     ],
 )

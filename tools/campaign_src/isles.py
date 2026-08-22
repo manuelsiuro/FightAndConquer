@@ -15,6 +15,7 @@ actions, so a saved game resumes mid-chapter with the story intact.
 ALL_BUILDINGS = [
     "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET",
     "LUMBER_CAMP", "WATCHTOWER", "PORT", "FISHERY", "BRIDGE",
+    "UNIVERSITY", "BANK", "FORTRESS",
 ]
 
 
@@ -54,6 +55,7 @@ LANDFALL = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         diplomacyEnabled=False,
         specialUnitsEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "PORT", "FISHERY", "BRIDGE"),
@@ -110,6 +112,7 @@ LIGHTHOUSE = dict(
 """,
     seats=["player", ("ai", "NORMAL")],
     rules=dict(
+        researchEnabled=False,
         fogOfWar=True,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "WATCHTOWER", "PORT", "FISHERY"),
@@ -158,6 +161,7 @@ WOLVES = dict(
 """,
     seats=["player", ("ai", "NORMAL")],
     rules=dict(
+        researchEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "MINE", "MARKET", "PORT", "FISHERY"),
     ),
@@ -226,6 +230,7 @@ STRAIT = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         diplomacyEnabled=False,
         specialUnitsEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "MARKET", "PORT", "BRIDGE"),
@@ -265,7 +270,8 @@ ADMIRALS_GRAVE = dict(
 ~  ~  ~   ~   ~  ~  ~  ~  ~   ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "EASY")],
-    rules=dict(disabledBuildings=buildings(
+    rules=dict(
+        researchEnabled=False, disabledBuildings=buildings(
         "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "PORT", "FISHERY", "BRIDGE",
     )),
     treasury=[75, 60, 55],
@@ -299,7 +305,8 @@ CROWN_OF_SALT = dict(
 ~  ~  ~   ~   ~  ~  ~  ~  ~   ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "NORMAL")],
-    rules=dict(disabledBuildings=["WATCHTOWER"]),
+    rules=dict(
+        researchEnabled=False, disabledBuildings=["WATCHTOWER", "UNIVERSITY", "BANK", "FORTRESS"]),
     treasury=[85, 70, 70],
     objectives=[{"type": "conquerAll"}],
     par=40,

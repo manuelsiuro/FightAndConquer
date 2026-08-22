@@ -684,7 +684,7 @@
 
     <!-- === The Academy === -->
     <string name="campaign_academy_name">The Academy</string>
-    <string name="campaign_academy_blurb">Eight short lessons. One new idea each, and nothing on screen you have not been taught yet.</string>
+    <string name="campaign_academy_blurb">Nine short lessons. One new idea each, and nothing on screen you have not been taught yet.</string>
 
     <string name="level_academy_first_steps_name">First Steps</string>
     <string name="level_academy_first_steps_briefing">A quiet island, two farmhands, and six fields nobody has claimed. There is no money here and nothing to buy — only ground, and legs to walk it with.</string>
@@ -743,6 +743,13 @@
     <string name="hint_academy_words_before_swords_outnumbered">Open the diplomacy panel from the top bar. You cannot hold two fronts.</string>
     <string name="hint_academy_words_before_swords_pact">Offer a pact to the stronger neighbour and turn everything you have on the other.</string>
     <string name="hint_academy_words_before_swords_betray">Breaking a pact costs a quarter of your treasury. Sometimes that is a bargain.</string>
+    <string name="level_academy_ink_and_iron_name">Ink and Iron</string>
+    <string name="level_academy_ink_and_iron_briefing">Two castle gates seal the eastern road, and no soldier you can raise strikes harder than they hold. The garrison answers walls with walls; you will answer them with scholarship. Found a University, put your scholars to work, and carry sharper steel through the pass.</string>
+    <string name="level_academy_ink_and_iron_debrief">A technology is a tower you build once and carry to every battlefield after. The gates fell to a discovery, not a bigger army.</string>
+    <string name="hint_academy_ink_and_iron_scroll">Open Research from the menu in the top corner. Knowledge is bought like anything else.</string>
+    <string name="hint_academy_ink_and_iron_university">Build a University on the open ground. Every one you own adds a point of progress at the start of your turn.</string>
+    <string name="hint_academy_ink_and_iron_smithing">Start Smithing. Your barons strike at three — the gates hold at three, and a tie loses. Then research on: coin or stone, the slot is yours.</string>
+    <string name="hint_academy_ink_and_iron_gate">Sharper steel is ready. Take both gates.</string>
 
     <!-- === The Sundered Isles === -->
     <string name="campaign_isles_name">The Sundered Isles</string>

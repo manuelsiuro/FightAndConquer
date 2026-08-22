@@ -29,6 +29,7 @@ board when odd rows are indented by one half-space.
     0C      capital     0T tower    0K castle     0F farm    0M mine
     0R      market      0L lumber camp           0W watchtower
     0P      port        0Y fishery
+    0U      university  0N bank     0S fortress
     0$ / 0% owned land carrying a deposit
 
 Any token may carry a ``:name`` suffix to declare an anchor:
@@ -70,6 +71,9 @@ BUILDINGS = {
     "W": "WATCHTOWER",
     "P": "PORT",
     "Y": "FISHERY",
+    "U": "UNIVERSITY",
+    "N": "BANK",
+    "S": "FORTRESS",
 }
 DEPOSITS = {"$": "GOLD_VEIN", "%": "FERTILE", "*": "FISH_SHOAL"}
 FLORA = {"t": "tree", "g": "grave"}
@@ -234,6 +238,7 @@ def build_level(src: dict) -> dict:
         level["civs"] = civs
     for key, field in (
         ("units", "startingUnits"),
+        ("startingTech", "startingTech"),
         ("objectives", "objectives"),
         ("failures", "failures"),
         ("hints", "hints"),

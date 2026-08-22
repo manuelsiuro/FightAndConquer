@@ -11,6 +11,7 @@ road — so every chapter is decided by economy and position.
 ALL_BUILDINGS = [
     "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET",
     "LUMBER_CAMP", "WATCHTOWER", "PORT", "FISHERY", "BRIDGE",
+    "UNIVERSITY", "BANK", "FORTRESS",
 ]
 
 
@@ -43,6 +44,7 @@ GRANARY = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         specialUnitsEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "MARKET", "LUMBER_CAMP"),
@@ -83,6 +85,7 @@ SIEGE_OF_ASH = dict(
 """,
     seats=["player", ("ai", "EASY"), ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MARKET", "LUMBER_CAMP"),
         **LANDLOCKED,
@@ -133,6 +136,7 @@ IRON_VEINS = dict(
 """,
     seats=["player", ("ai", "NORMAL")],
     rules=dict(
+        researchEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET"),
         **LANDLOCKED,
@@ -173,6 +177,7 @@ LAST_WALL = dict(
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "NORMAL")],
     rules=dict(
+        researchEnabled=False,
         disabledBuildings=buildings(
             "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP",
         ),
@@ -226,6 +231,7 @@ BREACH = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        researchEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings(
             "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP",
@@ -261,7 +267,8 @@ THREE_THRONES = dict(
 ~  ~  ~   ~  ~   ~  ~   ~  ~   ~  ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "NORMAL")],
-    rules=dict(disabledBuildings=["WATCHTOWER", "PORT", "FISHERY", "BRIDGE"], **LANDLOCKED),
+    rules=dict(
+        researchEnabled=False, disabledBuildings=["WATCHTOWER", "PORT", "FISHERY", "BRIDGE", "UNIVERSITY", "BANK", "FORTRESS"], **LANDLOCKED),
     treasury=[55, 55, 55],
     objectives=[{"type": "conquerAll"}],
     par=40,
