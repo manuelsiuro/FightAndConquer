@@ -143,8 +143,8 @@
     <string name="shop_defense">Def %d</string>
     <string name="shop_vision">Sees %d</string>
     <string name="shop_walkway">Troop walkway</string>
-    <string name="shop_research_per_turn">+1 research/turn</string>
-    <string name="shop_requires_tech">Requires %1$s</string>
+    <string name="shop_research_per_turn">+1 research</string>
+    <string name="shop_requires_tech">%1$s</string>
     <string name="cd_purchase_card">%1$s, costs %2$d coins</string>
     <string name="cd_purchase_unaffordable">%1$s, costs %2$d coins — not affordable</string>
     <string name="cd_purchase_unit">%1$s, costs %2$d coins — attack %3$d, defense %4$d</string>
@@ -298,9 +298,9 @@
     <string name="tech_effect_smithing">+1 attack, all units</string>
     <string name="tech_effect_armory">+1 defense, land units</string>
     <string name="tech_effect_siegecraft">Catapults and warships +1</string>
-    <string name="tech_effect_coinage">Income +10%</string>
+    <string name="tech_effect_coinage">Income +10%%</string>
     <string name="tech_effect_banking">Unlocks the Bank</string>
-    <string name="tech_effect_treasury">Income +20%</string>
+    <string name="tech_effect_treasury">Income +20%%</string>
     <string name="tech_effect_masonry">Unlocks the Castle</string>
     <string name="tech_effect_engineering">Unlocks the Fortress</string>
     <string name="tech_effect_bastions">Fortifications +1 defense</string>
