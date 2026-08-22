@@ -353,25 +353,27 @@ WORDS_BEFORE_SWORDS = dict(
 # Only Smithing (+1 attack) opens the pass: build a University, buy sharper
 # steel, take the gates. The second research is a free choice — branches
 # compete for one slot. Specials are off, so scholarship is the only key.
+# The gatekeeper is DORMANT: a static wall, not a war — the turn limit is the
+# only clock, exactly like the early lessons.
 
 INK_AND_IRON = dict(
     id="academy_ink_and_iron",
     seed=109,
     map="""
--        -        .        .        -        1        1        1
-  0        0        .        .t       -        1        1F       1
-0        0C       .:yard   .$       1K:gate_a 1        1C       1
-  0        0        .        .t       1K:gate_b 1        1F       1
--        0        .        .        -        1        1        1
+-        0        0        .        -        1        1        -
+  0        0        0        .t       -        1        1        -
+0        0C       0:yard   .$       1K:gate_a 1        1C       -
+  0        0        0        .t       1K:gate_b 1        1        -
+-        0        0        .        -        1        1        -
 """,
-    seats=["player", ("ai", "EASY")],
+    seats=["player", DORMANT],
     rules=dict(
         researchEnabled=True,
         maxTier=3,
         disabledBuildings=buildings("FARM", "TOWER", "MINE", "UNIVERSITY", "BANK", "FORTRESS"),
         **LAND_ONLY,
     ),
-    treasury=[45, 30],
+    treasury=[55, DORMANT_PURSE],
     objectives=[
         {"type": "build", "building": "UNIVERSITY", "count": 1},
         {"type": "research", "count": 2},
@@ -389,9 +391,10 @@ INK_AND_IRON = dict(
         {"id": "smithing", "until": {"type": "objectiveDone", "index": 1}},
         {"id": "gate", "until": {"type": "objectiveDone", "index": 2}, "focus": ["@gate_a", "@gate_b"]},
     ],
-    # TODO(research calibration): flip once the AI researches its way through
-    # the gates — winning REQUIRES research, which the opponent model ignores.
-    aiSolvable=False,
+    # The opponent model completes this one on its own: HARD's land priority
+    # opens with Smithing, the second research follows while it fights, and the
+    # gates fall on its ordinary conquest path.
+    aiSolvable=True,
 )
 
 
