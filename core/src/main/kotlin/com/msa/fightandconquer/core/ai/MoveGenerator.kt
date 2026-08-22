@@ -60,6 +60,13 @@ object MoveGenerator {
         }
         val frontierDefenses = frontier.values.toSet()
 
+        // Soldier strength per tier at MY effective rules (Smithing-aware), for
+        // the merge gate below. Index 0 unused.
+        val soldierStrength = IntArray(rules.maxTier + 1)
+        for (t in 1..rules.maxTier) {
+            soldierStrength[t] = Rules.buyStrength(state, me, t, com.msa.fightandconquer.core.model.UnitType.SOLDIER)
+        }
+
         // --- Capital defense (range-bound movement means nobody teleports home:
         // the garrison must be raised BEFORE the axe falls, so when an enemy is
         // within striking range of the throne, offer moves and buys onto its
@@ -91,7 +98,9 @@ object MoveGenerator {
         }
         if (capitalThreat > 0) {
             for (hex in capitalGuardHexes.sortedBy { it.packed }) {
-                val tier = minOf(capitalThreat, rules.maxTier)
+                // Solve the garrison through buyDefense (Armory research raises it);
+                // identity without research: smallest t with t >= threat.
+                val tier = Tiers.cheapestGarrison(state, me, capitalThreat) ?: rules.maxTier
                 if (treasury >= rules.unitCost[tier - 1]) out.add(GameAction.BuyUnit(tier, hex))
                 if (tier > 1 && treasury >= rules.unitCost[0]) out.add(GameAction.BuyUnit(1, hex))
             }
@@ -138,18 +147,24 @@ object MoveGenerator {
                     out.add(GameAction.MoveUnit(unit.id, it))
                 }
             }
-            // Merge only when the merged tier would break a currently-unbreakable frontier hex.
-            if (unit.tier in frontierDefenses) {
+            // Merge only when the merged tier would break a currently-unbreakable
+            // frontier hex: my strength at this tier fails against D, the next
+            // tier's succeeds. Identity without research: D == unit.tier.
+            val mergedBreaks = unit.tier < rules.maxTier && frontierDefenses.any { d ->
+                soldierStrength[unit.tier] <= d && d < soldierStrength[unit.tier + 1]
+            }
+            if (mergedBreaks) {
                 reach.mergeTargets.sortedBy { it.packed }.forEach { targetHex ->
                     out.add(GameAction.MergeUnits(unit.id, state.tiles.getValue(targetHex).unit!!))
                 }
             }
         }
 
-        // --- Buy-capture: cheapest tier that takes each frontier hex ---
+        // --- Buy-capture: cheapest tier that takes each frontier hex (solved
+        // through buyStrength — Smithing lowers it; identity: defense + 1) ---
         for ((hex, defense) in frontier.entries.sortedBy { it.key.packed }) {
-            val tier = defense + 1
-            if (tier <= rules.maxTier && treasury >= rules.unitCost[tier - 1]) {
+            val tier = Tiers.cheapestBreaker(state, me, defense) ?: continue
+            if (treasury >= rules.unitCost[tier - 1]) {
                 out.add(GameAction.BuyUnit(tier, hex))
             }
         }

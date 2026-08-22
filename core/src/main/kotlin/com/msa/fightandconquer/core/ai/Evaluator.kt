@@ -83,7 +83,9 @@ object Evaluator {
                         if (tile.starving) enemyStarving++
                         if (tile.deposit == Deposit.GOLD_VEIN) enemyVeins++
                         when (tile.building) {
-                            Building.TOWER, Building.STRONG_TOWER, Building.CAPITAL -> enemyForts++
+                            Building.TOWER, Building.STRONG_TOWER, Building.CAPITAL,
+                            Building.FORTRESS,
+                            -> enemyForts++
                             else -> {}
                         }
                     }

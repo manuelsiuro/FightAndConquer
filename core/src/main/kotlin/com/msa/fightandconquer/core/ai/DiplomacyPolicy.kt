@@ -144,6 +144,7 @@ object DiplomacyPolicy {
             when (tile.building) {
                 Building.TOWER -> power += 4
                 Building.STRONG_TOWER -> power += 8
+                Building.FORTRESS -> power += 12
                 else -> {}
             }
             state.unitAt(hex)?.let { power += 5 * Rules.strengthOf(state, it) }

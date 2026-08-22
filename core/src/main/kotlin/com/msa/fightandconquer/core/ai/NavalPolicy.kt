@@ -155,10 +155,19 @@ internal object NavalPolicy {
                 // t1 default that never lands and never learns.
                 bestTier ?: 1
             } else {
-                val landTier = if (minCoast == Int.MAX_VALUE) 1 else minCoast + 1
-                minOf(rules.maxTier, maxOf(1, enemyBest ?: 0, landTier))
+                // Solve the tier through MY effective strength/defense (Smithing
+                // lowers what cracks a coast; the enemy's Armory raises nothing
+                // here — enemyBest/minCoast already read THEIR effective rules).
+                // Identity without research: max(minCoast + 1, enemyBest, 1),
+                // capped at maxTier — settle for the best tier when none suffices.
+                val coastBar = if (minCoast == Int.MAX_VALUE) 0 else minCoast
+                Tiers.marineTier(state, me, coastBar, enemyBest ?: 0) ?: rules.maxTier
             }
         }
+        // The floor in STRENGTH units — my effective strength of the solved tier —
+        // so every "is this unit marine-grade?" read compares like with like under
+        // research. Identity without research: == marineTier.
+        val marineFloor = Rules.buyStrength(state, me, marineTier, UnitType.SOLDIER)
 
         // 2b. War-chest assault: a swollen treasury means the greedy loop has
         //     refused every purchase for many turns (its diminishing-income curve
@@ -181,11 +190,14 @@ internal object NavalPolicy {
             }
             // Selection is order-independent: the (defense, packed) comparator has a
             // unique tiebreak, so the map's iteration order can't reshuffle it.
+            // Breaker tier solved through buyStrength (identity: defense + 1).
             val target = frontier.entries
-                .filter { it.value + 1 <= rules.maxTier }
-                .minWithOrNull(compareBy({ it.value }, { it.key.packed }))
+                .mapNotNull { e ->
+                    Tiers.cheapestBreaker(state, me, e.value)?.let { Triple(e.key, e.value, it) }
+                }
+                .minWithOrNull(compareBy({ it.second }, { it.first.packed }))
             if (target != null) {
-                val action = GameAction.BuyUnit(target.value + 1, target.key)
+                val action = GameAction.BuyUnit(target.third, target.first)
                 if (Legality.check(state, action) is LegalityResult.Ok) return action
             }
             // Bridge shortcut: a single span from our shore to foreign land turns
@@ -386,7 +398,7 @@ internal object NavalPolicy {
                 // the whole army lives in the ring, and excluding it churned a
                 // buy-boat/scuttle-boat loop forever).
                 val marineWaiting = myUnits.any {
-                    it.type == UnitType.SOLDIER && Rules.strengthOf(state, it) >= marineTier
+                    it.type == UnitType.SOLDIER && Rules.strengthOf(state, it) >= marineFloor
                 }
                 if (!marineWaiting) {
                     transports.filter { it.cargo == null }
@@ -421,7 +433,7 @@ internal object NavalPolicy {
         val passengers = myUnits
             .filter {
                 !it.spent && !Rules.isNaval(it.type) && !onActiveFront(it) &&
-                    Rules.strengthOf(state, it) >= marineTier
+                    Rules.strengthOf(state, it) >= marineFloor
             }
             .flatMap { Rules.reachable(state, it.id).moveTargets + it.hex }
         for (boat in transports) {
@@ -453,7 +465,7 @@ internal object NavalPolicy {
             // unload on a full island, jamming the whole ladder — measured in
             // the salt-and-sail paralysis at 4,687 hoarded coins.)
             val desperate = musterSpot == null && (bestTier == null || bestTier < marineTier)
-            if (desperate || Rules.strengthOf(state, unit) >= marineTier) {
+            if (desperate || Rules.strengthOf(state, unit) >= marineFloor) {
                 return GameAction.MoveUnit(unit.id, target)
             }
         }
@@ -469,7 +481,7 @@ internal object NavalPolicy {
             val marcher = myUnits
                 .filter {
                     !it.spent && !Rules.isNaval(it.type) && !onActiveFront(it) &&
-                        Rules.strengthOf(state, it) >= marineTier
+                        Rules.strengthOf(state, it) >= marineFloor
                 }
                 .sortedWith(
                     compareByDescending<GameUnit> { Rules.strengthOf(state, it) }
@@ -493,7 +505,7 @@ internal object NavalPolicy {
         //     Guarded so a stranded strong unit never triggers duplicate buys.
         val emptyBoatWaiting = transports.any { it.cargo == null }
         val hasStrongFresh = myUnits.any {
-            !it.spent && !Rules.isNaval(it.type) && Rules.strengthOf(state, it) >= marineTier
+            !it.spent && !Rules.isNaval(it.type) && Rules.strengthOf(state, it) >= marineFloor
         }
         if (emptyBoatWaiting && bestTier != null && bestTier >= marineTier &&
             !hasStrongFresh && musterSpot != null
@@ -508,7 +520,7 @@ internal object NavalPolicy {
         //    needed (measured churn: launch at 15, dip to net 0, scuttle,
         //    repeat forever while the fishery never got its 14 coins).
         val marineFresh = myUnits.any {
-            it.type == UnitType.SOLDIER && Rules.strengthOf(state, it) >= marineTier
+            it.type == UnitType.SOLDIER && Rules.strengthOf(state, it) >= marineFloor
         }
         val kitCost = eff.transportCost +
             if (marineFresh) 0 else rules.unitCost[marineTier - 1]
@@ -599,7 +611,10 @@ internal object NavalPolicy {
                 }
             }
         }
-        return minDefense == Int.MAX_VALUE || minDefense >= state.config.rules.maxTier
+        // "No land assault possible": the weakest reachable border hex holds even
+        // against my best soldier's effective strength (identity: >= maxTier).
+        return minDefense == Int.MAX_VALUE ||
+            minDefense >= Rules.buyStrength(state, me, state.config.rules.maxTier, UnitType.SOLDIER)
     }
 
     /**
