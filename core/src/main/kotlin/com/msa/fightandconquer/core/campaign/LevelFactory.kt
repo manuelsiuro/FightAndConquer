@@ -47,6 +47,26 @@ object LevelFactory {
             )
         }
 
+        level.startingTech?.let { grants ->
+            require(grants.size == level.seats.size) {
+                "level ${level.id}: ${grants.size} tech grants for ${level.seats.size} seats"
+            }
+            grants.forEachIndexed { seat, techs ->
+                techs.forEach { tech ->
+                    tech.prerequisite?.let { prereq ->
+                        require(prereq in techs) {
+                            "level ${level.id}: seat $seat granted $tech without $prereq"
+                        }
+                    }
+                }
+            }
+            state = state.copy(
+                players = state.players.mapIndexed { index, p ->
+                    p.copy(research = com.msa.fightandconquer.core.model.ResearchState.of(grants[index]))
+                },
+            )
+        }
+
         if (level.startingUnits.isNotEmpty()) state = placeGarrison(level, state)
 
         // Fog: the garrison sees further than the bare capitals did, so re-seed explored

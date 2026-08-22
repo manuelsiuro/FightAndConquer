@@ -578,6 +578,7 @@
     <string name="moment_ship_sunk">%1$s sank a ship of %2$s</string>
     <string name="moment_eliminated">%1$s was wiped from the map</string>
     <string name="moment_crowned">%1$s conquered the last realm</string>
+    <string name="moment_breakthrough">%1$s completed %2$s</string>
     <string name="superlative_realm">Largest realm</string>
     <string name="superlative_hoard">Richest hoard</string>
     <string name="superlative_conqueror">Conqueror</string>
@@ -608,6 +609,7 @@
     <string name="objective_build">Build %1$d × %2$s</string>
     <string name="objective_field">Field %1$d × %2$s</string>
     <string name="objective_sink">Sink %1$d enemy boats</string>
+    <string name="objective_research">Complete %d researches</string>
     <string name="objective_progress">%1$d / %2$d</string>
 
     <!-- Defeat clauses -->

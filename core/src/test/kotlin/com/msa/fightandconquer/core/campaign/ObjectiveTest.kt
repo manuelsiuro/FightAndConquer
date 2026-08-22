@@ -28,6 +28,44 @@ class ObjectiveTest {
     ) = Objectives.evaluate(state, tracker, TestLevels.strip(objectives, failures))
 
     @Test
+    fun `research-count reads the completed set straight from state`() {
+        val objective = listOf(Objective.ResearchCount(2))
+        assertEquals(0, statusOf(base(), objective).rows.single().progress)
+        val one = base().copy(
+            players = base().players.map {
+                if (it.id.value == 0) {
+                    it.copy(
+                        research = com.msa.fightandconquer.core.model.ResearchState.of(
+                            listOf(com.msa.fightandconquer.core.model.Tech.COINAGE),
+                        ),
+                    )
+                } else {
+                    it
+                }
+            },
+        )
+        assertEquals(1, statusOf(one, objective).rows.single().progress)
+        assertFalse(statusOf(one, objective).rows.single().done)
+        val two = one.copy(
+            players = one.players.map {
+                if (it.id.value == 0) {
+                    it.copy(
+                        research = com.msa.fightandconquer.core.model.ResearchState.of(
+                            listOf(
+                                com.msa.fightandconquer.core.model.Tech.COINAGE,
+                                com.msa.fightandconquer.core.model.Tech.MASONRY,
+                            ),
+                        ),
+                    )
+                } else {
+                    it
+                }
+            },
+        )
+        assertEquals(Verdict.Won, statusOf(two, objective).verdict)
+    }
+
+    @Test
     fun `capture-hexes reports partial progress and completes on the last hex`() {
         val hexes = listOf(hex(3), hex(4))
         val partial = base().copy(

@@ -33,6 +33,7 @@ class CampaignCodecTest {
         Objective.BuildCount(BuildingType.PORT, 2),
         Objective.FieldUnits(UnitType.CATAPULT, 1),
         Objective.SinkBoats(3),
+        Objective.ResearchCount(2),
     )
 
     private val everyFailure = listOf(
@@ -55,6 +56,7 @@ class CampaignCodecTest {
         LevelCondition.OwnsHexes(listOf(hex(4))),
         LevelCondition.LostAnyHex(listOf(hex(5))),
         LevelCondition.PlayerEliminated(PlayerId(1)),
+        LevelCondition.TechCompleted(com.msa.fightandconquer.core.model.Tech.MASONRY),
         LevelCondition.All(listOf(LevelCondition.RoundAtLeast(2), LevelCondition.TreasuryAtLeast(10))),
     )
 
@@ -104,5 +106,26 @@ class CampaignCodecTest {
         assertEquals(emptyList<FailCondition>(), level.failures)
         assertEquals(null, level.parRounds)
         assertEquals(true, level.aiSolvable)
+        assertEquals(null, level.startingTech)
+    }
+
+    @Test
+    fun `startingTech grants round-trip`() {
+        val campaign = CampaignDef(
+            id = "c",
+            order = 0,
+            levels = listOf(
+                TestLevels.strip().copy(
+                    startingTech = listOf(
+                        listOf(
+                            com.msa.fightandconquer.core.model.Tech.MASONRY,
+                            com.msa.fightandconquer.core.model.Tech.ENGINEERING,
+                        ),
+                        emptyList(),
+                    ),
+                ),
+            ),
+        )
+        assertEquals(campaign, CampaignCodec.decode(CampaignCodec.encode(campaign)))
     }
 }

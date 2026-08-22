@@ -67,6 +67,11 @@ data class LevelDef(
     val startingTreasury: List<Int>? = null,
     /** Per-seat civilizations; null keeps [Civilization.DEFAULT] for all. */
     val civs: List<Civilization>? = null,
+    /**
+     * Per-seat pre-completed techs; null grants none. Each seat's list must be
+     * prerequisite-closed (LevelFactory `require`s it loudly at bake/test time).
+     */
+    val startingTech: List<List<com.msa.fightandconquer.core.model.Tech>>? = null,
     val startingUnits: List<UnitPlacement> = emptyList(),
     val objectives: List<Objective> = listOf(Objective.ConquerAll),
     val failures: List<FailCondition> = emptyList(),

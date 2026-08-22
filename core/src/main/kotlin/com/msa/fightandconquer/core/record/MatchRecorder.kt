@@ -63,6 +63,11 @@ sealed interface KeyMoment {
     data class ShipSunk(override val round: Int, val owner: Int, val by: Int) : KeyMoment
     data class Eliminated(override val round: Int, val seat: Int) : KeyMoment
     data class Crowned(override val round: Int, val winner: Int) : KeyMoment
+    data class Breakthrough(
+        override val round: Int,
+        val seat: Int,
+        val tech: com.msa.fightandconquer.core.model.Tech,
+    ) : KeyMoment
 }
 
 /** Running per-seat tallies of facts no later state reveals. */
@@ -201,6 +206,9 @@ data class MatchRecorderState(
                     }
                     is GameEvent.Bankruptcy ->
                         addMoment(KeyMoment.WentBankrupt(round, event.player.value))
+                    is GameEvent.ResearchCompleted ->
+                        // Bounded at 12 per seat anyway; frequent keeps the cap honest.
+                        addMoment(KeyMoment.Breakthrough(round, event.player.value, event.tech), frequent = true)
                     is GameEvent.PlayerEliminated ->
                         addMoment(KeyMoment.Eliminated(round, event.player.value))
                     is GameEvent.GameOver ->

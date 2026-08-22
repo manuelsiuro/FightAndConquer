@@ -4,6 +4,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.record.KeyMoment
 import com.msa.fightandconquer.ui.UiText
 import com.msa.fightandconquer.ui.seatNameRes
+import com.msa.fightandconquer.ui.techNameRes
 
 /**
  * One line of the chronicle's story feed. Exhaustive over the sealed [KeyMoment] —
@@ -18,6 +19,8 @@ fun KeyMoment.label(): UiText = when (this) {
     is KeyMoment.ShipSunk -> UiText.of(R.string.moment_ship_sunk, seatName(by), seatName(owner))
     is KeyMoment.Eliminated -> UiText.of(R.string.moment_eliminated, seatName(seat))
     is KeyMoment.Crowned -> UiText.of(R.string.moment_crowned, seatName(winner))
+    is KeyMoment.Breakthrough ->
+        UiText.of(R.string.moment_breakthrough, seatName(seat), UiText.of(techNameRes(tech)))
 }
 
 /** The seat whose colour dot fronts the feed row (whoever acted). */
@@ -29,6 +32,7 @@ val KeyMoment.actorSeat: Int
         is KeyMoment.ShipSunk -> by
         is KeyMoment.Eliminated -> seat
         is KeyMoment.Crowned -> winner
+        is KeyMoment.Breakthrough -> seat
     }
 
 /** The seat the moment happened *to*; null when nobody suffered it. */
@@ -40,6 +44,7 @@ val KeyMoment.victimSeat: Int?
         is KeyMoment.ShipSunk -> owner
         is KeyMoment.Eliminated -> seat
         is KeyMoment.Crowned -> null
+        is KeyMoment.Breakthrough -> null
     }
 
 private fun seatName(seat: Int): UiText = UiText.of(seatNameRes(seat))

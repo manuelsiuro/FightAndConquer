@@ -167,6 +167,9 @@ object Objectives {
             ObjectiveRow(objective, countUnits(state, seat, objective.type, tier = null), objective.count)
 
         is Objective.SinkBoats -> ObjectiveRow(objective, tracker.boatsSunk, objective.count)
+
+        is Objective.ResearchCount ->
+            ObjectiveRow(objective, state.player(seat).research.completed.size, objective.count)
     }
 
     /**

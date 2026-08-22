@@ -85,6 +85,11 @@ sealed interface LevelCondition {
     @SerialName("playerEliminated")
     data class PlayerEliminated(val seat: PlayerId) : LevelCondition
 
+    /** The campaign seat has completed [tech]. Property named `tech`, never `type`. */
+    @Serializable
+    @SerialName("techCompleted")
+    data class TechCompleted(val tech: com.msa.fightandconquer.core.model.Tech) : LevelCondition
+
     /** Every listed condition holds. */
     @Serializable
     @SerialName("all")
@@ -123,6 +128,7 @@ object Conditions {
         is LevelCondition.LostAnyHex -> condition.hexes.any { state.tiles[it]?.owner != seat }
         is LevelCondition.PlayerEliminated ->
             condition.seat.value in state.players.indices && state.player(condition.seat).eliminated
+        is LevelCondition.TechCompleted -> state.player(seat).research.has(condition.tech)
         is LevelCondition.All ->
             condition.conditions.all { isSatisfied(it, state, seat, status, uiSignals) }
     }

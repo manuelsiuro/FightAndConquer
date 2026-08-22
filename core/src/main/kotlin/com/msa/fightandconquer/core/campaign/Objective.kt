@@ -80,6 +80,11 @@ sealed interface Objective {
     @Serializable
     @SerialName("sink")
     data class SinkBoats(val count: Int) : Objective
+
+    /** Complete at least [count] researches, any branch (pure state read — no tracker). */
+    @Serializable
+    @SerialName("research")
+    data class ResearchCount(val count: Int) : Objective
 }
 
 /**

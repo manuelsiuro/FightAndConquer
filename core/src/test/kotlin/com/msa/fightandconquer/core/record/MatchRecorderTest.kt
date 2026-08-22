@@ -3,6 +3,7 @@ package com.msa.fightandconquer.core.record
 import com.msa.fightandconquer.core.TestStates
 import com.msa.fightandconquer.core.TestStates.hex
 import com.msa.fightandconquer.core.TestStates.unitIdAt
+import com.msa.fightandconquer.core.TestStates.withBuilding
 import com.msa.fightandconquer.core.TestStates.withSea
 import com.msa.fightandconquer.core.TestStates.withUnit
 import com.msa.fightandconquer.core.engine.GameAction
@@ -73,6 +74,30 @@ class MatchRecorderTest {
         val sunk = recorder.moments.filterIsInstance<KeyMoment.ShipSunk>().single()
         assertEquals(1, sunk.owner)
         assertEquals(0, sunk.by)
+    }
+
+    @Test
+    fun `a completed research is retold as a breakthrough`() {
+        val rules = com.msa.fightandconquer.core.model.RuleConstants(
+            researchEnabled = true,
+            techDurationByTier = listOf(1, 1, 1),
+        )
+        val state = TestStates.strip(9, 0..2, 6..8, rules = rules)
+            .withBuilding(com.msa.fightandconquer.core.model.Building.UNIVERSITY, hex(1))
+        val engine = GameEngine(state)
+        var recorder = MatchRecorderState.start(state, meta(state))
+
+        recorder = fold(
+            recorder,
+            engine,
+            GameAction.StartResearch(com.msa.fightandconquer.core.model.Tech.COINAGE),
+        )
+        recorder = fold(recorder, engine, GameAction.EndTurn) // P1's turn starts
+        recorder = fold(recorder, engine, GameAction.EndTurn) // P0 ticks: 1 >= 1 completes
+
+        val breakthrough = recorder.moments.filterIsInstance<KeyMoment.Breakthrough>().single()
+        assertEquals(0, breakthrough.seat)
+        assertEquals(com.msa.fightandconquer.core.model.Tech.COINAGE, breakthrough.tech)
     }
 
     @Test
