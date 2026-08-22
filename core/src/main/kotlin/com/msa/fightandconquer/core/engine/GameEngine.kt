@@ -25,7 +25,16 @@ sealed interface PurchaseOption {
         val strength: Int = tier,
         val defense: Int = tier,
     ) : PurchaseOption
-    data class Structure(val type: BuildingType, override val cost: Int) : PurchaseOption
+    data class Structure(
+        val type: BuildingType,
+        override val cost: Int,
+        /**
+         * Non-null when the structure is offered but research-locked: the tech
+         * that unlocks it. The tray renders these as locked cards (discoverability)
+         * — buying one is rejected with BUILDING_NEEDS_RESEARCH.
+         */
+        val lockedByTech: com.msa.fightandconquer.core.model.Tech? = null,
+    ) : PurchaseOption
 }
 
 data class IncomeSummary(val income: Int, val upkeep: Int, val treasury: Int) {
@@ -147,12 +156,46 @@ class GameEngine private constructor(
             }
         }
         for (type in BuildingType.entries) {
-            if (Legality.check(s, GameAction.BuyBuilding(type, hex)) is LegalityResult.Ok) {
-                options.add(PurchaseOption.Structure(type, Rules.buildingCost(s, s.currentPlayer, type)))
+            val action = GameAction.BuyBuilding(type, hex)
+            when (val check = Legality.check(s, action)) {
+                is LegalityResult.Ok ->
+                    options.add(PurchaseOption.Structure(type, Rules.buildingCost(s, s.currentPlayer, type)))
+                is LegalityResult.Rejected ->
+                    // Research-locked structures stay visible as locked cards, but only
+                    // where they could otherwise stand: the gate fires before the
+                    // placement checks, so probe with the tech granted (and affordability
+                    // moot) — Ok means research is the only gap on this hex.
+                    if (check.reason == RejectionReason.BUILDING_NEEDS_RESEARCH) {
+                        val tech = Rules.requiredTech(type) ?: continue
+                        if (Legality.check(unlockedProbe(s, tech), action) is LegalityResult.Ok) {
+                            options.add(
+                                PurchaseOption.Structure(
+                                    type,
+                                    Rules.buildingCost(s, s.currentPlayer, type),
+                                    lockedByTech = tech,
+                                ),
+                            )
+                        }
+                    }
             }
         }
         return options
     }
+
+    /** The current player with [tech] granted and a bottomless purse — [buyableAt]'s placement probe. */
+    private fun unlockedProbe(s: GameState, tech: com.msa.fightandconquer.core.model.Tech): GameState =
+        s.copy(
+            players = s.players.map { p ->
+                if (p.id != s.currentPlayer) {
+                    p
+                } else {
+                    p.copy(
+                        treasury = Int.MAX_VALUE / 2,
+                        research = p.research.copy(completed = p.research.completed + tech),
+                    )
+                }
+            },
+        )
 
     // ----- diplomacy queries (UI surface) -----
 

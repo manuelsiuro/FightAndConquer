@@ -14,6 +14,14 @@ enum class Building {
      * under it. Warship bombardment destroys it (the hex reverts to open sea).
      */
     BRIDGE,
+
+    // --- Research line (researchEnabled games only) ---
+    /** The research building: each standing one adds +1 progress at turn start. */
+    UNIVERSITY,
+    /** Flat-income economy building unlocked by the Banking tech. */
+    BANK,
+    /** Heavy fortification (defense above the strong tower) unlocked by Engineering. */
+    FORTRESS,
 }
 
 /** Buildings a player can purchase (the Capital is never bought). */
@@ -30,4 +38,7 @@ enum class BuildingType(val building: Building) {
     PORT(Building.PORT),
     FISHERY(Building.FISHERY),
     BRIDGE(Building.BRIDGE),
+    UNIVERSITY(Building.UNIVERSITY),
+    BANK(Building.BANK),
+    FORTRESS(Building.FORTRESS),
 }

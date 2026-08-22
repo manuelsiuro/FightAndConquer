@@ -686,7 +686,11 @@ private fun goalValueRes(kind: GoalKind): Int = when (kind) {
     else -> R.string.editor_goal_value_rounds
 }
 
-/** Every placeable building: capitals have their own tool, bridges are built in play. */
+/**
+ * Every placeable building: capitals have their own tool, bridges are built in
+ * play. Research-line buildings are placeable regardless of the research rule —
+ * unlock gates govern buying, and a pre-placed piece is authored, not bought.
+ */
 private val EDITOR_BUILDINGS = listOf(
     Building.FARM,
     Building.TOWER,
@@ -697,4 +701,7 @@ private val EDITOR_BUILDINGS = listOf(
     Building.WATCHTOWER,
     Building.PORT,
     Building.FISHERY,
+    Building.UNIVERSITY,
+    Building.BANK,
+    Building.FORTRESS,
 )

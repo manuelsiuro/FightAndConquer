@@ -1235,6 +1235,9 @@ class BoardScene(
         Building.PORT -> PieceKind.PORT
         Building.FISHERY -> PieceKind.FISHERY
         Building.BRIDGE -> PieceKind.BRIDGE
+        Building.UNIVERSITY -> PieceKind.UNIVERSITY
+        Building.BANK -> PieceKind.BANK
+        Building.FORTRESS -> PieceKind.FORTRESS
     }
 
     /**
@@ -1318,6 +1321,7 @@ class BoardScene(
                 Building.TOWER -> ownerRules.towerDefense
                 Building.STRONG_TOWER -> ownerRules.strongTowerDefense
                 Building.CAPITAL -> ownerRules.capitalDefense
+                Building.FORTRESS -> ownerRules.fortressDefense
                 else -> continue
             }
             // A source inside the fog contributes nothing — not even to a

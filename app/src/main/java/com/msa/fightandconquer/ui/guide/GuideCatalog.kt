@@ -94,6 +94,13 @@ object GuideCatalog {
                 descRes = R.string.guide_basic_naval_desc,
                 howToRes = R.string.guide_basic_naval_how,
             ),
+            GuideEntry(
+                id = "basic_research",
+                iconRes = null,
+                nameRes = R.string.guide_basic_research_title,
+                descRes = R.string.guide_basic_research_desc,
+                howToRes = R.string.guide_basic_research_how,
+            ),
         ),
     )
 
@@ -287,9 +294,36 @@ object GuideCatalog {
         stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, defaults.capitalDefense)),
     )
 
+    private val university = GuideEntry(
+        id = "building_university",
+        iconRes = PieceIcons.building(Building.UNIVERSITY),
+        nameRes = R.string.building_university,
+        descRes = R.string.info_university,
+        howToRes = R.string.guide_how_university,
+        stats = listOf(GuideStat(R.string.info_stat_research, R.string.info_value_research_rate, 1)),
+    )
+    private val bank = GuideEntry(
+        id = "building_bank",
+        iconRes = PieceIcons.building(Building.BANK),
+        nameRes = R.string.building_bank,
+        descRes = R.string.info_bank,
+        howToRes = R.string.guide_how_bank,
+        requirementRes = R.string.guide_req_bank,
+        stats = listOf(GuideStat(R.string.info_stat_income, R.string.info_value_income, defaults.bankIncome)),
+    )
+    private val fortress = GuideEntry(
+        id = "building_fortress",
+        iconRes = PieceIcons.building(Building.FORTRESS),
+        nameRes = R.string.building_fortress,
+        descRes = R.string.info_fortress,
+        howToRes = R.string.guide_how_fortress,
+        requirementRes = R.string.guide_req_fortress,
+        stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, defaults.fortressDefense)),
+    )
+
     private val buildings = GuideSection(
         R.string.guide_section_buildings,
-        listOf(capital, farm, tower, castle, mine, market, lumberCamp, watchtower, port, fishery, bridge),
+        listOf(capital, farm, tower, castle, mine, market, lumberCamp, watchtower, port, fishery, bridge, university, bank, fortress),
     )
 
     private val resources = GuideSection(
@@ -391,6 +425,9 @@ object GuideCatalog {
         BuildingType.PORT -> port
         BuildingType.FISHERY -> fishery
         BuildingType.BRIDGE -> bridge
+        BuildingType.UNIVERSITY -> university
+        BuildingType.BANK -> bank
+        BuildingType.FORTRESS -> fortress
     }
 
     /** The guide entry for a purchasable unit (all soldier tiers share one entry). */

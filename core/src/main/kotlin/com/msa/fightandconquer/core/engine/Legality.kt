@@ -255,6 +255,16 @@ object Legality {
         if (action.type in state.config.rules.disabledBuildings) {
             return reject(RejectionReason.BUILDING_NOT_AVAILABLE)
         }
+        // Research gates (Rules.buildingAvailable — the single predicate the AI
+        // shares): with research off the research-line buildings are not offered
+        // at all; with it on, a gated building needs its tech completed.
+        if (!Rules.buildingAvailable(state, state.currentPlayer, action.type)) {
+            return if (state.config.rules.researchEnabled) {
+                reject(RejectionReason.BUILDING_NEEDS_RESEARCH)
+            } else {
+                reject(RejectionReason.BUILDING_NOT_AVAILABLE)
+            }
+        }
         val cost = Rules.buildingCost(state, state.currentPlayer, action.type)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)
         val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)

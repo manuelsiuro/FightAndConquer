@@ -81,6 +81,26 @@ fun buildingNameRes(building: com.msa.fightandconquer.core.model.Building): Int 
     com.msa.fightandconquer.core.model.Building.PORT -> R.string.building_port
     com.msa.fightandconquer.core.model.Building.FISHERY -> R.string.building_fishery
     com.msa.fightandconquer.core.model.Building.BRIDGE -> R.string.building_bridge
+    com.msa.fightandconquer.core.model.Building.UNIVERSITY -> R.string.building_university
+    com.msa.fightandconquer.core.model.Building.BANK -> R.string.building_bank
+    com.msa.fightandconquer.core.model.Building.FORTRESS -> R.string.building_fortress
+}
+
+/** Technology -> display name resource. */
+@StringRes
+fun techNameRes(tech: com.msa.fightandconquer.core.model.Tech): Int = when (tech) {
+    com.msa.fightandconquer.core.model.Tech.SMITHING -> R.string.tech_smithing
+    com.msa.fightandconquer.core.model.Tech.ARMORY -> R.string.tech_armory
+    com.msa.fightandconquer.core.model.Tech.SIEGECRAFT -> R.string.tech_siegecraft
+    com.msa.fightandconquer.core.model.Tech.COINAGE -> R.string.tech_coinage
+    com.msa.fightandconquer.core.model.Tech.BANKING -> R.string.tech_banking
+    com.msa.fightandconquer.core.model.Tech.TREASURY -> R.string.tech_treasury
+    com.msa.fightandconquer.core.model.Tech.MASONRY -> R.string.tech_masonry
+    com.msa.fightandconquer.core.model.Tech.ENGINEERING -> R.string.tech_engineering
+    com.msa.fightandconquer.core.model.Tech.BASTIONS -> R.string.tech_bastions
+    com.msa.fightandconquer.core.model.Tech.NAVIGATION -> R.string.tech_navigation
+    com.msa.fightandconquer.core.model.Tech.SHIPWRIGHTS -> R.string.tech_shipwrights
+    com.msa.fightandconquer.core.model.Tech.ADMIRALTY -> R.string.tech_admiralty
 }
 
 /** Purchasable building type -> display name resource. */
@@ -180,4 +200,10 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.INVALID_ORIENTATION -> UiText.of(R.string.reject_invalid_orientation)
     RejectionReason.NO_BUILDING_THERE -> UiText.of(R.string.reject_no_building_there)
     RejectionReason.CANNOT_DEMOLISH_CAPITAL -> UiText.of(R.string.reject_cannot_demolish_capital)
+    RejectionReason.RESEARCH_DISABLED -> UiText.of(R.string.reject_research_disabled)
+    RejectionReason.NO_UNIVERSITY -> UiText.of(R.string.reject_no_university)
+    RejectionReason.RESEARCH_IN_PROGRESS -> UiText.of(R.string.reject_research_in_progress)
+    RejectionReason.RESEARCH_ALREADY_COMPLETE -> UiText.of(R.string.reject_research_already_complete)
+    RejectionReason.RESEARCH_NEEDS_PREREQUISITE -> UiText.of(R.string.reject_research_needs_prereq)
+    RejectionReason.BUILDING_NEEDS_RESEARCH -> UiText.of(R.string.reject_building_needs_research)
 }

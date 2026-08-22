@@ -81,6 +81,9 @@ object PieceIcons {
             Building.PORT -> R.drawable.piece_vikings_port
             Building.FISHERY -> R.drawable.piece_vikings_fishery
             Building.BRIDGE -> R.drawable.piece_vikings_bridge
+            Building.UNIVERSITY -> R.drawable.piece_vikings_university
+            Building.BANK -> R.drawable.piece_vikings_bank
+            Building.FORTRESS -> R.drawable.piece_vikings_fortress
         }
         Civilization.SULTANATE -> when (building) {
             Building.CAPITAL -> R.drawable.piece_sultanate_capital
@@ -94,6 +97,9 @@ object PieceIcons {
             Building.PORT -> R.drawable.piece_sultanate_port
             Building.FISHERY -> R.drawable.piece_sultanate_fishery
             Building.BRIDGE -> R.drawable.piece_sultanate_bridge
+            Building.UNIVERSITY -> R.drawable.piece_sultanate_university
+            Building.BANK -> R.drawable.piece_sultanate_bank
+            Building.FORTRESS -> R.drawable.piece_sultanate_fortress
         }
         Civilization.SHOGUNATE -> when (building) {
             Building.CAPITAL -> R.drawable.piece_shogunate_capital
@@ -107,6 +113,9 @@ object PieceIcons {
             Building.PORT -> R.drawable.piece_shogunate_port
             Building.FISHERY -> R.drawable.piece_shogunate_fishery
             Building.BRIDGE -> R.drawable.piece_shogunate_bridge
+            Building.UNIVERSITY -> R.drawable.piece_shogunate_university
+            Building.BANK -> R.drawable.piece_shogunate_bank
+            Building.FORTRESS -> R.drawable.piece_shogunate_fortress
         }
     }
 
@@ -155,6 +164,9 @@ object PieceIcons {
         Building.PORT -> R.drawable.piece_port
         Building.FISHERY -> R.drawable.piece_fishery
         Building.BRIDGE -> R.drawable.piece_bridge
+        Building.UNIVERSITY -> R.drawable.piece_university
+        Building.BANK -> R.drawable.piece_bank
+        Building.FORTRESS -> R.drawable.piece_fortress
     }
 
     // Neutral markers: never fork per civ.

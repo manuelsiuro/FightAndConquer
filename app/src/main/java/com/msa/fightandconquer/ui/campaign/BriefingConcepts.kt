@@ -25,6 +25,11 @@ object BriefingConcepts {
         BuildingType.BRIDGE,
         BuildingType.FISHERY,
         BuildingType.PORT,
+        // Research line sits below the naval group: research missions surface it
+        // without evicting the naval chips the sea missions were built around.
+        BuildingType.UNIVERSITY,
+        BuildingType.BANK,
+        BuildingType.FORTRESS,
         BuildingType.WATCHTOWER,
         BuildingType.MINE,
         BuildingType.MARKET,
@@ -33,6 +38,9 @@ object BriefingConcepts {
         BuildingType.TOWER,
         BuildingType.FARM,
     )
+
+    private val RESEARCH_BUILDINGS =
+        setOf(BuildingType.UNIVERSITY, BuildingType.BANK, BuildingType.FORTRESS)
 
     fun forLevel(level: LevelDef, limit: Int = 3): List<BriefingConcept> {
         val rules = level.rules
@@ -69,6 +77,7 @@ object BriefingConcepts {
         for (type in advanced) {
             if (type in rules.disabledBuildings) continue
             if (!rules.navalEnabled && type in NAVAL_BUILDINGS) continue
+            if (!rules.researchEnabled && type in RESEARCH_BUILDINGS) continue
             if (!rules.fogOfWar && type == BuildingType.WATCHTOWER) continue
             val entry = GuideCatalog.forStructure(type)
             concepts += BriefingConcept(entry.nameRes, entry.id)

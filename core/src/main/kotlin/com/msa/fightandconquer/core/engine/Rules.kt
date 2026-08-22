@@ -294,9 +294,10 @@ object Rules {
             Building.TOWER -> rules.towerDefense
             Building.STRONG_TOWER -> rules.strongTowerDefense
             Building.CAPITAL -> rules.capitalDefense
+            Building.FORTRESS -> rules.fortressDefense
             Building.FARM, Building.MINE, Building.MARKET,
             Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT,
-            Building.FISHERY, Building.BRIDGE,
+            Building.FISHERY, Building.BRIDGE, Building.UNIVERSITY, Building.BANK,
             -> 0
         }
     }
@@ -483,7 +484,65 @@ object Rules {
         com.msa.fightandconquer.core.model.BuildingType.PORT -> rules.portCost
         com.msa.fightandconquer.core.model.BuildingType.FISHERY -> rules.fisheryCost
         com.msa.fightandconquer.core.model.BuildingType.BRIDGE -> rules.bridgeCost
+        com.msa.fightandconquer.core.model.BuildingType.UNIVERSITY -> rules.universityCost
+        com.msa.fightandconquer.core.model.BuildingType.BANK -> rules.bankCost
+        com.msa.fightandconquer.core.model.BuildingType.FORTRESS -> rules.fortressCost
     }
+
+    // --- Research (see docs/game-rules.md "Research") ---
+
+    /**
+     * The tech that unlocks purchasing [type], or null when it is never
+     * research-gated. Consulted only in researchEnabled games, and only for
+     * PURCHASE — captured or map-authored buildings keep working without it.
+     */
+    fun requiredTech(type: com.msa.fightandconquer.core.model.BuildingType): com.msa.fightandconquer.core.model.Tech? =
+        when (type) {
+            com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER -> com.msa.fightandconquer.core.model.Tech.MASONRY
+            com.msa.fightandconquer.core.model.BuildingType.PORT -> com.msa.fightandconquer.core.model.Tech.NAVIGATION
+            com.msa.fightandconquer.core.model.BuildingType.BANK -> com.msa.fightandconquer.core.model.Tech.BANKING
+            com.msa.fightandconquer.core.model.BuildingType.FORTRESS -> com.msa.fightandconquer.core.model.Tech.ENGINEERING
+            else -> null
+        }
+
+    /** The research-line buildings: only offered at all in researchEnabled games. */
+    private fun isResearchLine(type: com.msa.fightandconquer.core.model.BuildingType): Boolean =
+        type == com.msa.fightandconquer.core.model.BuildingType.UNIVERSITY ||
+            type == com.msa.fightandconquer.core.model.BuildingType.BANK ||
+            type == com.msa.fightandconquer.core.model.BuildingType.FORTRESS
+
+    /**
+     * Whether [player] may currently purchase [type] under the research rules —
+     * the single availability predicate shared by Legality and the AI (they must
+     * never drift). Flag off: research-line buildings are not offered and the
+     * gated classics (Strong Tower, Port) sell ungated — the pre-research game.
+     * Flag on: [requiredTech] must be completed. [RuleConstants.disabledBuildings]
+     * is a separate, game-wide gate checked by Legality alongside this.
+     */
+    fun buildingAvailable(state: GameState, player: PlayerId, type: com.msa.fightandconquer.core.model.BuildingType): Boolean {
+        if (!state.config.rules.researchEnabled) return !isResearchLine(type)
+        val tech = requiredTech(type) ?: return true
+        return state.player(player).research.has(tech)
+    }
+
+    /**
+     * Standing, non-starving Universities owned by [player] — each adds one
+     * progress point at the owner's turn start. Shared by Legality (starting
+     * research requires one), TurnPipeline's tick, and the HUD's turns-left
+     * projection (the marketNeighbors sharing contract).
+     */
+    fun workingUniversities(tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>, player: PlayerId): Int =
+        tiles.values.count {
+            it.owner == player && it.building == Building.UNIVERSITY && !it.starving
+        }
+
+    /** Gold paid up front to start [tech], at [player]'s effective rules. */
+    fun techCost(state: GameState, player: PlayerId, tech: com.msa.fightandconquer.core.model.Tech): Int =
+        effectiveRules(state, player).techCostByTier[tech.tier - 1]
+
+    /** Progress points [tech] needs to complete, at [player]'s effective rules. */
+    fun techDuration(state: GameState, player: PlayerId, tech: com.msa.fightandconquer.core.model.Tech): Int =
+        effectiveRules(state, player).techDurationByTier[tech.tier - 1]
 
     /**
      * Treasury credit for demolishing an own [building]:
@@ -583,6 +642,7 @@ object Rules {
                     val shoals = shoalsWithin(tiles, hex, rules.fisheryRange)
                     income += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
                 }
+                Building.BANK -> income += rules.bankIncome
                 else -> {}
             }
         }
@@ -626,11 +686,12 @@ object Rules {
             if (tile.owner != player) continue
             addRange(hex, rules.visionRadiusOwned)
             when (tile.building) {
-                Building.CAPITAL, Building.TOWER, Building.STRONG_TOWER ->
+                Building.CAPITAL, Building.TOWER, Building.STRONG_TOWER, Building.FORTRESS ->
                     addRange(hex, rules.visionRadiusBuilding)
                 Building.WATCHTOWER -> addRange(hex, rules.watchtowerVisionRadius)
                 Building.FARM, Building.MINE, Building.MARKET, Building.LUMBER_CAMP,
-                Building.PORT, Building.FISHERY, Building.BRIDGE, null,
+                Building.PORT, Building.FISHERY, Building.BRIDGE,
+                Building.UNIVERSITY, Building.BANK, null,
                 -> {}
             }
         }

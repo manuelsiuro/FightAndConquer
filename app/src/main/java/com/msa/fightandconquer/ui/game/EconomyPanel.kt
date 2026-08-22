@@ -66,6 +66,14 @@ internal fun EconomyPanel(economy: EconomyBreakdown, topAnchor: Dp) {
                     tint = UiColors.positive,
                 )
             }
+            if (economy.researchBonus > 0) {
+                EconomyRow(
+                    stringResource(R.string.economy_research_row),
+                    stringResource(R.string.economy_amount_positive, economy.researchBonus),
+                    iconRes = R.drawable.ic_coin,
+                    tint = UiColors.positive,
+                )
+            }
             if (economy.starvingCount > 0) {
                 EconomyRow(
                     stringResource(R.string.economy_cut_off_row, economy.starvingCount),

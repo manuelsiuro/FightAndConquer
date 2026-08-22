@@ -140,10 +140,13 @@
     <string name="shop_defense">Def %d</string>
     <string name="shop_vision">Sees %d</string>
     <string name="shop_walkway">Troop walkway</string>
+    <string name="shop_research_per_turn">+1 research/turn</string>
+    <string name="shop_requires_tech">Requires %1$s</string>
     <string name="cd_purchase_card">%1$s, costs %2$d coins</string>
     <string name="cd_purchase_unaffordable">%1$s, costs %2$d coins — not affordable</string>
     <string name="cd_purchase_unit">%1$s, costs %2$d coins — attack %3$d, defense %4$d</string>
     <string name="cd_purchase_unit_unaffordable">%1$s, costs %2$d coins, attack %3$d, defense %4$d — not affordable</string>
+    <string name="cd_purchase_locked">%1$s, costs %2$d coins — requires the %3$s research</string>
 
     <!-- Piece names -->
     <string name="unit_peasant">Peasant</string>
@@ -166,6 +169,23 @@
     <string name="building_port">Port</string>
     <string name="building_fishery">Fishery</string>
     <string name="building_bridge">Bridge</string>
+    <string name="building_university">University</string>
+    <string name="building_bank">Bank</string>
+    <string name="building_fortress">Fortress</string>
+
+    <!-- Technologies -->
+    <string name="tech_smithing">Smithing</string>
+    <string name="tech_armory">Armory</string>
+    <string name="tech_siegecraft">Siegecraft</string>
+    <string name="tech_coinage">Coinage</string>
+    <string name="tech_banking">Banking</string>
+    <string name="tech_treasury">Treasury</string>
+    <string name="tech_masonry">Masonry</string>
+    <string name="tech_engineering">Engineering</string>
+    <string name="tech_bastions">Bastions</string>
+    <string name="tech_navigation">Navigation</string>
+    <string name="tech_shipwrights">Shipwrights</string>
+    <string name="tech_admiralty">Admiralty</string>
     <string name="piece_tree">Tree</string>
     <string name="piece_gravestone">Gravestone</string>
     <string name="piece_gold_vein">Gold vein</string>
@@ -208,14 +228,19 @@
     <string name="info_port">Harbor — builds boats on adjacent sea and supplies overseas colonies</string>
     <string name="info_fishery">Harvests fish shoals up to two waters away</string>
     <string name="info_bridge">A walkway over the sea — troops cross it, boats cannot pass under it</string>
+    <string name="info_university">Scholars at work — each University adds progress to your research every turn</string>
+    <string name="info_bank">Vaulted coin — steady income with no ground requirement</string>
+    <string name="info_fortress">Heavy fortification — outclasses the castle; siege engines ignore its walls</string>
     <string name="info_fish_shoal">Teeming waters — a coastal Fishery within two hexes earns from it</string>
     <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
     <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
     <string name="info_stat_vision">Vision</string>
+    <string name="info_stat_research">Research</string>
     <string name="info_stat_range">Range</string>
     <string name="info_stat_cargo">Cargo</string>
     <string name="info_value_cargo_empty">empty</string>
     <string name="info_value_income_max">up to +%d/turn</string>
+    <string name="info_value_research_rate">+%d/turn</string>
     <string name="info_archer">Guards its hex and neighbors from a distance</string>
     <string name="info_catapult">Slow siege engine — building defenses mean nothing to it</string>
     <string name="info_transport">Ferries one land unit across the sea</string>
@@ -241,6 +266,7 @@
     <string name="economy_net">Net per turn</string>
     <string name="economy_hexes_row">%1$d hexes × %2$d</string>
     <string name="economy_fertile_row">Fertile ground</string>
+    <string name="economy_research_row">Research bonus</string>
     <string name="economy_building_row">%1$d × %2$s</string>
     <string name="economy_cut_off_row">%d hexes cut off</string>
     <string name="economy_cut_off_value">·0</string>
@@ -359,6 +385,12 @@
     <string name="reject_invalid_orientation">That is not a valid bridge orientation</string>
     <string name="reject_no_building_there">Nothing there to demolish</string>
     <string name="reject_cannot_demolish_capital">Your capital cannot be demolished</string>
+    <string name="reject_research_disabled">Research is not part of this game</string>
+    <string name="reject_no_university">Starting research needs a working University</string>
+    <string name="reject_research_in_progress">Your scholars are already at work — one research at a time</string>
+    <string name="reject_research_already_complete">That technology is already yours</string>
+    <string name="reject_research_needs_prereq">The earlier technology in this branch comes first</string>
+    <string name="reject_building_needs_research">That building needs a completed research first</string>
 
     <!-- Info-card actions (rotate / demolish / disband) -->
     <string name="info_action_rotate">Rotate</string>
@@ -433,6 +465,11 @@
     <string name="guide_req_fishery">On your coast, within two hexes of fish shoals</string>
     <string name="guide_how_bridge">Buy it on a sea hex touching your land, then keep going — each span extends the chain. Troops walk it like a road (regions connect across it!), boats are blocked by it, and enemies can storm and keep it. Warship bombardment drops it back into the sea.</string>
     <string name="guide_req_bridge">On sea, touching your land or bridge</string>
+    <string name="guide_how_university">Build one on any clear hex you own. Each standing University adds one point of progress to your active research at the start of your turn — a second one makes every discovery come faster. Guard it: a captured or cut-off University stops working.</string>
+    <string name="guide_how_bank">Unlocked by the Banking research. Place it anywhere you own for a steady flow of coin — no vein, coast or neighbors required.</string>
+    <string name="guide_req_bank">Requires the Banking research</string>
+    <string name="guide_how_fortress">Unlocked by the Engineering research. The strongest wall in the game — but catapults and warships ignore building defense entirely, so garrison it.</string>
+    <string name="guide_req_fortress">Requires the Engineering research</string>
     <string name="guide_how_fish_shoal">The sea\'s gold vein. Capture the nearest coast and build a Fishery next to the shoal to harvest it.</string>
     <string name="guide_desc_capital">The heart of your empire.</string>
     <string name="guide_how_capital">It defends its own hex and neighbours. If an enemy captures it they loot half your treasury and it relocates to your largest region — losing your last territory loses the game.</string>
@@ -441,6 +478,9 @@
     <string name="guide_basic_naval_title">Crossing the sea</string>
     <string name="guide_basic_naval_desc">Water divides the world — land units can never enter it. Ports, longboats and warships turn it into a highway.</string>
     <string name="guide_basic_naval_how">Build a Port on your coast, buy a Longboat on the sea beside it, and walk a soldier aboard. Sail to a foreign shore and tap the beach to land — a strong passenger can storm defended ground. Keep the colony alive with a port of its own, and watch for enemy warships on the way.</string>
+    <string name="guide_basic_research_title">Research</string>
+    <string name="guide_basic_research_desc">Universities turn coin into lasting advantages: sharper steel, richer coffers, new buildings, open sea lanes. Research is paid up front and completed over turns — one technology at a time, in four branches of three.</string>
+    <string name="guide_basic_research_how">Build a University, open Research from the menu, and pick a technology you can afford. Every University you hold adds one point of progress at the start of your turn; when the bar fills, the advantage is yours for the rest of the match. Each branch unlocks in order, and losing your last University freezes progress until you build another.</string>
 
     <!-- Field guide: Resources &amp; terrain -->
     <string name="guide_how_gold_vein">A resource in the ground — worthless until you build a Mine on top of it, which turns it into steady gold.</string>

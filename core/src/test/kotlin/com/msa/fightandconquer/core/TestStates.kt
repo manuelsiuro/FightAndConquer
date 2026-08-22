@@ -137,6 +137,9 @@ object TestStates {
     fun GameState.withTreasury(player: Int, amount: Int): GameState =
         copy(players = players.map { if (it.id.value == player) it.copy(treasury = amount) else it })
 
+    fun GameState.withResearch(player: Int, research: com.msa.fightandconquer.core.model.ResearchState): GameState =
+        copy(players = players.map { if (it.id.value == player) it.copy(research = research) else it })
+
     fun GameState.unitIdAt(at: Hex): UnitId = tiles.getValue(at).unit!!
 
     /** Cross-index consistency: catches every dual-bookkeeping bug in the reducer. */

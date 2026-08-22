@@ -102,4 +102,16 @@ enum class RejectionReason {
     NO_BUILDING_THERE,
     /** The capital can never be demolished. */
     CANNOT_DEMOLISH_CAPITAL,
+    /** Research is disabled by this game's rules snapshot. */
+    RESEARCH_DISABLED,
+    /** Starting research requires a standing, non-starving University. */
+    NO_UNIVERSITY,
+    /** One active research per player; it must finish before another starts. */
+    RESEARCH_IN_PROGRESS,
+    /** That technology is already completed. */
+    RESEARCH_ALREADY_COMPLETE,
+    /** The tier below in this branch is not completed yet. */
+    RESEARCH_NEEDS_PREREQUISITE,
+    /** The building's unlocking tech is not completed (UI derives it via Rules.requiredTech). */
+    BUILDING_NEEDS_RESEARCH,
 }

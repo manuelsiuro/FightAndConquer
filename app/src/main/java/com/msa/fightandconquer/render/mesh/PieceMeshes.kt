@@ -16,6 +16,7 @@ enum class PieceKind {
     BOAT, WARSHIP, FISHING_BOAT,
     CAPITAL, FARM, TOWER, STRONG_TOWER,
     MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT, FISHERY, BRIDGE,
+    UNIVERSITY, BANK, FORTRESS,
     TREE, GRAVESTONE,
     GOLD_VEIN, FERTILE, FISH_SHOAL,
 }
@@ -366,6 +367,55 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
             Part(up(Primitives.sphere(0.03f, 3, 8, centerY = 0.52f)), ColorRole.GOLD),
             Part(up(Primitives.boxAt(0f, 0f, 0.006f, 0.12f, 0.006f, baseY = 0.46f)), ColorRole.PIP),
             Part(up(Primitives.pennant(attachX = 0.006f, topY = 0.58f, drop = 0.05f, length = 0.10f)), ColorRole.FACTION),
+        )
+
+        // Research line: silhouette-faithful tokens until the .pmesh bakes land.
+        // University: cloistered hall + steep gable + gold bell + faction door banner.
+        PieceKind.UNIVERSITY -> listOf(
+            Part(up(Primitives.boxAt(0f, 0f, 0.15f, 0.20f, 0.11f)), ColorRole.STONE),
+            Part(up(Primitives.wedgeAt(0f, 0f, 0.17f, 0.16f, 0.12f, baseY = 0.20f)), ColorRole.TRUNK),
+            Part(up(Primitives.boxAt(0f, 0f, 0.03f, 0.06f, 0.025f, baseY = 0.36f)), ColorRole.STONE),
+            Part(up(Primitives.sphere(0.028f, 3, 8, centerY = 0.40f)), ColorRole.GOLD),
+            Part(up(Primitives.boxAt(0f, -0.115f, 0.045f, 0.12f, 0.01f)), ColorRole.FACTION),
+            Part(up(Primitives.boxAt(0f, 0f, 0.13f, 0.03f, 0.115f, baseY = 0.12f)), ColorRole.PIP),
+        )
+        // Bank: squat strongbox + faction lid + coin stacks + barred door slit.
+        PieceKind.BANK -> listOf(
+            Part(up(Primitives.boxAt(0f, 0f, 0.13f, 0.16f, 0.10f)), ColorRole.STONE),
+            Part(up(Primitives.wedgeAt(0f, 0f, 0.145f, 0.10f, 0.11f, baseY = 0.16f)), ColorRole.FACTION),
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.035f, 0.05f, 6, cx = 0.16f, cz = 0.08f)
+                        cylinderInto(0.03f, 0.08f, 6, cx = 0.19f, cz = -0.02f)
+                    }
+                },
+                ColorRole.GOLD,
+            ),
+            Part(up(Primitives.boxAt(0f, -0.105f, 0.03f, 0.08f, 0.01f)), ColorRole.PIP),
+        )
+        // Fortress: square bailey — four corner turrets around a taller central keep.
+        // Reads bulkier than the twin-turret castle and tops out above it (def 4 > 3).
+        PieceKind.FORTRESS -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, -0.17f, 0.17f, 0.16f, 0.03f)
+                        boxInto(0f, 0.17f, 0.17f, 0.16f, 0.03f)
+                        boxInto(-0.17f, 0f, 0.03f, 0.16f, 0.17f)
+                        boxInto(0.17f, 0f, 0.03f, 0.16f, 0.17f)
+                        for (sx in intArrayOf(-1, 1)) for (sz in intArrayOf(-1, 1)) {
+                            cylinderInto(0.055f, 0.30f, 6, cx = sx * 0.17f, cz = sz * 0.17f)
+                            merlonRingInto(3, 0.05f, 0.022f, 0.045f, 0.02f, baseY = 0.30f, cx = sx * 0.17f, cz = sz * 0.17f)
+                        }
+                        boxInto(0f, 0f, 0.09f, 0.46f, 0.09f)
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(up(Primitives.merlonRing(4, 0.075f, 0.035f, 0.06f, 0.028f, baseY = 0.46f)), ColorRole.STONE),
+            Part(up(Primitives.boxAt(0f, 0f, 0.095f, 0.05f, 0.095f, baseY = 0.40f)), ColorRole.FACTION),
+            Part(up(Primitives.boxAt(0f, -0.185f, 0.04f, 0.10f, 0.012f)), ColorRole.PIP),
         )
 
         // Naval (expansion). Boats float on sea tops; front faces -Z like all pieces.

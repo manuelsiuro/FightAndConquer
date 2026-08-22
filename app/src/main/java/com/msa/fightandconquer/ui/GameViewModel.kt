@@ -146,6 +146,8 @@ data class EconomyBreakdown(
     val hexIncomePerHex: Int,
     /** Extra income from FERTILE ground (bare hexes; farm bonuses ride the farm row). */
     val depositBonus: Int,
+    /** Coinage/Treasury surplus: scaled total minus the raw row sums (0 without the tech). */
+    val researchBonus: Int,
     val buildingRows: List<IncomeRow>,
     val tiers: List<UpkeepRow>,
     val net: Int,
@@ -238,6 +240,8 @@ data class ShopInfo(
     val fisheryIncomeMax: Int,
     val fishingBoatUpkeep: Int,
     val fishingBoatIncome: Int,
+    val bankIncome: Int,
+    val fortressDefense: Int,
 )
 
 data class HudState(
@@ -1400,6 +1404,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         var campCount = 0; var campTotal = 0
         var portCount = 0; var portTotal = 0
         var fisheryCount = 0; var fisheryTotal = 0
+        var bankCount = 0; var bankTotal = 0
         // Same tile walk and skip order as Rules.incomeFrom; the per-building
         // countables are shared Rules helpers, so the rows sum to `income` by
         // construction rather than by a hand-kept mirror.
@@ -1433,6 +1438,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     val shoals = Rules.shoalsWithin(state.tiles, hex, rules.fisheryRange)
                     fisheryTotal += rules.fisheryShoalIncome * minOf(shoals, rules.fisheryShoalCap)
                 }
+                Building.BANK -> { bankCount++; bankTotal += rules.bankIncome }
                 else -> {}
             }
         }
@@ -1450,6 +1456,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             IncomeRow(R.string.building_fishery, fisheryCount, fisheryTotal, PieceIcons.building(myCiv, Building.FISHERY))
                 .takeIf { fisheryCount > 0 },
             // The unit half of the income sum: dories parked on shoals (Rules.boatIncomeFrom).
+            IncomeRow(R.string.building_bank, bankCount, bankTotal, PieceIcons.building(myCiv, Building.BANK))
+                .takeIf { bankCount > 0 },
             run {
                 val parked = state.units.values.count { u ->
                     u.owner == me && Rules.isEarningFishingBoat(state.tiles, u)
@@ -1500,6 +1508,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
         val tiers = soldierRows + specialRows
         val income = Rules.incomeOf(state, me)
+        // Coinage/Treasury scale the TOTAL once (Rules.scaleIncome), while the rows
+        // above are raw per-source sums — this synthetic bonus keeps the panel
+        // summing to `income` by construction (zero until such a tech completes).
+        val researchBonus =
+            income - (hexCount * rules.hexIncome + depositBonus + buildingRows.sumOf { it.total })
         val upkeep = Rules.upkeepOf(state, me)
         val treasury = state.player(me).treasury
         val net = income - upkeep
@@ -1509,6 +1522,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             hexIncome = hexCount * rules.hexIncome,
             hexIncomePerHex = rules.hexIncome,
             depositBonus = depositBonus,
+            researchBonus = researchBonus,
             buildingRows = buildingRows,
             tiers = tiers,
             net = net,
@@ -1888,6 +1902,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     incomeMax(rules.fisheryShoalIncome * rules.fisheryShoalCap),
                 )
                 Building.BRIDGE -> Triple(R.string.building_bridge, UiText.of(R.string.info_bridge), null)
+                Building.UNIVERSITY -> Triple(
+                    R.string.building_university,
+                    UiText.of(R.string.info_university),
+                    stat(R.string.info_stat_research, UiText.of(R.string.info_value_research_rate, 1)),
+                )
+                Building.BANK -> Triple(R.string.building_bank, UiText.of(R.string.info_bank), income(rules.bankIncome))
+                Building.FORTRESS -> Triple(
+                    R.string.building_fortress,
+                    UiText.of(R.string.info_fortress),
+                    stat(R.string.info_stat_defense, UiText.of(R.string.info_value_plain, rules.fortressDefense)),
+                )
             }
             val card = InfoCard(
                 UiText.of(titleRes),
@@ -2200,6 +2225,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     fisheryIncomeMax = eff.fisheryShoalIncome * eff.fisheryShoalCap,
                     fishingBoatUpkeep = eff.fishingBoatUpkeep,
                     fishingBoatIncome = eff.fishingBoatIncome,
+                    bankIncome = eff.bankIncome,
+                    fortressDefense = eff.fortressDefense,
                 )
             },
         )

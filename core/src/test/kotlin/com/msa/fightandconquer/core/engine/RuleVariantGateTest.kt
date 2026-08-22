@@ -140,4 +140,43 @@ class RuleVariantGateTest {
             rejected(GameEngine(s).submit(GameAction.BuyUnit(2, hex(1)))),
         )
     }
+
+    // ----- researchEnabled = false (the default; every pre-research campaign) -----
+
+    @Test
+    fun `research off hides the research line entirely`() {
+        val engine = GameEngine(strip(9, 0..2, 6..8))
+        for (type in listOf(BuildingType.UNIVERSITY, BuildingType.BANK, BuildingType.FORTRESS)) {
+            assertEquals(
+                RejectionReason.BUILDING_NOT_AVAILABLE,
+                rejected(engine.submit(GameAction.BuyBuilding(type, hex(1)))),
+            )
+        }
+        val tray = engine.buyableAt(hex(1)).filterIsInstance<PurchaseOption.Structure>()
+        assertTrue(tray.none { it.type == BuildingType.UNIVERSITY })
+        assertTrue(tray.none { it.type == BuildingType.BANK })
+        assertTrue(tray.none { it.type == BuildingType.FORTRESS })
+        assertTrue(tray.none { it.lockedByTech != null })
+    }
+
+    @Test
+    fun `research off leaves the gated classics ungated`() {
+        val engine = GameEngine(strip(9, 0..2, 6..8))
+        assertTrue(engine.submit(GameAction.BuyBuilding(BuildingType.STRONG_TOWER, hex(1))) is LegalityResult.Ok)
+    }
+
+    @Test
+    fun `an authored research building is tolerated and inert with research off`() {
+        // A hand-edited or future-authored map: the fortress still defends, the
+        // bank still earns, nothing crashes — availability gates purchase only.
+        val s = strip(9, 0..2, 6..8)
+            .withBuilding(Building.FORTRESS, hex(1))
+            .withBuilding(Building.BANK, hex(2))
+        assertEquals(s.config.rules.fortressDefense, Rules.defenseOf(s, hex(1)))
+        assertEquals(
+            Rules.incomeOf(strip(9, 0..2, 6..8), com.msa.fightandconquer.core.model.PlayerId(0)) +
+                s.config.rules.bankIncome,
+            Rules.incomeOf(s, com.msa.fightandconquer.core.model.PlayerId(0)),
+        )
+    }
 }
