@@ -141,11 +141,11 @@ class RuleVariantGateTest {
         )
     }
 
-    // ----- researchEnabled = false (the default; every pre-research campaign) -----
+    // ----- researchEnabled = false (every shipped pre-research campaign) -----
 
     @Test
     fun `research off hides the research line entirely`() {
-        val engine = GameEngine(strip(9, 0..2, 6..8))
+        val engine = GameEngine(strip(9, 0..2, 6..8, rules = RuleConstants(researchEnabled = false)))
         for (type in listOf(BuildingType.UNIVERSITY, BuildingType.BANK, BuildingType.FORTRESS)) {
             assertEquals(
                 RejectionReason.BUILDING_NOT_AVAILABLE,
@@ -161,7 +161,7 @@ class RuleVariantGateTest {
 
     @Test
     fun `research off leaves the gated classics ungated`() {
-        val engine = GameEngine(strip(9, 0..2, 6..8))
+        val engine = GameEngine(strip(9, 0..2, 6..8, rules = RuleConstants(researchEnabled = false)))
         assertTrue(engine.submit(GameAction.BuyBuilding(BuildingType.STRONG_TOWER, hex(1))) is LegalityResult.Ok)
     }
 
@@ -169,12 +169,13 @@ class RuleVariantGateTest {
     fun `an authored research building is tolerated and inert with research off`() {
         // A hand-edited or future-authored map: the fortress still defends, the
         // bank still earns, nothing crashes — availability gates purchase only.
-        val s = strip(9, 0..2, 6..8)
+        val off = RuleConstants(researchEnabled = false)
+        val s = strip(9, 0..2, 6..8, rules = off)
             .withBuilding(Building.FORTRESS, hex(1))
             .withBuilding(Building.BANK, hex(2))
         assertEquals(s.config.rules.fortressDefense, Rules.defenseOf(s, hex(1)))
         assertEquals(
-            Rules.incomeOf(strip(9, 0..2, 6..8), com.msa.fightandconquer.core.model.PlayerId(0)) +
+            Rules.incomeOf(strip(9, 0..2, 6..8, rules = off), com.msa.fightandconquer.core.model.PlayerId(0)) +
                 s.config.rules.bankIncome,
             Rules.incomeOf(s, com.msa.fightandconquer.core.model.PlayerId(0)),
         )

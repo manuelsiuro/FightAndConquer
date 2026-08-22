@@ -31,7 +31,8 @@ class ResearchLegalityTest {
 
     @Test
     fun `research disabled rejects first`() {
-        val off = strip(9, 0..2, 6..8).withBuilding(Building.UNIVERSITY, hex(1))
+        val off = strip(9, 0..2, 6..8, rules = RuleConstants(researchEnabled = false))
+            .withBuilding(Building.UNIVERSITY, hex(1))
         assertEquals(RejectionReason.RESEARCH_DISABLED, reasonOf(off, Tech.COINAGE))
     }
 

@@ -111,9 +111,91 @@ class ResearchAiTest {
 
     @Test
     fun `research off returns nothing`() {
-        val off = strip(30, 0..12, 27..29).withBuilding(Building.UNIVERSITY, hex(1))
+        val off = strip(30, 0..12, 27..29, rules = RuleConstants(researchEnabled = false))
+            .withBuilding(Building.UNIVERSITY, hex(1))
         assertNull(ResearchPolicy.action(off, Difficulty.HARD))
     }
 
     private fun GameState.withSeaGap(): GameState = withSea(listOf(hex(3), hex(4), hex(5)))
+
+    // ----- full-game tripwires (the AiExpansionTest usage idiom, research edition) -----
+
+    private fun playOut(
+        start: GameState,
+        difficulty: Difficulty,
+        maxRounds: Int,
+        onEvent: (com.msa.fightandconquer.core.engine.GameEvent) -> Unit,
+    ): GameState {
+        var state = start
+        val ais = state.players.map { AiPlayer(difficulty) }
+        while (state.phase is com.msa.fightandconquer.core.model.GamePhase.Playing &&
+            state.turnNumber < maxRounds
+        ) {
+            val ai = ais[state.currentPlayer.value]
+            var actions = 0
+            while (true) {
+                val action = ai.chooseAction(state)
+                val result = com.msa.fightandconquer.core.engine.Reducer.reduce(state, action)
+                result.events.forEach(onEvent)
+                state = result.state
+                actions++
+                if (action == GameAction.EndTurn ||
+                    state.phase !is com.msa.fightandconquer.core.model.GamePhase.Playing
+                ) {
+                    break
+                }
+                if (actions >= AiPlayer.MAX_ACTIONS_PER_TURN) {
+                    state = com.msa.fightandconquer.core.engine.Reducer.reduce(state, GameAction.EndTurn).state
+                    break
+                }
+            }
+        }
+        return state
+    }
+
+    @Test
+    fun `across full games normal AIs found universities and complete research`() {
+        val built = HashSet<Building>()
+        val completed = HashSet<Tech>()
+        for (seed in 1L..6L) {
+            val playerCount = 2 + (seed % 3).toInt()
+            val params = com.msa.fightandconquer.core.map.MapParams(
+                seed = seed,
+                size = com.msa.fightandconquer.core.map.MapSize.SMALL,
+                playerCount = playerCount,
+                shape = com.msa.fightandconquer.core.map.MapShape.entries[(seed % 3).toInt()],
+            )
+            val start = com.msa.fightandconquer.core.map.MapGenerator.generate(params).newGame(
+                gameSeed = seed * 31 + 7,
+                kinds = List(playerCount) { com.msa.fightandconquer.core.model.PlayerKind.Ai(Difficulty.NORMAL) },
+                rules = RuleConstants(),
+            )
+            playOut(start, Difficulty.NORMAL, maxRounds = 400) { event ->
+                if (event is com.msa.fightandconquer.core.engine.GameEvent.BuildingBuilt) built.add(event.building)
+                if (event is com.msa.fightandconquer.core.engine.GameEvent.ResearchCompleted) completed.add(event.tech)
+            }
+        }
+        assertTrue("no UNIVERSITY built across 6 games", Building.UNIVERSITY in built)
+        assertTrue("no research completed across 6 games", completed.isNotEmpty())
+        assertTrue("no tier-1 tech completed", completed.any { it.tier == 1 })
+    }
+
+    @Test
+    fun `sea-locked normal AIs research navigation before founding a port`() {
+        // Two five-hex islands: the ladder must run University -> NAVIGATION ->
+        // Port, in that order, and actually get there.
+        val start = strip(13, 0..4, 8..12, rules = rules)
+            .withSea(listOf(hex(5), hex(6), hex(7)))
+        val events = ArrayList<com.msa.fightandconquer.core.engine.GameEvent>()
+        playOut(start, Difficulty.NORMAL, maxRounds = 200) { events.add(it) }
+        val navigationAt = events.indexOfFirst {
+            it is com.msa.fightandconquer.core.engine.GameEvent.ResearchCompleted && it.tech == Tech.NAVIGATION
+        }
+        val portAt = events.indexOfFirst {
+            it is com.msa.fightandconquer.core.engine.GameEvent.BuildingBuilt && it.building == Building.PORT
+        }
+        assertTrue("NAVIGATION never completed", navigationAt >= 0)
+        assertTrue("no port founded after NAVIGATION", portAt >= 0)
+        assertTrue("port before NAVIGATION", navigationAt < portAt)
+    }
 }

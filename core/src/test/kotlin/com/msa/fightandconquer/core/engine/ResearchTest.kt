@@ -126,7 +126,7 @@ class ResearchTest {
 
     @Test
     fun `research off - a hand-authored active slot never advances`() {
-        val off = strip(9, 0..2, 6..8) // researchEnabled = false
+        val off = strip(9, 0..2, 6..8, rules = RuleConstants(researchEnabled = false))
             .withBuilding(Building.UNIVERSITY, hex(1))
             .withResearch(0, ResearchState(active = ActiveResearch(Tech.COINAGE, 1)))
         assertEquals(1, research(fullRound(off).state).active?.progress)

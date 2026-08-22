@@ -81,9 +81,12 @@ class GameEngineTest {
     fun `buyableAt lists exactly the affordable legal options`() {
         val s = strip(9, 0..2, 6..8).withUnit(owner = 0, tier = 1, at = hex(1))
         val engine = GameEngine(s)
-        // Empty own hex 2: all four unit tiers affordable at 100, archer + catapult,
-        // tower + strong tower, market + lumber camp; farm rejected (hex 2 not adjacent
-        // to capital at 0), mine rejected (no gold vein), watchtower rejected (fog off).
+        // Empty own hex 2, default (research-on) rules: all four unit tiers
+        // affordable at 100, archer + catapult, tower + market + lumber camp +
+        // university; the research-gated castle/bank/fortress show as LOCKED
+        // cards (placement-probed); farm rejected (hex 2 not adjacent to the
+        // capital at 0), mine rejected (no gold vein), watchtower rejected
+        // (fog off), port absent even as a locked card (no coast anywhere).
         val options = engine.buyableAt(hex(2))
         assertEquals(
             setOf(
@@ -92,9 +95,24 @@ class GameEngineTest {
                 PurchaseOption.Unit(1, 14, com.msa.fightandconquer.core.model.UnitType.ARCHER, strength = 1, defense = 2),
                 PurchaseOption.Unit(1, 30, com.msa.fightandconquer.core.model.UnitType.CATAPULT, strength = 2, defense = 2),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.TOWER, 15),
-                PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER, 35),
+                PurchaseOption.Structure(
+                    com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER,
+                    35,
+                    lockedByTech = com.msa.fightandconquer.core.model.Tech.MASONRY,
+                ),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.MARKET, 25),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.LUMBER_CAMP, 15),
+                PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.UNIVERSITY, 30),
+                PurchaseOption.Structure(
+                    com.msa.fightandconquer.core.model.BuildingType.BANK,
+                    35,
+                    lockedByTech = com.msa.fightandconquer.core.model.Tech.BANKING,
+                ),
+                PurchaseOption.Structure(
+                    com.msa.fightandconquer.core.model.BuildingType.FORTRESS,
+                    55,
+                    lockedByTech = com.msa.fightandconquer.core.model.Tech.ENGINEERING,
+                ),
             ),
             options.toSet(),
         )

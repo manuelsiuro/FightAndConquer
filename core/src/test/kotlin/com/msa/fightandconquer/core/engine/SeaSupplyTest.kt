@@ -36,6 +36,8 @@ class SeaSupplyTest {
             ),
             capital0 = hex(0),
             capital1 = hex(8),
+            // Pre-research supply mechanics: ports must sell without NAVIGATION.
+            rules = com.msa.fightandconquer.core.model.RuleConstants(researchEnabled = false),
         ).withSea(listOf(hex(3), hex(4), hex(5)))
 
     /** Runs one full round (P0 end -> P1 end) so P0's turn-start pipeline fires. */
@@ -119,6 +121,8 @@ class SeaSupplyTest {
             capital0 = hex(0),
             capital1 = hex(8),
             treasury = 100,
+            // Pre-research supply mechanics: ports must sell without NAVIGATION.
+            rules = com.msa.fightandconquer.core.model.RuleConstants(researchEnabled = false),
         ).withSea(listOf(hex(3), hex(4), hex(5)))
             .withUnit(owner = 0, tier = 3, at = hex(1))
         val engine = GameEngine(start)

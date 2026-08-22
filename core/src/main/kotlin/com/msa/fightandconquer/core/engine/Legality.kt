@@ -258,13 +258,17 @@ object Legality {
         }
         // Research gates (Rules.buildingAvailable — the single predicate the AI
         // shares): with research off the research-line buildings are not offered
-        // at all; with it on, a gated building needs its tech completed.
+        // at all; with it on, a gated building needs its tech completed. A tech
+        // in a DISABLED branch never gates here (a naval-off Port must say
+        // "naval is off", not "research a tech you cannot research" — the
+        // per-type arm below owns that rejection).
         if (!Rules.buildingAvailable(state, state.currentPlayer, action.type)) {
-            return if (state.config.rules.researchEnabled) {
-                reject(RejectionReason.BUILDING_NEEDS_RESEARCH)
-            } else {
-                reject(RejectionReason.BUILDING_NOT_AVAILABLE)
+            if (!state.config.rules.researchEnabled) {
+                return reject(RejectionReason.BUILDING_NOT_AVAILABLE)
             }
+            val unattainable = !state.config.rules.navalEnabled &&
+                Rules.requiredTech(action.type)?.branch == com.msa.fightandconquer.core.model.TechBranch.SAIL
+            if (!unattainable) return reject(RejectionReason.BUILDING_NEEDS_RESEARCH)
         }
         val cost = Rules.buildingCost(state, state.currentPlayer, action.type)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)

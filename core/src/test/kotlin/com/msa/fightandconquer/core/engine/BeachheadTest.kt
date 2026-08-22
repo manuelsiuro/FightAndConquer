@@ -37,6 +37,8 @@ class BeachheadTest {
             capital0 = hex(0),
             capital1 = hex(10),
             treasury = 100,
+            // Pre-research supply mechanics: ports must sell without NAVIGATION.
+            rules = com.msa.fightandconquer.core.model.RuleConstants(researchEnabled = false),
         ).withSea(listOf(hex(3), hex(4), hex(5), hex(9)))
             .withUnit(owner = 0, tier = 1, at = hex(5), type = UnitType.TRANSPORT)
             .withCargo(at = hex(5), tier = 2)

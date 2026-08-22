@@ -154,7 +154,7 @@ class ResearchRulesTest {
 
     @Test
     fun `research off returns the identity even with completed techs`() {
-        val off = RuleConstants() // researchEnabled = false
+        val off = RuleConstants(researchEnabled = false)
         assertSame(off, ResearchModifiers.effective(off, done(Tech.SMITHING, Tech.COINAGE)))
     }
 

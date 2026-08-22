@@ -202,11 +202,11 @@ data class RuleConstants(
      * Master gate for the University research system. Off: no research action, the
      * research-line buildings (University/Bank/Fortress) are not offered, and Strong
      * Tower / Port sell ungated — exactly the pre-research game, which every
-     * already-baked campaign level relies on. Defaulted off until the AI learns to
-     * research; flipped on (skirmish) in the same change as the AI, with the
-     * one-time balance-gate re-baseline.
+     * shipped campaign level bakes explicitly (researchEnabled=False in the
+     * sources). Defaulted ON for skirmish; the Setup screen and the map editor
+     * expose the toggle.
      */
-    val researchEnabled: Boolean = false,
+    val researchEnabled: Boolean = true,
     /** Gold paid up front when starting a tech, by tech tier (index = tier - 1). */
     val techCostByTier: List<Int> = listOf(20, 35, 55),
     /**

@@ -54,7 +54,9 @@ class ResearchPanelStateTest {
 
     @Test
     fun `research off yields no panel`() {
-        assertNull(buildResearchPanel(state(rules = RuleConstants()), PlayerId(0)))
+        assertNull(
+            buildResearchPanel(state(rules = RuleConstants(researchEnabled = false)), PlayerId(0)),
+        )
     }
 
     @Test

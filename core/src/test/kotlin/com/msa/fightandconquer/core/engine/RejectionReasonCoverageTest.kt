@@ -64,10 +64,24 @@ class RejectionReasonCoverageTest {
 
     @Test
     fun `a port needs a coastal hex`() {
-        // The strip map has no sea at all.
+        // The strip map has no sea at all. NAVIGATION is granted so the coast
+        // check (not the research gate) is what fires.
+        val navigator = base.copy(
+            players = base.players.map {
+                if (it.id.value == 0) {
+                    it.copy(
+                        research = com.msa.fightandconquer.core.model.ResearchState.of(
+                            listOf(com.msa.fightandconquer.core.model.Tech.NAVIGATION),
+                        ),
+                    )
+                } else {
+                    it
+                }
+            },
+        )
         assertEquals(
             RejectionReason.REQUIRES_COAST,
-            reasonOf(base, GameAction.BuyBuilding(BuildingType.PORT, hex(1))),
+            reasonOf(navigator, GameAction.BuyBuilding(BuildingType.PORT, hex(1))),
         )
     }
 
