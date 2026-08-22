@@ -47,6 +47,10 @@ need a player read `Ui.activeSeat`. Notable rules baked into the brushes:
 
 - **Sea/land contract by construction** — painting sea strips owner/building/
   flora/land deposits; terrain edits sweep stranded units.
+- **Research line placeable regardless of the research rule** — unlock gates
+  govern BUYING; a pre-placed University/Bank/Fortress (or Castle/Port) is
+  authored, not bought, and works without its tech. The rules dialog carries a
+  `researchEnabled` switch beside fog/specials/diplomacy/naval.
 - **Capitals are atomic** — the capital tool sets owner + `CAPITAL` + the
   `capitals[seat]` entry together; painting the pending seat's capital *creates*
   the seat (up to 6). No bridge brush (authored bridges violate the sea contract);

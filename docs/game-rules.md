@@ -47,6 +47,11 @@ per game without breaking old saves.
 | Civilization bonuses | on by default | Per-civ rule deltas (`civBonusesEnabled`); see [civilizations.md](civilizations.md) |
 | Scripted events | off by default | Campaign-only (`scriptedEventsEnabled`); see [campaign.md](campaign.md) |
 | Disabled buildings | none by default | Campaign-only per-structure gate (`disabledBuildings`) |
+| Research | on by default | The University tech tree (`researchEnabled`); every shipped campaign mission bakes it off |
+| University | cost 30, +1 research point per own turn start | Own clear land; the research building — see Research below |
+| Bank | cost 35, +7 income | Own clear land, no placement requirement; unlocked by Banking |
+| Fortress | cost 55, defense 4 (self + neighbors) | Own clear land; unlocked by Engineering; siege ignores it like every building |
+| Tech costs / durations | tier 1/2/3: 20/35/55 coins, 3/4/5 points | `techCostByTier` / `techDurationByTier` |
 
 ## Core mechanics
 
@@ -235,6 +240,38 @@ gold (gated by `scriptedEventsEnabled`, RNG-free, never undoable). Victory condi
 beyond conquest are scored *outside* the reducer and change no rule here — full spec in
 [campaign.md](campaign.md).
 
+## Research
+
+The University tech tree (`researchEnabled`, default on; the Setup screen and the
+map editor expose the toggle, and all shipped campaign missions bake it off —
+gates are inert when the flag is off, so pre-research content plays unchanged).
+
+- **Tree**: four branches × three tiers, strictly linear within a branch:
+  - **War** — Smithing (+1 attack, every fighting unit) → Armory (+1 garrison
+    defense, land units) → Siegecraft (catapult +1, warship +1 strength).
+  - **Coin** — Coinage (income ×110 %) → Banking (unlocks the Bank) →
+    Treasury (income ×120 %, replaces Coinage's bonus).
+  - **Stone** — Masonry (unlocks the Castle) → Engineering (unlocks the
+    Fortress) → Bastions (towers, fortress and capital +1 defense).
+  - **Sail** — Navigation (unlocks the Port) → Shipwrights (warship +1,
+    transports −5 cost) → Admiralty (port +1 income, fishery +1 per shoal).
+    The whole branch is unavailable when naval rules are off.
+- **Flow**: `StartResearch` pays the tech's gold cost up front; one active
+  research per player. Each standing, non-starving own University adds one
+  progress point at the owner's turn start; the tech completes at its duration
+  (overshoot discarded). Starting requires a working University; losing the
+  last one freezes progress with no refund until another stands.
+- **Effects** are per-player rule deltas resolved through the same
+  effective-rules pipeline as civilization bonuses (base → civ → research), so
+  every combat/income read is automatically research-aware. Soldier strength
+  becomes `tier + attack bonus` — the one deliberate exception to the
+  historically universal soldier ladder.
+- **Unlock gates** bind PURCHASE only: a captured or map-authored Castle,
+  Port, Bank or Fortress works without its tech. The purchase tray shows
+  research-locked structures as locked cards naming the missing tech.
+- The income percent applies once to the TOTAL (tile + boat income), so the
+  economy panel shows the bonus as its own row.
+
 ## Turn-start pipeline (exact order — `TurnPipeline.kt`)
 
 On `EndTurn`, the seat advances to the next living player (round counter increments
@@ -244,10 +281,13 @@ on wrap), then for the new player, in order:
 1. Their gravestones ≥ 1 round old become trees.
 2. Tree spread rolls (theirs + adjacent; lumber-camp-managed trees never spread).
 3. Income + upkeep applied atomically (deposits + economy buildings included).
-4. Bankruptcy check (negative → 0, all units die).
-5. Starvation: units on their sliced-off hexes die.
-6. All their units refresh (`spent = false`).
-7. Elimination / victory check.
+4. Research progresses: +1 point per standing, non-starving own University; a
+   completing tech's effects are live for the turn about to be played (income
+   scaling therefore lands one turn later — it was computed in step 3).
+5. Bankruptcy check (negative → 0, all units die).
+6. Starvation: units on their sliced-off hexes die.
+7. All their units refresh (`spent = false`).
+8. Elimination / victory check.
 
 ## Turn order & modes
 

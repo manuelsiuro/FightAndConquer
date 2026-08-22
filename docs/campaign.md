@@ -85,6 +85,7 @@ printed grid up with the board.
 | `.$` `.%` | gold vein / fertile ground |
 | `0` | land owned by seat 0 (any digit is a seat) |
 | `0C 0T 0K 0F 0M 0R 0L 0W 0P 0Y` | capital, tower, castle, farm, mine, market, lumber camp, watchtower, port, fishery |
+| `0U 0N 0S` | university, bank, fortress |
 | `:name` | declares an **anchor** on that hex |
 
 Anchors are the reason this is maintainable: anywhere in the level dict, `"@keep_a"` is
@@ -217,7 +218,7 @@ which is one game in flight and is deleted when it ends.
 at runtime, whereas a missing entry fails `CampaignTextTest`.
 
 Objective lines are **templated** (`objective_build` = "Build %1$d × %2$s"), so ~15 strings
-cover all twenty missions. `UiText` arguments may themselves be `UiText`, which is what
+cover all twenty-one missions. `UiText` arguments may themselves be `UiText`, which is what
 lets a template nest a piece name that also has to stay translatable.
 
 ## Verification

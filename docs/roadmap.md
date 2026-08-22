@@ -75,12 +75,49 @@ pre-civ saves decode as all-Kingdom; `LegacySaveTest`-guarded):
    `Rules.effectiveRules(state, player)` so no rule site branches on a civ; the
    soldier ladder stays universal (AI `MoveGenerator`/`NavalPolicy` assumptions);
    AI affordability reads effective rules.
-3. **Art** — per-civ Blender sets (`art/blender/pieces/<civ>/`, 19 player-owned
+3. **Art** — per-civ Blender sets (`art/blender/pieces/<civ>/`, 23 player-owned
    kinds each; neutral markers never fork), (civ, kind)-keyed `PieceMeshes` +
    `PieceIcons` with lazy per-civ preload and shared-instance Kingdom fallback.
 
 Feature gate: `civBonusesEnabled` (default on; off = art only). Full spec in
 [civilizations.md](civilizations.md).
+
+## Shipped: research
+
+The University tech tree — the game's first per-player progression system, and
+the first system whose state lives on `PlayerState` rather than a tile or the
+rules snapshot (`research: ResearchState`, defaulted; `LegacySaveTest` guards
+the strip). Full spec in [game-rules.md](game-rules.md) "Research".
+
+1. **Engine** — `Tech` (4 branches × 3 tiers, linear), `StartResearch`, the
+   turn-start tick (+1 point per standing University), and a THIRD
+   effective-rules layer: `base → civ → research` (`ResearchModifiers`, its own
+   bounded identity-keyed cache — per-player variation would poison the civ
+   layer's one-slot cache). Costs/durations live in `RuleConstants`, so save
+   snapshots keep replay legality and campaigns can retune. Unlock gates bind
+   purchase only, through the single shared `Rules.buildingAvailable` predicate.
+2. **The audited exception** — Smithing/Armory retired "soldier strength ==
+   tier"; every AI tier computation now solves through
+   `Rules.buyStrength`/`buyDefense` (`ai/Tiers.kt`), provably the old
+   arithmetic when research is off. The flip's gate reshuffle landed with ZERO
+   bar edits — every chaotic gate survived, HARD's edge intact.
+3. **AI** — `ai/ResearchPolicy.kt`, a threshold ladder between diplomacy and
+   the naval steps (research state is constant inside a one-ply window, so no
+   evaluator term could steer it): capital-threat veto, war reserves (zero when
+   genuinely sea-locked — island flood-fill), per-difficulty priority lists
+   (HARD offense-first with STONE last; EASY researches exactly NAVIGATION and
+   only when sea-locked). The naval ladder's port steps wait for NAVIGATION.
+4. **Content** — three new buildings in all four silhouette languages
+   (University/Bank/Fortress ×4 civs), the research side panel (overflow entry
+   + idle badge), locked purchase cards, Setup/editor toggles, glyphs `U N S`,
+   the Chronicle's Breakthrough moment, and Academy mission 9 (Ink and Iron):
+   castle gates at defense 3 under a tier-3 cap — only Smithing opens the pass.
+   All 20 pre-research missions bake `researchEnabled=False` and play unchanged.
+
+Follow-ups worth considering: per-civ research deltas (a `CivModifiers`-style
+tech-cost table), a research objective in the editor's goal dialog (engine
+support exists — `Objective.ResearchCount` is campaign-authored only today),
+and surfacing opponents' completed techs in the diplomacy panel.
 
 ## Designed-for, not yet built
 
@@ -142,10 +179,19 @@ the determinism tests in `:core` are the tripwire.
 ## How-to recipes
 
 **New building type**: add to `Building`/`BuildingType` (`:core` model), cost/defense
-in `RuleConstants` + `Rules.buildingCost`/`defenseOf`, legality in
-`Legality.checkBuyBuilding`, income/pipeline effects in `TurnPipeline`, tests; then
-`PieceKind` + Blender script + bake (asset-pipeline.md), `BoardScene.buildingKind`,
-purchase-card copy in `GameScreen`, info card in `GameViewModel.infoCardFor`.
+in `RuleConstants` + `Rules.buildingCost`/`defenseOf` (+ `visibleHexesFrom` if it
+sees, `StateBuilder.captureHex` destroyed-vs-kept, `Rules.requiredTech` if
+research-gated), legality in `Legality.checkBuyBuilding`, income/pipeline effects
+in `TurnPipeline`, AI: a `MoveGenerator` candidate + an `Evaluator` asset term
+(else the greedy loop never buys it), tests; then `PieceKind` + procedural
+fallback arm + Blender scripts ×4 civs + bake (asset-pipeline.md),
+`BoardScene.buildingKind` (+ `refreshAuras` if it defends — that `when` has an
+`else` and fails SILENTLY), `PieceIcons` ×4 civ arms, `UiText.buildingNameRes`,
+purchase-card detail label in `BottomBar`, `GameViewModel.infoCardFor` +
+economy-panel row if it earns + `ShopInfo` field, `GuideCatalog` entry +
+`forStructure`, `EDITOR_BUILDINGS` in the map editor, `BriefingConcepts.advanced`,
+a campaign glyph in `tools/build_campaigns.py`, and `ALL_BUILDINGS` in ALL THREE
+campaign sources (narrow teaching trays silently widen otherwise).
 
 **New unit tier**: extend `RuleConstants.unitCost/unitUpkeep/maxTier`, check every
 `tier - 1` indexing site, AI `MoveGenerator` cheapest-breaker logic handles it

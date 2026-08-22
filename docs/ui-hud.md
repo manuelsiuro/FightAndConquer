@@ -36,6 +36,7 @@ Unit/building names come from `unitNameRes(tier)`.
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex (never on a fishing dory: a hull that cannot attack has nothing to compare, and the badge would occlude the parked-catch coin chip on its own hex). The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
 | `economy` | `EconomyBreakdown?` | Coin-tap panel (null = closed; recomputed on every refresh while open) |
+| `research` | `ResearchPanelState?` | Research panel (null = closed; recomputed on every refresh while open). Built by the pure `buildResearchPanel(state, seat)` — branch groups of tech nodes (done / in-progress / available / locked), the working-University count and rate. `HudState` adds `researchAvailable` (rules flag — legacy missions must not grow a dead menu entry) and `researchBadge` (a working University with no active research) |
 | `toasts` | `List<HudToast>` (max 3, 2.5 s TTL) | Top-center notifications |
 | `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N" coin pills |
 | `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, deposits, bare enemy ground, cut-off tiles) — `UiText` + numbers from the tapped piece's owner-effective rules, never hardcoded. Units carry an Atk/Def pair (sword/shield `InfoStat.iconRes` glyphs); every enemy-owned hex adds "To capture — Atk N+" (`Rules.captureRequirement` on land, the defender's `unitDefenseOf` at sea) and, when outside cover raises the hex above the tapped piece itself, "Guarded by <Tower/Baron/…>" via `Rules.defenseSourceOf` |
@@ -147,7 +148,7 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    board, so a hint never covers the hexes it points at; `HighlightSet.hintFocus` puts
    a pulsing ring on those hexes (`BoardScene.showHighlights` draws it first so a
    selection reads on top).
-   All three occupants of the slot share one chrome — `HudSidePanel` (264 dp) with
+   All four occupants of the slot share one chrome — `HudSidePanel` (264 dp) with
    `PanelHeader` micro-label + divider headers and `seatLabel()` for the
    "Player N"/"AI N" wording (`ui/game/HudMetrics.kt`).
    `EconomyPanel` (income/upkeep rows with an 18 dp tinted icon slot — positive @30 %
@@ -158,6 +159,23 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    coin-gold incoming · controlFill sent — 40 dp outlined Propose/Tribute, controlFill
    tribute chips 10/25/50 disabled at 38 % when unaffordable, and a footer stating pact
    duration + break penalty from `DiplomacyPanelState`).
+   `ResearchPanel` (branch groups — War/Coin/Stone/Sail, Sail absent entirely when
+   naval rules are off — of two-line tech rows: state glyph, name, effect line,
+   cost + "NT" duration; the in-progress row on a controlFill wash with a faction
+   progress dot; a pinned controlFill card carries the active research's
+   progress track, the per-turn rate, or the "build a University" nudge). Locked
+   and unaffordable rows stay tappable: the engine's rejection toast explains
+   itself, so the panel carries no second rules implementation — the
+   PurchaseCard contract. Starting research is single-tap; in-turn Undo covers a
+   mis-tap, and the armed pattern stays reserved for irreversible acts. Its
+   entry point is the overflow menu's FIRST item (a third 48 dp top-bar circle
+   was measured out: ~286 dp of fixed bar content on a 360 dp portrait screen
+   would crush the seat-identity column; the Objectives panel set the overflow
+   precedent), with the idle-research badge dot on the overflow circle. AI
+   research stays private until the Chronicle; a human completion shows one
+   toast, and research-gated structures ride the purchase tray as locked cards
+   ("REQUIRES <TECH>", desaturated plinth, inactiveGlyph cost — a lock is
+   structural, not poverty, so it never wears the alert color).
    Capturing a pact partner's hex needs a second tap (warning toast arms the
    confirmation) — the no-dialog idiom throughout.
 5. `ToastStack` (top-center, anchored below the measured top chrome): one 13 sp ink

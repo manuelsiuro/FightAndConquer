@@ -46,7 +46,7 @@ match the filament-android runtime** — recompile on every Filament upgrade.
   for multi-part single meshes. Board metrics constants live here
   (`HEX_RADIUS/HEX_HEIGHT/CAPTURE_RAISE`, and `SEA_SINK = 0.12` — sea tiles are
   ordinary prisms translated down, so the land skirt forms the cliff coastline).
-- `PieceMeshes` — the 24 `PieceKind`s as lists of `Part(GpuMesh, ColorRole)`.
+- `PieceMeshes` — the 28 `PieceKind`s as lists of `Part(GpuMesh, ColorRole)`.
   **Loader-first**: baked `assets/pieces/<kind>.pmesh` wins; the procedural token
   set remains as per-kind fallback. `ColorRole`: FACTION (player tint), GOLD,
   TREE_FOLIAGE, TRUNK, STONE, PIP (ink).

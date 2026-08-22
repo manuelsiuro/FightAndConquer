@@ -22,7 +22,9 @@ absent; sea is a real tile with `terrain = SEA`),
 `units: Map<UnitId, GameUnit>`, `players: List<PlayerState>` (index = `PlayerId.value`,
 seat order = turn order), `currentPlayer`, `turnNumber` (completed rounds),
 `rngState: Long` (SplitMix64 — RNG lives IN the state), `phase`
-(`Playing | Finished(winner)`), `nextUnitId`.
+(`Playing | Finished(winner)`), `nextUnitId`. Each `PlayerState` carries
+`research: ResearchState` (completed techs in canonical ordinal order + the
+single active slot; defaulted, so pre-research saves decode empty).
 
 `Tile(owner?, unit?, building?, flora?, starving, deposit?, terrain)` — `unit`
 mirrors `GameUnit.hex` (dual index kept consistent by the reducer, checked by
@@ -67,7 +69,11 @@ free, but engine state so saves and replays agree), `DemolishBuilding(at)` /
 a `demolishRefundPercent` refund; a demolished bridge reverts to neutral sea,
 and both recompute starvation where relevant), `Disembark(boat, to)`,
 `Bombard(unit, target)`, `ProposePact(to, durationRounds)`,
-`RespondPact(from, accept)`, `SendTribute(to, amount)`, `EndTurn`, `Surrender`, and
+`RespondPact(from, accept)`, `SendTribute(to, amount)`,
+`StartResearch(tech)` (pay the tech's cost up front and fill the single active
+research slot; gate order pinned in `ResearchLegalityTest` — flag, SAIL-vs-naval,
+already-complete, slot busy, prerequisite, working University, affordability),
+`EndTurn`, `Surrender`, and
 `RunScript(tag, spawns, grants)` — the campaign director's story beat (docs/campaign.md):
 gated off by `RuleConstants.scriptedEventsEnabled` (default false), self-contained so the
 reducer never needs the level, RNG-free, and undo-sealing (`GameEngine.submit` clears the
@@ -90,7 +96,8 @@ leaves no gravestone and is excluded from the campaign "units lost" tally),
 `ScriptFired(tag)` (campaign narration; the renderer needs no case for it),
 `BuildingBuilt/Destroyed`, `BuildingRotated(hex, orientation)`,
 `RefundPaid(player, hex, amount)` (HUD-only "+N" popup; the board renders
-nothing), `TreeGrown`, `TreeSpread(from, to)`, `TreeCleared(hex,
+nothing), `ResearchStarted(player, tech, cost)` / `ResearchCompleted(player,
+tech)` (HUD-only; state is the progress surface — there is no per-tick event), `TreeGrown`, `TreeSpread(from, to)`, `TreeCleared(hex,
 bonus)`, `GravestoneTrampled`, `TurnStarted(player, income, upkeep)`, `Bankruptcy`,
 `CapitalMoved(player, from, to, loot)`, `PlayerEliminated`, `GameOver(winner)`,
 plus HUD-only diplomacy facts: `PactProposed/Accepted/Declined/Expired`,
@@ -259,7 +266,10 @@ building defense is the blocker (top 4), archers ranked by aura gain (top 3),
 Hard-only fog watchtowers scored by never-seen positions (pure geometry — probing
 `state.tiles` for unseen hexes would leak the coastline), ports on coastal spots,
 fisheries ranked by capped shoals-in-range (`Rules.shoalsWithin`, radius
-`fisheryRange`), warship raids (`Bombard` where defense < warship
+`fisheryRange`), research-gated structures behind the shared
+`Rules.buildingAvailable` predicate (castles where a plain tower wouldn't hold,
+banks interior-capped at 2, Hard-only threat-gated fortresses capped at 2; port
+candidates wait for NAVIGATION), warship raids (`Bombard` where defense < warship
 strength) and warship buys when enemy WAR boats are visible (a fishing dory is
 prey — evaluator −1 — never a purchase trigger). Easy skips structures
 until income > 15 and never touches diplomacy or specials.
@@ -282,7 +292,21 @@ Naval strategy likewise lives OUTSIDE the argmax in `ai/NavalPolicy.kt` — a
 deterministic, stateless threshold ladder consulted before the greedy loop
 (pattern copied from `DiplomacyPolicy`, and for the same reason: one-ply greedy
 never *starts* a multi-turn plan — a transport's upkeep repels the evaluator
-before any invasion pays off). A third ladder, `ai/FishingPolicy.kt`, follows
+before any invasion pays off). Research is the purest case of that argument and
+gets its own ladder, `ai/ResearchPolicy.kt`, consulted between diplomacy and
+the naval steps: research state only mutates at turn start, so it is constant
+inside any one-ply comparison and no evaluator term could steer it. The policy
+yields to capital threats (`Tiers.capitalThreat`), founds a University past a
+per-difficulty size/net threshold, holds a war reserve (zero when genuinely
+sea-locked — an island flood-fill, where research IS the war effort), and walks
+a fixed per-difficulty priority list (HARD offense-first with STONE last as the
+anti-turtle ordering; NORMAL a short economy list; EASY researches exactly
+NAVIGATION and only when sea-locked, keeping the beatable-rookie identity while
+the two-island invasion gate stays reachable). The naval ladder's port steps
+stay dormant until this policy has funded NAVIGATION. Since Smithing/Armory
+retired the "soldier strength == tier" identity, every tier computation solves
+through `Rules.buyStrength`/`buyDefense` via `ai/Tiers.kt` — reductions that
+are provably the old arithmetic when research is off. A third ladder, `ai/FishingPolicy.kt`, follows
 NavalPolicy (war wins treasury contention) and gates on `navalEnabled` alone —
 dories are boats, not "specials", mirroring `checkBuyNaval`: buy a dory while
 open shoals outnumber the hulls still *sailing* for one (parked hulls already

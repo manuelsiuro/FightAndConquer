@@ -36,7 +36,7 @@ engine, `campaign/CampaignTracker`'s cousin:
 | `MatchMeta` | mode (skirmish/pass-and-play/campaign/custom), seed, land-hex count, fog flag, level name | captured at match start (`GameSetup` is not retained afterwards) |
 | `SeatDescriptor` | human/AI, difficulty, civ — one per seat, index = `PlayerId.value` | `initial.players` |
 | Series | per seat, one sample per round: hexes, income, upkeep, treasury, units — parallel arrays keyed by a `rounds` list; eliminated seats simply stop | sampled on `GameEvent.TurnStarted` (income/upkeep ride the event; the rest reads the after-state); round-0 baseline at start |
-| `KeyMoment` | CapitalLooted, PactBetrayed, WentBankrupt, ShipSunk, Eliminated, Crowned — round-stamped, capped at 300 | folded from `lastEvents`; attribution uses the **before**-state (`before.units[event.unit]`, `before.currentPlayer`) |
+| `KeyMoment` | CapitalLooted, PactBetrayed, WentBankrupt, ShipSunk, Eliminated, Crowned, Breakthrough (a completed research — the one place AI research becomes visible) — round-stamped, capped at 300 | folded from `lastEvents`; attribution uses the **before**-state (`before.units[event.unit]`, `before.currentPlayer`) |
 | `SeatTotals` | kills, losses, boats sunk, hexes captured, pacts broken | running event tallies |
 
 Superlatives ("Largest realm", "Admiral", …) are computed at **display time**

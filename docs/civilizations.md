@@ -89,8 +89,9 @@ Full pipeline detail in [asset-pipeline.md](asset-pipeline.md); the contract:
   Other civs bake into `assets/pieces/<civ>/<kind>.pmesh` from
   `art/blender/pieces/<civ>/*.py` scripts (`KIND = "<CIV>_<KIND>"`,
   `export_piece(PIECE, coll, subdir="<civ>")`), GLBs in `art/models/<civ>/`.
-- **Only player-owned kinds fork** — the 19 in `PieceMeshes.CIV_FORKED_KINDS`
-  (4 soldiers, archer, catapult, boat, warship, and the 11 buildings). Neutral board
+- **Only player-owned kinds fork** — the 23 in `PieceMeshes.CIV_FORKED_KINDS`
+  (4 soldiers, archer, catapult, boat, warship, fishing boat, and the 14
+  buildings). Neutral board
   furniture (`NEUTRAL_KINDS`: tree, gravestone, gold vein, fertile, fish shoal)
   never forks and always renders Kingdom art.
 - **Runtime**: `PieceMeshes` is keyed (civilization, kind). `BoardScene` preloads the
@@ -116,6 +117,14 @@ Full pipeline detail in [asset-pipeline.md](asset-pipeline.md); the contract:
 | Sultanate | Domes and minarets, lateen-rigged dhows, gold crescents, turbans |
 | Shogunate | Tiered eave roofs, torii, battened square sails, nobori banners, straw hats |
 
+The research line in each language — University: cloistered bell-arch hall /
+skald's longhouse with a runestone / madrasa with a gold dome and one minaret /
+terakoya under stacked eaves. Bank: stone stronghouse with coin stacks / barrow
+hoard spilling gold / counting house under a scalloped canopy with scales /
+white kura storehouse with koban. Fortress: concentric square bailey / trelleborg
+ring-fort with a dragon-prowed gatehouse / battered-wall kasbah with a crescent
+keep / stone-based tenshu with shachihoko and a nobori.
+
 ## Adding a fifth civilization
 
 1. **Enum**: add the entry to `Civilization` (`:core`). Serialization is by name;
@@ -126,7 +135,7 @@ Full pipeline detail in [asset-pipeline.md](asset-pipeline.md); the contract:
    `UiText.civNameRes` and the guide (exhaustive `when`s fail to compile until done).
 4. **Icons tables**: the new `Civilization` branch in `PieceIcons.unit`/`building`
    (point at Kingdom drawables until icons ship — the tables are the fallback).
-5. **Art**: 19 scripts under `art/blender/pieces/<name>/` (`KIND = "<NAME>_<KIND>"`,
+5. **Art**: 23 scripts under `art/blender/pieces/<name>/` (`KIND = "<NAME>_<KIND>"`,
    `export_piece(…, subdir="<name>")`), then
    `python3 tools/glb2pmesh.py --all art/models app/src/main/assets/pieces` and
    `python3 tools/render_piece_icons.py <name>/<kind>` per piece. The art can land
