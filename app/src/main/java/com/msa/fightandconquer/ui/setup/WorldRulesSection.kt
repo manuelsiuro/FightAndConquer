@@ -81,6 +81,8 @@ internal fun WorldRulesSection(
     onSpecial: (Boolean) -> Unit,
     diplomacy: Boolean,
     onDiplomacy: (Boolean) -> Unit,
+    research: Boolean,
+    onResearch: (Boolean) -> Unit,
 ) {
     val chevron by animateFloatAsState(if (expanded) 180f else 0f, tween(250), label = "chevron")
     Column(Modifier.fillMaxWidth().cardSurface(16.dp)) {
@@ -124,6 +126,7 @@ internal fun WorldRulesSection(
                     RuleSwitchRow(stringResource(R.string.menu_section_specials), specialUnits, onSpecial)
                     HorizontalDivider(color = UiColors.divider, thickness = 1.dp)
                     RuleSwitchRow(stringResource(R.string.menu_section_diplomacy), diplomacy, onDiplomacy)
+                    RuleSwitchRow(stringResource(R.string.menu_section_research), research, onResearch)
                 }
             }
         }

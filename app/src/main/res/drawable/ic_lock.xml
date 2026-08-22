@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Padlock: shackle arc over a body with a keyhole notch. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M12,2 C9.2,2 7,4.2 7,7 L7,10 L5,10 L5,22 L19,22 L19,10 L17,10 L17,7 C17,4.2 14.8,2 12,2 Z M12,4 C13.7,4 15,5.3 15,7 L15,10 L9,10 L9,7 C9,5.3 10.3,4 12,4 Z M12,14 C12.8,14 13.5,14.7 13.5,15.5 C13.5,16.1 13.2,16.5 12.8,16.8 L13.2,19 L10.8,19 L11.2,16.8 C10.8,16.5 10.5,16.1 10.5,15.5 C10.5,14.7 11.2,14 12,14 Z" />
+</vector>

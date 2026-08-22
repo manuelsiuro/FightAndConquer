@@ -103,6 +103,23 @@ fun techNameRes(tech: com.msa.fightandconquer.core.model.Tech): Int = when (tech
     com.msa.fightandconquer.core.model.Tech.ADMIRALTY -> R.string.tech_admiralty
 }
 
+/** Technology -> one-line effect description (the research panel's second line). */
+@StringRes
+fun techEffectRes(tech: com.msa.fightandconquer.core.model.Tech): Int = when (tech) {
+    com.msa.fightandconquer.core.model.Tech.SMITHING -> R.string.tech_effect_smithing
+    com.msa.fightandconquer.core.model.Tech.ARMORY -> R.string.tech_effect_armory
+    com.msa.fightandconquer.core.model.Tech.SIEGECRAFT -> R.string.tech_effect_siegecraft
+    com.msa.fightandconquer.core.model.Tech.COINAGE -> R.string.tech_effect_coinage
+    com.msa.fightandconquer.core.model.Tech.BANKING -> R.string.tech_effect_banking
+    com.msa.fightandconquer.core.model.Tech.TREASURY -> R.string.tech_effect_treasury
+    com.msa.fightandconquer.core.model.Tech.MASONRY -> R.string.tech_effect_masonry
+    com.msa.fightandconquer.core.model.Tech.ENGINEERING -> R.string.tech_effect_engineering
+    com.msa.fightandconquer.core.model.Tech.BASTIONS -> R.string.tech_effect_bastions
+    com.msa.fightandconquer.core.model.Tech.NAVIGATION -> R.string.tech_effect_navigation
+    com.msa.fightandconquer.core.model.Tech.SHIPWRIGHTS -> R.string.tech_effect_shipwrights
+    com.msa.fightandconquer.core.model.Tech.ADMIRALTY -> R.string.tech_effect_admiralty
+}
+
 /** Purchasable building type -> display name resource. */
 @StringRes
 fun buildingNameRes(type: com.msa.fightandconquer.core.model.BuildingType): Int =

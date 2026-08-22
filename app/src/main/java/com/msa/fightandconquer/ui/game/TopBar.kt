@@ -158,12 +158,15 @@ internal fun TopBar(
                     glyphSize = 20.dp,
                     description = stringResource(R.string.cd_open_menu),
                     active = menuOpen,
-                    badge = false,
+                    // The overflow circle carries the research nudge: a working
+                    // University with no active research is wasting turns.
+                    badge = state.researchBadge,
                     onClick = { menuOpen = true },
                 )
                 OverflowMenu(
                     expanded = menuOpen,
                     isCampaign = isCampaign,
+                    state = state,
                     onDismiss = { menuOpen = false },
                     onOpenGuide = onOpenGuide,
                     viewModel = viewModel,
@@ -274,6 +277,7 @@ private fun FreshUnitsPill(state: HudState, onClick: () -> Unit) {
 private fun OverflowMenu(
     expanded: Boolean,
     isCampaign: Boolean,
+    state: HudState,
     onDismiss: () -> Unit,
     onOpenGuide: () -> Unit,
     viewModel: GameViewModel,
@@ -297,6 +301,36 @@ private fun OverflowMenu(
         border = androidx.compose.foundation.BorderStroke(1.dp, UiColors.hairline),
         shadowElevation = 2.dp,
     ) {
+        // Research leads the menu: it is the recurring per-turn surface here
+        // (the top bar has no width for a third circle — the identity column
+        // would collapse; the Objectives panel set this precedent).
+        if (state.researchAvailable) {
+            DropdownMenuItem(
+                modifier = itemHeight,
+                text = { Text(stringResource(R.string.research_title), fontSize = 14.sp) },
+                leadingIcon = {
+                    Box {
+                        Icon(painterResource(R.drawable.ic_research), contentDescription = null)
+                        if (state.researchBadge) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(7.dp)
+                                    .background(UiColors.coin, CircleShape),
+                            )
+                        }
+                    }
+                },
+                colors = MenuDefaults.itemColors(
+                    textColor = UiColors.ink,
+                    leadingIconColor = UiColors.inkMuted,
+                ),
+                onClick = {
+                    onDismiss()
+                    viewModel.toggleResearchPanel()
+                },
+            )
+        }
         DropdownMenuItem(
             modifier = itemHeight,
             text = { Text(stringResource(R.string.guide_menu_entry), fontSize = 14.sp) },

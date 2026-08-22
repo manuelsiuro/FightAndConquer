@@ -87,6 +87,7 @@ data class GameSetup(
     val customMapId: String? = null,
     val specialUnits: Boolean = true,
     val diplomacy: Boolean = true,
+    val research: Boolean = true,
     /** Per-seat civilizations; seats beyond the list's end play [Civilization.DEFAULT]. */
     val civs: List<Civilization> = emptyList(),
 )
@@ -157,6 +158,97 @@ data class EconomyBreakdown(
     val bankruptcyImminent: Boolean,
     val upkeepRisk: Boolean,
 )
+
+/** Research panel: one node per technology, grouped by branch. */
+enum class TechUiStatus { LOCKED, AVAILABLE, IN_PROGRESS, DONE }
+
+data class TechNodeUi(
+    val tech: com.msa.fightandconquer.core.model.Tech,
+    val nameRes: Int,
+    val effect: UiText,
+    val cost: Int,
+    val duration: Int,
+    val status: TechUiStatus,
+    /** Progress points banked; non-null only when [status] is IN_PROGRESS. */
+    val progress: Int?,
+    val affordable: Boolean,
+)
+
+data class ResearchBranchUi(val nameRes: Int, val iconRes: Int, val nodes: List<TechNodeUi>)
+
+data class ResearchPanelState(
+    val branches: List<ResearchBranchUi>,
+    val universityCount: Int,
+    val active: TechNodeUi?,
+    /** Progress points per turn (= working Universities). */
+    val ratePerTurn: Int,
+    val treasury: Int,
+)
+
+/**
+ * The pure state -> panel mapping (JVM-testable; the ViewModel only wraps it).
+ * Null when the game's rules have research off. SAIL is absent entirely when
+ * naval rules are off — a dead branch must not advertise itself.
+ */
+fun buildResearchPanel(
+    state: com.msa.fightandconquer.core.model.GameState,
+    seat: com.msa.fightandconquer.core.model.PlayerId,
+): ResearchPanelState? {
+    if (!state.config.rules.researchEnabled) return null
+    val player = state.player(seat)
+    val research = player.research
+    val eff = Rules.effectiveRules(state, seat)
+    val universities = Rules.workingUniversities(state.tiles, seat)
+
+    fun node(tech: com.msa.fightandconquer.core.model.Tech): TechNodeUi {
+        val cost = eff.techCostByTier[tech.tier - 1]
+        val status = when {
+            research.has(tech) -> TechUiStatus.DONE
+            research.active?.tech == tech -> TechUiStatus.IN_PROGRESS
+            research.active != null -> TechUiStatus.LOCKED
+            tech.prerequisite?.let { !research.has(it) } == true -> TechUiStatus.LOCKED
+            else -> TechUiStatus.AVAILABLE
+        }
+        return TechNodeUi(
+            tech = tech,
+            nameRes = techNameRes(tech),
+            effect = UiText.of(techEffectRes(tech)),
+            cost = cost,
+            duration = eff.techDurationByTier[tech.tier - 1],
+            status = status,
+            progress = research.active?.takeIf { it.tech == tech }?.progress,
+            affordable = player.treasury >= cost,
+        )
+    }
+
+    val branches = listOf(
+        Triple(com.msa.fightandconquer.core.model.TechBranch.WAR, R.string.research_branch_war, R.drawable.ic_sword),
+        Triple(com.msa.fightandconquer.core.model.TechBranch.COIN, R.string.research_branch_coin, R.drawable.ic_coin),
+        Triple(com.msa.fightandconquer.core.model.TechBranch.STONE, R.string.research_branch_stone, R.drawable.ic_wall),
+        Triple(com.msa.fightandconquer.core.model.TechBranch.SAIL, R.string.research_branch_sail, R.drawable.ic_sail),
+    )
+        .filter { (branch, _, _) ->
+            branch != com.msa.fightandconquer.core.model.TechBranch.SAIL || state.config.rules.navalEnabled
+        }
+        .map { (branch, nameRes, iconRes) ->
+            ResearchBranchUi(
+                nameRes = nameRes,
+                iconRes = iconRes,
+                nodes = com.msa.fightandconquer.core.model.Tech.entries
+                    .filter { it.branch == branch }
+                    .sortedBy { it.tier }
+                    .map(::node),
+            )
+        }
+
+    return ResearchPanelState(
+        branches = branches,
+        universityCount = universities,
+        active = research.active?.let { node(it.tech) },
+        ratePerTurn = universities,
+        treasury = player.treasury,
+    )
+}
 
 /** Diplomacy panel: one row per opponent. */
 enum class PactUiState { WAR, PACT, PROPOSAL_SENT, PROPOSAL_RECEIVED }
@@ -274,6 +366,10 @@ data class HudState(
     val winner: Int?,
     val freshUnitCount: Int,
     val shopInfo: ShopInfo,
+    /** Research is part of this game's rules — 20 legacy missions must not grow a dead entry. */
+    val researchAvailable: Boolean,
+    /** The acting human has a working University and no active research — turns are being wasted. */
+    val researchBadge: Boolean,
 )
 
 sealed interface Screen {
@@ -321,8 +417,9 @@ object UiSignals {
     const val UNIT_SELECTED = "unitSelected"
     const val ECONOMY_OPENED = "economyOpened"
     const val DIPLOMACY_OPENED = "diplomacyOpened"
+    const val RESEARCH_OPENED = "researchOpened"
 
-    val all = setOf(UNIT_SELECTED, ECONOMY_OPENED, DIPLOMACY_OPENED)
+    val all = setOf(UNIT_SELECTED, ECONOMY_OPENED, DIPLOMACY_OPENED, RESEARCH_OPENED)
 }
 
 /** One line of the in-game objectives strip. */
@@ -380,6 +477,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _diplomacy = MutableStateFlow<DiplomacyPanelState?>(null)
     val diplomacy: StateFlow<DiplomacyPanelState?> = _diplomacy.asStateFlow()
+
+    private val _research = MutableStateFlow<ResearchPanelState?>(null)
+    val research: StateFlow<ResearchPanelState?> = _research.asStateFlow()
 
     private val _incomingProposals = MutableStateFlow<List<IncomingProposal>>(emptyList())
     val incomingProposals: StateFlow<List<IncomingProposal>> = _incomingProposals.asStateFlow()
@@ -493,6 +593,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     fogOfWar = setup.fogOfWar,
                     specialUnitsEnabled = setup.specialUnits,
                     diplomacyEnabled = setup.diplomacy,
+                    researchEnabled = setup.research,
                 ),
                 civs = List(setup.playerCount) { index ->
                     setup.civs.getOrElse(index) { Civilization.DEFAULT }
@@ -743,6 +844,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _overlayLabels.value = emptyList()
         _economy.value = null
         _diplomacy.value = null
+        _research.value = null
         _incomingProposals.value = emptyList()
         _infoCard.value = null
         _toasts.value = emptyList()
@@ -793,6 +895,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         engine = newEngine
         selectedUnit = null; selectedHex = null; pendingPactBreak = null
         _diplomacy.value = null
+        _research.value = null
         lastHumanSeat = null
         banner = if (showOpeningBanner) 0 else null
         freshUnitCursor = 0
@@ -814,6 +917,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val hudNow = _hud.value ?: return
         _economy.value = null // board taps dismiss the glanceable panels
         _diplomacy.value = null
+        _research.value = null
         if (banner != null || !hudNow.currentIsHuman || hudNow.winner != null) return
         if (_campaignRun.value?.outcome != null) return
         val state = engine.state.value
@@ -1319,6 +1423,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleEconomyPanel() {
         _diplomacy.value = null
+        _research.value = null
         _economy.value = if (_economy.value == null) computeEconomy() else null
         if (_economy.value != null) signalUi(UiSignals.ECONOMY_OPENED)
     }
@@ -1330,12 +1435,34 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun showObjectivesPanel() {
         _economy.value = null
         _diplomacy.value = null
+        _research.value = null
+    }
+
+    // ----- research -----
+
+    fun toggleResearchPanel() {
+        _economy.value = null
+        _diplomacy.value = null
+        _research.value = if (_research.value == null) computeResearch() else null
+        if (_research.value != null) signalUi(UiSignals.RESEARCH_OPENED)
+    }
+
+    fun startResearch(tech: com.msa.fightandconquer.core.model.Tech) {
+        submit(GameAction.StartResearch(tech))
+    }
+
+    private fun computeResearch(): ResearchPanelState? {
+        val engine = engine ?: return null
+        val state = engine.state.value
+        if (state.phase !is GamePhase.Playing) return null
+        return buildResearchPanel(state, state.currentPlayer)
     }
 
     // ----- diplomacy -----
 
     fun toggleDiplomacyPanel() {
         _economy.value = null
+        _research.value = null
         _diplomacy.value = if (_diplomacy.value == null) computeDiplomacy() else null
         if (_diplomacy.value != null) signalUi(UiSignals.DIPLOMACY_OPENED)
     }
@@ -2240,10 +2367,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     fortressDefense = eff.fortressDefense,
                 )
             },
+            researchAvailable = rules.researchEnabled,
+            researchBadge = rules.researchEnabled &&
+                state.player(me).kind is PlayerKind.Human &&
+                state.phase is GamePhase.Playing &&
+                state.player(me).research.active == null &&
+                Rules.workingUniversities(state.tiles, me) > 0,
         )
         // Live panels track every buy/move/undo.
         if (_economy.value != null) _economy.value = computeEconomy()
         if (_diplomacy.value != null) _diplomacy.value = computeDiplomacy()
+        if (_research.value != null) _research.value = computeResearch()
         // Incoming proposals surface only to the acting human, never behind a banner.
         _incomingProposals.value = if (
             rules.diplomacyEnabled && banner == null && state.phase is GamePhase.Playing &&

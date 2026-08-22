@@ -46,6 +46,7 @@ fun GameScreen(viewModel: GameViewModel) {
     val toasts by viewModel.toasts.collectAsState()
     val economy by viewModel.economy.collectAsState()
     val diplomacy by viewModel.diplomacy.collectAsState()
+    val research by viewModel.research.collectAsState()
     val incomingProposals by viewModel.incomingProposals.collectAsState()
     val infoCard by viewModel.infoCard.collectAsState()
     val campaignRun by viewModel.campaignRun.collectAsState()
@@ -163,6 +164,7 @@ fun GameScreen(viewModel: GameViewModel) {
             when {
                 economy != null -> EconomyPanel(economy!!, topAnchor)
                 diplomacy != null -> DiplomacyPanel(diplomacy!!, viewModel, topAnchor)
+                research != null -> ResearchPanel(research!!, state.currentPlayer, topAnchor, viewModel)
                 campaignRun != null -> ObjectivesPanel(campaignRun!!, topAnchor)
             }
             ToastStack(toasts, topAnchor)

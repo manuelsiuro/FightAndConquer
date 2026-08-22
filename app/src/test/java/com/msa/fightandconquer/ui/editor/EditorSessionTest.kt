@@ -335,4 +335,15 @@ class EditorSessionTest {
         assertTrue(ring.isNotEmpty())
         assertTrue(ring.none { it in present })
     }
+
+    @Test
+    fun `research rule switch lands in the authored rules and undoes`() {
+        val s = session()
+        val before = s.ui.value.def.level.rules.researchEnabled
+        s.setResearch(!before)
+        assertEquals(!before, s.ui.value.def.level.rules.researchEnabled)
+        assertTrue(s.ui.value.dirty)
+        s.undo()
+        assertEquals(before, s.ui.value.def.level.rules.researchEnabled)
+    }
 }

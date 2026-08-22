@@ -88,6 +88,7 @@ fun SetupScreen(
     var fogOfWar by rememberSaveable { mutableStateOf(false) }
     var specialUnits by rememberSaveable { mutableStateOf(true) }
     var diplomacy by rememberSaveable { mutableStateOf(true) }
+    var research by rememberSaveable { mutableStateOf(true) }
     // Always MAX_PLAYERS long: shrinking the seat count parks the hidden picks,
     // growing it re-reveals them.
     var civs by rememberSaveable(stateSaver = civListSaver()) {
@@ -151,12 +152,13 @@ fun SetupScreen(
                                 WorldRulesSection(
                                     expanded = advancedExpanded,
                                     onToggle = { advancedExpanded = !advancedExpanded },
-                                    summary = worldSummary(size, shape, fogOfWar, specialUnits, diplomacy),
+                                    summary = worldSummary(size, shape, fogOfWar, specialUnits, diplomacy, research),
                                     size = size, onSize = { size = it },
                                     shape = shape, onShape = { shape = it },
                                     fogOfWar = fogOfWar, onFog = { fogOfWar = it },
                                     specialUnits = specialUnits, onSpecial = { specialUnits = it },
                                     diplomacy = diplomacy, onDiplomacy = { diplomacy = it },
+                                    research = research, onResearch = { research = it },
                                 )
                             }
                             // Room to scroll the last section clear of the sticky bar.
@@ -180,6 +182,7 @@ fun SetupScreen(
                                     customMapId = customMapId.takeIf { sourceCustom },
                                     specialUnits = specialUnits,
                                     diplomacy = diplomacy,
+                                    research = research,
                                     civs = civs.take(playerCount),
                                 ),
                             )
@@ -337,6 +340,7 @@ private fun worldSummary(
     fogOfWar: Boolean,
     specialUnits: Boolean,
     diplomacy: Boolean,
+    research: Boolean,
 ): String = joinDots(
     listOf(
         stringResource(mapSizeLabelRes(size)),
@@ -344,6 +348,7 @@ private fun worldSummary(
         stringResource(if (fogOfWar) R.string.setup_sum_fog_on else R.string.setup_sum_fog_off),
         stringResource(if (specialUnits) R.string.setup_sum_special_on else R.string.setup_sum_special_off),
         stringResource(if (diplomacy) R.string.setup_sum_diplo_on else R.string.setup_sum_diplo_off),
+        stringResource(if (research) R.string.setup_sum_research_on else R.string.setup_sum_research_off),
     ),
 )
 

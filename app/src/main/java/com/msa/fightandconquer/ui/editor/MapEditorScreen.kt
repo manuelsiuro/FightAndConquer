@@ -535,6 +535,7 @@ private fun RulesDialog(ui: EditorSession.Ui, session: EditorSession, onClose: (
                 RuleSwitch(R.string.menu_section_specials, rules.specialUnitsEnabled, session::setSpecialUnits)
                 RuleSwitch(R.string.menu_section_diplomacy, rules.diplomacyEnabled, session::setDiplomacy)
                 RuleSwitch(R.string.editor_rule_naval, rules.navalEnabled, session::setNaval)
+                RuleSwitch(R.string.menu_section_research, rules.researchEnabled, session::setResearch)
             }
         },
         confirmButton = {

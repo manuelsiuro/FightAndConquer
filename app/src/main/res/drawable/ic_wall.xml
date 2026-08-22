@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Crenellated wall crop: merlon crown over two brick courses. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M3,21 L21,21 L21,14 L3,14 Z M3,12.5 L21,12.5 L21,7 L18.5,7 L18.5,3.5 L14.75,3.5 L14.75,7 L9.25,7 L9.25,3.5 L5.5,3.5 L5.5,7 L3,7 Z" />
+</vector>

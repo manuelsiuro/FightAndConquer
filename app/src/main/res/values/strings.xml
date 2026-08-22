@@ -41,6 +41,7 @@
     <string name="menu_fog_on">On</string>
     <string name="menu_section_specials">Special units</string>
     <string name="menu_section_diplomacy">Diplomacy</string>
+    <string name="menu_section_research">Research</string>
     <string name="menu_toggle_on">On</string>
     <string name="menu_toggle_off">Off</string>
 
@@ -76,6 +77,8 @@
     <string name="setup_sum_special_off">Special off</string>
     <string name="setup_sum_diplo_on">Diplomacy on</string>
     <string name="setup_sum_diplo_off">Diplomacy off</string>
+    <string name="setup_sum_research_on">Research</string>
+    <string name="setup_sum_research_off">No research</string>
     <string name="setup_civ_note_kingdom">The baseline rules</string>
     <string name="setup_civ_note_vikings">Sea raiders · cheaper ships</string>
     <string name="setup_civ_note_sultanate">Desert merchants · trade income</string>
@@ -268,6 +271,42 @@
     <string name="economy_fertile_row">Fertile ground</string>
     <string name="economy_research_row">Research bonus</string>
     <string name="toast_research_complete">%1$s researched</string>
+
+    <!-- Research panel -->
+    <string name="research_title">Research</string>
+    <plurals name="research_universities">
+        <item quantity="one">%d university</item>
+        <item quantity="other">%d universities</item>
+    </plurals>
+    <string name="research_no_active">No active research</string>
+    <string name="research_pick_hint">Pick a technology above</string>
+    <string name="research_warn_no_university">Build a University to make progress</string>
+    <string name="research_active_progress">%1$d/%2$d</string>
+    <string name="research_rate_line">+%d per turn from Universities</string>
+    <string name="research_duration_short">%dT</string>
+    <string name="research_done">Done</string>
+    <string name="research_branch_war">War</string>
+    <string name="research_branch_coin">Coin</string>
+    <string name="research_branch_stone">Stone</string>
+    <string name="research_branch_sail">Sail</string>
+    <string name="cd_research_start">Start %1$s, costs %2$d coins, %3$d turns</string>
+    <string name="cd_research_locked">%1$s, locked</string>
+    <string name="cd_research_done">%1$s, researched</string>
+    <string name="cd_research_in_progress">%1$s in progress, %2$d of %3$d</string>
+
+    <!-- Technology effects -->
+    <string name="tech_effect_smithing">+1 attack, all units</string>
+    <string name="tech_effect_armory">+1 defense, land units</string>
+    <string name="tech_effect_siegecraft">Catapults and warships +1</string>
+    <string name="tech_effect_coinage">Income +10%</string>
+    <string name="tech_effect_banking">Unlocks the Bank</string>
+    <string name="tech_effect_treasury">Income +20%</string>
+    <string name="tech_effect_masonry">Unlocks the Castle</string>
+    <string name="tech_effect_engineering">Unlocks the Fortress</string>
+    <string name="tech_effect_bastions">Fortifications +1 defense</string>
+    <string name="tech_effect_navigation">Unlocks the Port</string>
+    <string name="tech_effect_shipwrights">Warships +1, cheaper ferries</string>
+    <string name="tech_effect_admiralty">Ports and fisheries earn more</string>
     <string name="economy_building_row">%1$d × %2$s</string>
     <string name="economy_cut_off_row">%d hexes cut off</string>
     <string name="economy_cut_off_value">·0</string>
