@@ -36,7 +36,7 @@ Unit/building names come from `unitNameRes(tier)`.
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex (never on a fishing dory: a hull that cannot attack has nothing to compare, and the badge would occlude the parked-catch coin chip on its own hex). The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
 | `economy` | `EconomyBreakdown?` | Coin-tap panel (null = closed; recomputed on every refresh while open) |
-| `research` | `ResearchPanelState?` | Research panel (null = closed; recomputed on every refresh while open). Built by the pure `buildResearchPanel(state, seat)` — branch groups of tech nodes (done / in-progress / available / locked), the working-University count and rate. `HudState` adds `researchAvailable` (rules flag — legacy missions must not grow a dead menu entry) and `researchBadge` (a working University with no active research) |
+| `research` | `ResearchPanelState?` | Research panel (null = closed; recomputed on every refresh while open). Built by the pure `buildResearchPanel(state, seat)` — branch groups of tech nodes (done / in-progress / available / locked), the working-University count and rate. `HudState` adds `researchAvailable` / `diplomacyAvailable` (rules flags — levels without a system must not grow a dead action-bar button) and `researchBadge` (a working University with no active research) |
 | `toasts` | `List<HudToast>` (max 3, 2.5 s TTL) | Top-center notifications |
 | `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N" coin pills |
 | `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, deposits, bare enemy ground, cut-off tiles) — `UiText` + numbers from the tapped piece's owner-effective rules, never hardcoded. Units carry an Atk/Def pair (sword/shield `InfoStat.iconRes` glyphs); every enemy-owned hex adds "To capture — Atk N+" (`Rules.captureRequirement` on land, the defender's `unitDefenseOf` at sea) and, when outside cover raises the hex above the tapped piece itself, "Guarded by <Tower/Baron/…>" via `Rules.defenseSourceOf` |
@@ -113,11 +113,18 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    (`scaleClickable`). No translucent panels, no ad-hoc ink alphas, no emoji anywhere
    (tinted vectors `ic_coin/ic_flag/ic_shield/ic_sword/ic_pact` only).
    `TopBar` (full-width, content-sized: faction disc, seat label over "Civ · Turn N",
-   coin block → economy panel, then two 48 dp controlFill circles — Diplomacy with a
-   coin-gold pending-proposal badge, and the ⋮ menu with Field Guide / Objectives
-   (campaign) / two-tap-armed Resign / Exit; either circle flips to filled-ink while
-   its surface is open; second row hosts the fresh-units pill — pastel @30 % in light,
-   solid pastel in dark — or "thinking…")
+   display-only coin block, and one 48 dp controlFill circle — the ⋮ menu with Field
+   Guide / Objectives (campaign) / two-tap-armed Resign / Exit; the circle flips to
+   filled-ink while the menu is open; second row shows "thinking…" during AI turns)
+   + `ActionBar` (`ui/game/ActionBar.kt` — four standalone floating 48 dp circles at
+   the left gutter, 8 dp apart, each full `hudSurface` chrome: Diplomacy (coin-gold
+   pending-proposal dot, hidden when the rules disable diplomacy —
+   `HudState.diplomacyAvailable`) · Research (idle-research dot, hidden when
+   `!researchAvailable`) · Economy · jump-to-fresh-unit (filled-ink count badge;
+   38 % disabled treatment at zero — slot-stable). Panel buttons flip to filled-ink
+   while their panel is open; the whole bar hides for AI turns, the privacy banner,
+   and after a winner. It lives inside the measured top-chrome column, so panels and
+   toasts re-anchor below it for free)
    + `ProposalStrip` (persistent accept/decline rows for incoming pact offers —
    StateFlow-driven, only for the acting human, never behind the banner; outlined
    Decline + filled-ink Accept) +
@@ -168,10 +175,10 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    itself, so the panel carries no second rules implementation — the
    PurchaseCard contract. Starting research is single-tap; in-turn Undo covers a
    mis-tap, and the armed pattern stays reserved for irreversible acts. Its
-   entry point is the overflow menu's FIRST item (a third 48 dp top-bar circle
-   was measured out: ~286 dp of fixed bar content on a 360 dp portrait screen
-   would crush the seat-identity column; the Objectives panel set the overflow
-   precedent), with the idle-research badge dot on the overflow circle. AI
+   entry point is the action bar's Research circle (a third 48 dp circle *inside*
+   the top bar was measured out: ~286 dp of fixed bar content on a 360 dp portrait
+   screen would crush the seat-identity column — the floating row below the bar
+   sidesteps that), with the idle-research badge dot on that circle. AI
    research stays private until the Chronicle; a human completion shows one
    toast, and research-gated structures ride the purchase tray as locked cards
    ("REQUIRES <TECH>", desaturated plinth, inactiveGlyph cost — a lock is

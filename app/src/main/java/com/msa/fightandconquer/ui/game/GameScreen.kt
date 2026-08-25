@@ -143,12 +143,20 @@ fun GameScreen(viewModel: GameViewModel) {
                 ) {
                     TopBar(
                         state,
-                        incomingProposals.size,
-                        diplomacyOpen = diplomacy != null,
                         isCampaign = campaignRun != null,
                         viewModel = viewModel,
                         onOpenGuide = { openGuide(null) },
                     )
+                    if (state.currentIsHuman && state.banner == null && state.winner == null) {
+                        ActionBar(
+                            state = state,
+                            proposalCount = incomingProposals.size,
+                            economyOpen = economy != null,
+                            diplomacyOpen = diplomacy != null,
+                            researchOpen = research != null,
+                            viewModel = viewModel,
+                        )
+                    }
                     if (state.currentIsHuman && state.banner == null && incomingProposals.isNotEmpty()) {
                         ProposalStrip(incomingProposals, viewModel)
                     }

@@ -2,13 +2,11 @@ package com.msa.fightandconquer.ui.game
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -27,7 +25,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,7 +38,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -61,15 +57,12 @@ private val MinTouchTarget = 48.dp
 @Composable
 internal fun TopBar(
     state: HudState,
-    proposalCount: Int,
-    diplomacyOpen: Boolean,
     isCampaign: Boolean,
     viewModel: GameViewModel,
     onOpenGuide: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val factionDescription = stringResource(R.string.cd_faction_color, state.currentPlayer + 1)
-    val economyDescription = stringResource(R.string.cd_open_economy)
     Column(
         Modifier
             .fillMaxWidth()
@@ -110,11 +103,8 @@ internal fun TopBar(
             }
             Spacer(Modifier.width(8.dp))
             Row(
-                modifier = Modifier
-                    .scaleClickable { viewModel.toggleEconomyPanel() }
-                    .semantics { contentDescription = economyDescription }
-                    .defaultMinSize(minHeight = MinTouchTarget)
-                    .padding(horizontal = 8.dp),
+                // Display-only: the economy panel opens from the action bar below.
+                modifier = Modifier.padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -143,57 +133,38 @@ internal fun TopBar(
                 )
             }
             Spacer(Modifier.width(4.dp))
-            TopBarCircle(
-                glyph = painterResource(R.drawable.ic_pact),
-                glyphSize = 20.dp,
-                description = stringResource(R.string.cd_open_diplomacy),
-                active = diplomacyOpen,
-                badge = proposalCount > 0,
-                onClick = { viewModel.toggleDiplomacyPanel() },
-            )
-            Spacer(Modifier.width(4.dp))
             Box {
                 TopBarCircle(
                     glyph = null,
                     glyphSize = 20.dp,
                     description = stringResource(R.string.cd_open_menu),
                     active = menuOpen,
-                    // The overflow circle carries the research nudge: a working
-                    // University with no active research is wasting turns.
-                    badge = state.researchBadge,
+                    badge = false,
                     onClick = { menuOpen = true },
                 )
                 OverflowMenu(
                     expanded = menuOpen,
                     isCampaign = isCampaign,
-                    state = state,
                     onDismiss = { menuOpen = false },
                     onOpenGuide = onOpenGuide,
                     viewModel = viewModel,
                 )
             }
         }
-        when {
-            state.aiThinking -> {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.hud_ai_thinking),
-                    color = UiColors.inkMuted,
-                    fontSize = 13.sp,
-                )
-            }
-            state.currentIsHuman && state.banner == null && state.freshUnitCount > 0 -> {
-                Spacer(Modifier.height(8.dp))
-                FreshUnitsPill(state, onClick = { viewModel.focusNextFreshUnit() })
-            }
+        if (state.aiThinking) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.hud_ai_thinking),
+                color = UiColors.inkMuted,
+                fontSize = 13.sp,
+            )
         }
     }
 }
 
 /**
- * One of the top bar's two 48 dp entry-point circles. The circle flips to the
- * fixed filled-ink treatment while its surface (panel or menu) is open; a null
- * [glyph] renders the overflow ⋮ instead.
+ * The top bar's 48 dp overflow circle. It flips to the fixed filled-ink
+ * treatment while its menu is open; a null [glyph] renders the overflow ⋮.
  */
 @Composable
 private fun TopBarCircle(
@@ -238,46 +209,9 @@ private fun TopBarCircle(
 }
 
 @Composable
-private fun FreshUnitsPill(state: HudState, onClick: () -> Unit) {
-    val freshDescription = stringResource(R.string.cd_fresh_units, state.freshUnitCount)
-    val pastel = UiColors.faction(state.currentPlayer)
-    // Dark theme raises the pill to solid pastel: at 30% over a dark surface the
-    // tint all but vanishes. onFaction ink is correct on both fills.
-    val fill = if (isSystemInDarkTheme()) pastel else pastel.copy(alpha = 0.3f)
-    val content = if (isSystemInDarkTheme()) UiColors.onFaction else UiColors.ink
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = fill,
-        modifier = Modifier
-            .scaleClickable(onClick = onClick)
-            .semantics { contentDescription = freshDescription },
-    ) {
-        Row(
-            Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                stringResource(R.string.hud_fresh_units, state.freshUnitCount),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = content,
-            )
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                painterResource(R.drawable.ic_flag),
-                contentDescription = null,
-                Modifier.size(13.dp),
-                tint = content,
-            )
-        }
-    }
-}
-
-@Composable
 private fun OverflowMenu(
     expanded: Boolean,
     isCampaign: Boolean,
-    state: HudState,
     onDismiss: () -> Unit,
     onOpenGuide: () -> Unit,
     viewModel: GameViewModel,
@@ -301,36 +235,6 @@ private fun OverflowMenu(
         border = androidx.compose.foundation.BorderStroke(1.dp, UiColors.hairline),
         shadowElevation = 2.dp,
     ) {
-        // Research leads the menu: it is the recurring per-turn surface here
-        // (the top bar has no width for a third circle — the identity column
-        // would collapse; the Objectives panel set this precedent).
-        if (state.researchAvailable) {
-            DropdownMenuItem(
-                modifier = itemHeight,
-                text = { Text(stringResource(R.string.research_title), fontSize = 14.sp) },
-                leadingIcon = {
-                    Box {
-                        Icon(painterResource(R.drawable.ic_research), contentDescription = null)
-                        if (state.researchBadge) {
-                            Box(
-                                Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(7.dp)
-                                    .background(UiColors.coin, CircleShape),
-                            )
-                        }
-                    }
-                },
-                colors = MenuDefaults.itemColors(
-                    textColor = UiColors.ink,
-                    leadingIconColor = UiColors.inkMuted,
-                ),
-                onClick = {
-                    onDismiss()
-                    viewModel.toggleResearchPanel()
-                },
-            )
-        }
         DropdownMenuItem(
             modifier = itemHeight,
             text = { Text(stringResource(R.string.guide_menu_entry), fontSize = 14.sp) },

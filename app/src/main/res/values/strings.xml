@@ -108,7 +108,6 @@
     <string name="hud_net_negative">%d</string>
     <string name="hud_turn">Turn %d</string>
     <string name="hud_ai_thinking">thinking…</string>
-    <string name="hud_fresh_units">%d</string>
     <string name="hud_resign">Resign</string>
     <string name="hud_resign_confirm">Tap again to resign</string>
     <string name="hud_exit">Exit</string>
@@ -118,6 +117,7 @@
     <string name="cd_open_economy">Show economy breakdown</string>
     <string name="cd_fresh_units">%d units still able to act. Jump to the next one</string>
     <string name="cd_open_menu">Open game menu</string>
+    <string name="cd_open_research">Open the research panel</string>
 
     <!-- Bottom bar -->
     <string name="cd_unit_stats">Attack %1$s, defense %2$d, upkeep %3$d per turn</string>

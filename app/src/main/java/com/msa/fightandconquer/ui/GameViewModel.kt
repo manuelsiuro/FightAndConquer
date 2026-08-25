@@ -370,6 +370,8 @@ data class HudState(
     val researchAvailable: Boolean,
     /** The acting human has a working University and no active research — turns are being wasted. */
     val researchBadge: Boolean,
+    /** Diplomacy is part of this game's rules — levels without it must not grow a dead button. */
+    val diplomacyAvailable: Boolean,
 )
 
 sealed interface Screen {
@@ -2373,6 +2375,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 state.phase is GamePhase.Playing &&
                 state.player(me).research.active == null &&
                 Rules.workingUniversities(state.tiles, me) > 0,
+            diplomacyAvailable = rules.diplomacyEnabled,
         )
         // Live panels track every buy/move/undo.
         if (_economy.value != null) _economy.value = computeEconomy()
