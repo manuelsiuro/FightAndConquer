@@ -35,8 +35,10 @@ Unit/building names come from `unitNameRes(tier)`.
 | `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection name + Atk/Def/upkeep/cargo-attack stats, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`) |
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex (never on a fishing dory: a hull that cannot attack has nothing to compare, and the badge would occlude the parked-catch coin chip on its own hex). The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
-| `economy` | `EconomyBreakdown?` | Coin-tap panel (null = closed; recomputed on every refresh while open) |
-| `research` | `ResearchPanelState?` | Research panel (null = closed; recomputed on every refresh while open). Built by the pure `buildResearchPanel(state, seat)` — branch groups of tech nodes (done / in-progress / available / locked), the working-University count and rate. `HudState` adds `researchAvailable` / `diplomacyAvailable` (rules flags — levels without a system must not grow a dead action-bar button) and `researchBadge` (a working University with no active research) |
+| `economy` | `EconomyBreakdown?` | Economy bottom sheet (null = closed; recomputed on every refresh while open) |
+| `research` | `ResearchPanelState?` | Research bottom sheet (null = closed; recomputed on every refresh while open). Built by the pure `buildResearchPanel(state, seat)` — branch lanes of tech nodes (done / in-progress / available / busy / locked; BUSY = prerequisite met but the single slot is occupied, LOCKED = the tier below is missing), the working-University count and rate. `HudState` adds `researchAvailable` / `diplomacyAvailable` (rules flags — levels without a system must not grow a dead action-bar button) and `researchBadge` (a working University with no active research) |
+| `objectivesOpen` | `StateFlow<Boolean>` | Mission objectives bottom sheet (campaign only, on-demand from the ⋮ menu — objectives left the always-on side slot when the panels became sheets) |
+| `stats` | `GameStatsState?` | War-report bottom sheet (null = closed; recomputed on every refresh while open). Built by the pure `buildGameStats(record, state, viewer)` over the live match recorder — the viewer's own series/totals/moments only, never an enemy's (fog- and hot-seat-safe by construction) |
 | `toasts` | `List<HudToast>` (max 3, 2.5 s TTL) | Top-center notifications |
 | `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N" coin pills |
 | `infoCard` | `InfoCard?` | Bottom card for non-selectable taps (enemy/spent units, buildings, flora, deposits, bare enemy ground, cut-off tiles) — `UiText` + numbers from the tapped piece's owner-effective rules, never hardcoded. Units carry an Atk/Def pair (sword/shield `InfoStat.iconRes` glyphs); every enemy-owned hex adds "To capture — Atk N+" (`Rules.captureRequirement` on land, the defender's `unitDefenseOf` at sea) and, when outside cover raises the hex above the tapped piece itself, "Guarded by <Tower/Baron/…>" via `Rules.defenseSourceOf` |
@@ -48,7 +50,7 @@ Unit/building names come from `unitNameRes(tier)`.
 ## Interaction model (`onHexTapped`)
 
 ```
-banner shown / AI turn / game over → ignore (board taps also close the economy panel)
+banner shown / AI turn / game over → ignore (board taps also close the glanceable sheets)
 unit already selected:
     tap on move/capture target  → submit MoveUnit, clear selection
     tap on merge target         → submit MergeUnits, clear selection
@@ -116,14 +118,14 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    display-only coin block, and one 48 dp controlFill circle — the ⋮ menu with Field
    Guide / Objectives (campaign) / two-tap-armed Resign / Exit; the circle flips to
    filled-ink while the menu is open; second row shows "thinking…" during AI turns)
-   + `ActionBar` (`ui/game/ActionBar.kt` — four standalone floating 48 dp circles at
+   + `ActionBar` (`ui/game/ActionBar.kt` — five standalone floating 48 dp circles at
    the left gutter, 8 dp apart, each full `hudSurface` chrome: Diplomacy (coin-gold
    pending-proposal dot, hidden when the rules disable diplomacy —
    `HudState.diplomacyAvailable`) · Research (idle-research dot, hidden when
-   `!researchAvailable`) · Economy · jump-to-fresh-unit (filled-ink count badge;
-   38 % disabled treatment at zero — slot-stable). Panel buttons flip to filled-ink
-   while their panel is open; the whole bar hides for AI turns, the privacy banner,
-   and after a winner. It lives inside the measured top-chrome column, so panels and
+   `!researchAvailable`) · Economy · War report (`ic_chart`) · jump-to-fresh-unit
+   (filled-ink count badge; 38 % disabled treatment at zero — slot-stable). Panel
+   buttons flip to filled-ink while their sheet is open; the whole bar hides for AI
+   turns, the privacy banner, and after a winner. It lives inside the measured top-chrome column, so panels and
    toasts re-anchor below it for free)
    + `ProposalStrip` (persistent accept/decline rows for incoming pact offers —
    StateFlow-driven, only for the acting human, never behind the banner; outlined
@@ -142,37 +144,56 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    With fresh units the FAB arms instead of ending: a full-width armed surface appears
    below — micro-label "N UNITS UNMOVED" + "Tap again to end", 48 dp ✕, rust
    "End anyway" — and disarms after 3 s or on ✕; FAB-again or End-anyway commits).
-4. One panel at a time in the slot hanging off the TopBar's **measured** bottom + 8 dp
-   (published from `onGloballyPositioned` in `GameScreen` — never a height constant)
-   and right-aligned at the 12 dp gutter. `ObjectivesPanel` (campaign only; mission
-   name, turn counter that turns alert-coloured in the last three rounds, 18 dp check
-   circles — filled positive when done, `inactiveGlyph` ring while pending — with
-   struck-through done lines and `have / need` counters) shows whenever the two
-   glanceable panels are closed — a mission's terms should not have to be gone looking
-   for; the ⋮ menu's Objectives entry just closes the other panels
-   (`showObjectivesPanel()`). `CoachCardView` — the HUD's only solid-pastel surface
-   ("HINT" micro-label, sage fill) — sits above the `BottomBar` rather than over the
-   board, so a hint never covers the hexes it points at; `HighlightSet.hintFocus` puts
-   a pulsing ring on those hexes (`BoardScene.showHighlights` draws it first so a
-   selection reads on top).
-   All four occupants of the slot share one chrome — `HudSidePanel` (264 dp) with
-   `PanelHeader` micro-label + divider headers and `seatLabel()` for the
-   "Player N"/"AI N" wording (`ui/game/HudMetrics.kt`).
-   `EconomyPanel` (income/upkeep rows with an 18 dp tinted icon slot — positive @30 %
-   for income, rust @30 % for cost — then a controlFill emphasis block: "Net per turn"
-   + "Treasury next turn" projection, and radius-10 warning strips: coin-gold @30 %
-   upkeep risk, rust @30 % bankruptcy) / `DiplomacyPanel` (one row per opponent —
-   faction disc, name, status pill at exactly one 30 % tint: rust war · positive pact ·
-   coin-gold incoming · controlFill sent — 40 dp outlined Propose/Tribute, controlFill
-   tribute chips 10/25/50 disabled at 38 % when unaffordable, and a footer stating pact
-   duration + break penalty from `DiplomacyPanelState`).
-   `ResearchPanel` (branch groups — War/Coin/Stone/Sail, Sail absent entirely when
-   naval rules are off — of two-line tech rows: state glyph, name, effect line,
-   cost + "NT" duration; the in-progress row on a controlFill wash with a faction
-   progress dot; a pinned controlFill card carries the active research's
-   progress track, the per-turn rate, or the "build a University" nudge). Locked
-   and unaffordable rows stay tappable: the engine's rejection toast explains
-   itself, so the panel carries no second rules implementation — the
+4. One glanceable surface at a time, as a **bottom sheet** — `HudBottomSheet`
+   (`ui/game/HudBottomSheet.kt`), deliberately in-composition rather than
+   material3's `ModalBottomSheet`: that one opens its own window, which escapes
+   `ImmersiveDuringGame` (system bars would pop back over the board) and stacks
+   above every in-game overlay. Chrome: opaque `surface`, top-only 28 dp corners
+   via the `hudSurface(Shape)` overload, `UiColors.sheetScrim` behind (hoisted
+   from the Setup civ picker), a 34×4 dp hairline drag handle in a 48 dp zone.
+   Dismissal: scrim tap, system Back, or dragging the handle past 30 % of the
+   sheet height (drag lives on the handle only, so it never fights the content's
+   scroll); every path funnels into `GameViewModel.closePanels()`, and board taps
+   keep nulling the flows as belt-and-braces. Height caps at 60 % of the window
+   (content scrolls inside; an optional pinned footer slot stays visible); width
+   caps at 560 dp for landscape/tablets. Content survives the slide-out via
+   `rememberRetained` — the ViewModel flows null on dismiss, but the sheet still
+   needs something to draw while animating. The ViewModel keeps all five sheets
+   mutually exclusive (each toggle closes the rest). Shared idioms: `PanelHeader`
+   micro-label + divider headers and `seatLabel()` for the "Player N"/"AI N"
+   wording (`ui/game/HudMetrics.kt` — the old 264 dp `HudSidePanel` is gone).
+   `CoachCardView` — the HUD's only solid-pastel surface ("HINT" micro-label,
+   sage fill) — sits above the `BottomBar` rather than over the board, so a hint
+   never covers the hexes it points at; `HighlightSet.hintFocus` puts a pulsing
+   ring on those hexes (`BoardScene.showHighlights` draws it first so a selection
+   reads on top).
+   The occupants:
+   `EconomySheetContent` (income and upkeep as two side-by-side columns — the
+   sheet's width is what freed them from stacking — rows with an 18 dp tinted icon
+   slot: positive @30 % for income, rust @30 % for cost; the pinned footer is the
+   controlFill emphasis block "Net per turn" + "Treasury next turn" and the
+   radius-10 warning strips: coin-gold @30 % upkeep risk, rust @30 % bankruptcy).
+   `DiplomacySheetContent` (one line per opponent — faction disc, name, status
+   pill at exactly one 30 % tint: rust war · positive pact · coin-gold incoming ·
+   controlFill sent — with 40 dp outlined Propose/Tribute inline on the same
+   line; controlFill tribute chips 10/25/50 disabled at 38 % when unaffordable,
+   and a footer stating pact duration + break penalty).
+   `ObjectivesSheetContent` (campaign only, on-demand from the ⋮ menu's
+   Objectives entry — `toggleObjectivesPanel()`; mission name, turn counter that
+   turns alert-coloured in the last three rounds, 18 dp check circles with
+   struck-through done lines and `have / need` counters).
+   `ResearchSheetBody` (one lane per branch — War/Coin/Stone/Sail, Sail absent
+   entirely when naval rules are off — of three ~100 dp tech cards flowing left
+   to right with 12×2 dp connectors: `positive` once the tier before is done,
+   `divider` otherwise, so the linearity is the reading direction; each card
+   carries name (2 lines), effect (2 lines), status glyph, and an always-visible
+   cost + "NT" duration — dimmed `inactiveGlyph` on LOCKED and BUSY cards, since
+   a locked tree must not scream about money; the in-progress card wears a
+   faction border + 3 dp progress bar; lane headers count "n/3". The pinned
+   `ResearchSheetFooter` carries the active research's progress track, the
+   per-turn rate, or the "build a University" nudge). Locked, busy and
+   unaffordable cards stay tappable: the engine's rejection toast explains
+   itself, so the sheet carries no second rules implementation — the
    PurchaseCard contract. Starting research is single-tap; in-turn Undo covers a
    mis-tap, and the armed pattern stays reserved for irreversible acts. Its
    entry point is the action bar's Research circle (a third 48 dp circle *inside*
@@ -187,8 +208,19 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    (`PurchaseOption.Unit.lockedByBuilding` — "BARRACKS" where the upkeep
    micro-label would sit), including the tier-1 buy-merge card when merging
    would create a hall-less tier.
+   `GameStatsSheet` (the war report, from the action bar's chart circle: the
+   viewer's own chronicle graphed live off the match recorder — a lens-switchable
+   `TimelineChart` (Territory filled / Income-vs-Upkeep / Treasury / Army, the
+   Army lens hidden while a resumed pre-strength record has no samples), a NOW
+   strip with this turn's live numbers (the chart only knows turn-start samples;
+   no synthetic "current" point, which would re-trigger the draw-in on every
+   buy), the running record totals, and the turning points the viewer acted in or
+   suffered — suffered ones on a 12 % alert wash. Own faction only by design:
+   enemy series stay hidden information under fog and hot-seat, and comparisons
+   belong to the post-match debrief).
    Capturing a pact partner's hex needs a second tap (warning toast arms the
-   confirmation) — the no-dialog idiom throughout.
+   confirmation) — the no-dialog idiom throughout. (A modal container is fine;
+   the rule bans *confirmation* dialogs.)
 5. `ToastStack` (top-center, anchored below the measured top chrome): one 13 sp ink
    text style for all kinds; warning/alert differ only by a 30 % coin-gold/rust wash.
 6. Full-screen overlays — topmost, `bg` @92 % scrim with a single centered radius-20
