@@ -119,6 +119,8 @@
     <string name="cd_fresh_units">%d units still able to act. Jump to the next one</string>
     <string name="cd_open_menu">Open game menu</string>
     <string name="cd_open_research">Open the research panel</string>
+    <string name="cd_open_stats">Open the war report</string>
+    <string name="cd_sheet_dismiss">Dismiss panel</string>
 
     <!-- Bottom bar -->
     <string name="cd_unit_stats">Attack %1$s, defense %2$d, upkeep %3$d per turn</string>

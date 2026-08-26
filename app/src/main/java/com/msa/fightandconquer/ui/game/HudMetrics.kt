@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -61,13 +62,19 @@ internal fun Modifier.hudSurface(
     radius: Dp,
     fill: Color = UiColors.surface,
     border: Color = UiColors.hairline,
-): Modifier {
-    val shape = RoundedCornerShape(radius)
-    return shadow(2.dp, shape, ambientColor = UiColors.boardShadow, spotColor = UiColors.boardShadow)
+): Modifier = hudSurface(RoundedCornerShape(radius), fill, border)
+
+/** [hudSurface] for asymmetric shapes — the bottom sheet's top-only 28 dp corners. */
+@Composable
+internal fun Modifier.hudSurface(
+    shape: Shape,
+    fill: Color = UiColors.surface,
+    border: Color = UiColors.hairline,
+): Modifier =
+    shadow(2.dp, shape, ambientColor = UiColors.boardShadow, spotColor = UiColors.boardShadow)
         .background(fill, shape)
         .border(1.dp, border, shape)
         .clip(shape)
-}
 
 /** Uppercase micro-label (10 sp / 700 / wide tracking) — same idiom as setup. */
 @Composable
