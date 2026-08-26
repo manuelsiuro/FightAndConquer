@@ -306,7 +306,19 @@ the two-island invasion gate stays reachable). The naval ladder's port steps
 stay dormant until this policy has funded NAVIGATION. Since Smithing/Armory
 retired the "soldier strength == tier" identity, every tier computation solves
 through `Rules.buyStrength`/`buyDefense` via `ai/Tiers.kt` — reductions that
-are provably the old arithmetic when research is off. A third ladder, `ai/FishingPolicy.kt`, follows
+are provably the old arithmetic when research is off. The muster halls get a
+fourth ladder, `ai/MilitaryPolicy.kt`, between research and the naval steps
+(a pure prerequisite pays nothing the turn it stands — the same structural
+argument): demand-driven through the ungated `Tiers` probes (which hall is a
+blocked breaker/garrison/marine plan waiting on), one hall per call, every
+difficulty founding the Barracks under demand (a peasant-locked AI can never
+eliminate anyone). `Tiers.maxRecruitable` caps every maxTier fallback so no
+plan waits on a tier it cannot create; the Evaluator anchors the standing
+halls (Barracks +6, workshop +4, range +3 — the UNIVERSITY sunk-asset
+convention, never a purchase-steering term). Under fog the argmax scores every
+candidate against a visibility set frozen at the turn's start
+(`Evaluator.score(visibleOverride)`): an advance is judged on what is known
+now, never penalized for the enemy ground it reveals. A third ladder, `ai/FishingPolicy.kt`, follows
 NavalPolicy (war wins treasury contention) and gates on `navalEnabled` alone —
 dories are boats, not "specials", mirroring `checkBuyNaval`: buy a dory while
 open shoals outnumber the hulls still *sailing* for one (parked hulls already

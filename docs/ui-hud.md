@@ -182,7 +182,11 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    research stays private until the Chronicle; a human completion shows one
    toast, and research-gated structures ride the purchase tray as locked cards
    ("REQUIRES <TECH>", desaturated plinth, inactiveGlyph cost — a lock is
-   structural, not poverty, so it never wears the alert color).
+   structural, not poverty, so it never wears the alert color). Muster-locked
+   units wear the identical treatment naming the missing hall
+   (`PurchaseOption.Unit.lockedByBuilding` — "BARRACKS" where the upkeep
+   micro-label would sit), including the tier-1 buy-merge card when merging
+   would create a hall-less tier.
    Capturing a pact partner's hex needs a second tap (warning toast arms the
    confirmation) — the no-dialog idiom throughout.
 5. `ToastStack` (top-center, anchored below the measured top chrome): one 13 sp ink

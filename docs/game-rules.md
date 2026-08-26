@@ -52,6 +52,10 @@ per game without breaking old saves.
 | Bank | cost 35, +7 income | Own clear land, no placement requirement; unlocked by Banking |
 | Fortress | cost 55, defense 4 (self + neighbors) | Own clear land; unlocked by Engineering; siege ignores it like every building |
 | Tech costs / durations | tier 1/2/3: 20/35/55 coins, 3/4/5 points | `techCostByTier` / `techDurationByTier` |
+| Muster buildings | on by default | Military prerequisites (`militaryBuildingsRequired`); see Muster buildings below |
+| Barracks | cost 20, no income/defense/vision | Own clear land; musters Spearmen and Barons (Knights also need a Fortress) |
+| Archery range | cost 16, no income/defense/vision | Own clear land; required to field Archers |
+| Siege workshop | cost 25, no income/defense/vision | Own clear land; required to build Catapults |
 
 ## Core mechanics
 
@@ -76,7 +80,9 @@ recomputes starvation for affected players.
 **Merging.** A fresh unit may merge with a same-tier friendly unit **within its move
 range** (same path rules as movement), producing one unit of tier+1 (max 4).
 The moving unit is consumed; the result keeps the stationary unit's spent flag.
-Buying a unit onto a same-tier own unit merges instantly ("buy-merge").
+Buying a unit onto a same-tier own unit merges instantly ("buy-merge"). The
+resulting tier must be musterable — merging two Peasants into a Spearman needs a
+standing Barracks like any other way of creating one (see Muster buildings).
 
 **Capital capture.** Attacker gains `loot = victim.treasury × 50 %`; the victim's
 capital relocates to their largest remaining region (preferring empty tiles, chosen
@@ -271,6 +277,36 @@ gates are inert when the flag is off, so pre-research content plays unchanged).
   research-locked structures as locked cards naming the missing tech.
 - The income percent applies once to the TOTAL (tile + boat income), so the
   economy panel shows the bonus as its own row.
+
+## Muster buildings
+
+Military units require a prerequisite building standing in the realm
+(`militaryBuildingsRequired`, default on; the Setup screen and the map editor
+expose the toggle, and every shipped campaign mission plays with it on — each
+was retuned for it).
+
+- **The requirements** (`Rules.requiredBuildingsFor`): soldier tiers 2–3 need a
+  **Barracks**; the tier-4 Knight needs a Barracks **and** a **Fortress**; the
+  Archer needs an **Archery range**; the Catapult a **Siege workshop**. The
+  Peasant is always free (recruiting can never fully deadlock), and boats stay
+  gated by their adjacent working Port exactly as before.
+- **Realm-wide, working**: at least one owned, **non-starving** tile anywhere in
+  the realm carrying the building (the University predicate). A cut-off or
+  captured hall stops counting until another stands fed; capture destroys it
+  like any other structure.
+- **The gate binds CREATION by the player** — direct buys, buy-merges and
+  merges alike (a merged Spearman is a created Spearman). Scripted campaign
+  spawns, disembarking cargo and map-authored starting units are exempt: the
+  research doctrine, authored content keeps working.
+- The three halls are **pure prerequisites**: no income, no defense, no vision.
+  They price at `barracksCost` / `archeryRangeCost` / `siegeWorkshopCost`
+  (civ-modifiable like every building cost).
+- The purchase tray shows muster-locked units as locked cards naming the
+  missing hall (the research-locked-structure treatment); rejections surface
+  `UNIT_NEEDS_BUILDING`.
+- **Corollary**: in a research-off game the Fortress is never offered, so the
+  Knight is unreachable — such content caps `maxTier` at 3 rather than showing
+  a lock nothing opens (every shipped pre-research mission does).
 
 ## Turn-start pipeline (exact order — `TurnPipeline.kt`)
 

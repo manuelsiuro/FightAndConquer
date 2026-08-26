@@ -119,6 +119,54 @@ tech-cost table), a research objective in the editor's goal dialog (engine
 support exists — `Objective.ResearchCount` is campaign-authored only today),
 and surfacing opponents' completed techs in the diplomacy panel.
 
+## Shipped: muster buildings
+
+Military units now require a prerequisite building standing in the realm —
+the game's first production chain (`militaryBuildingsRequired`, default on;
+full spec in [game-rules.md](game-rules.md) "Muster buildings"). Barracks →
+soldier tiers 2–3, Barracks + Fortress → the Knight, Archery range → Archer,
+Siege workshop → Catapult; realm-wide, one working (non-starving) instance;
+the gate binds every creation path the player has (buy, buy-merge, merge)
+while authored spawns and disembarks stay exempt — the research doctrine.
+
+1. **Engine** — one shared predicate family beside `buildingAvailable`
+   (`Rules.requiredBuildingsFor` / `hasWorkingBuilding` / `missingUnitBuilding`
+   / `unitAvailable`), consumed by Legality (pinned order:
+   `SPECIAL_UNITS_DISABLED → INVALID_TIER → UNIT_NEEDS_BUILDING →
+   CANNOT_AFFORD`), by `reachable`'s merge targets (chips, checkMerge and the
+   AI filter as one), and by `buyableAt`'s muster-locked unit cards
+   (`PurchaseOption.Unit.lockedByBuilding`, the `lockedByTech` twin probed via
+   `recruitProbe`). The three halls are pure prerequisites: no income, no
+   defense, no vision.
+2. **AI** — `ai/MilitaryPolicy.kt`, a demand-driven threshold ladder between
+   research and the naval steps (a pure prerequisite pays nothing the turn it
+   stands — invisible to the one-ply argmax): the ungated `Tiers` probes read
+   which hall a blocked plan waits on; every difficulty founds the Barracks
+   under demand (a peasant-locked AI can never eliminate anyone —
+   termination-load-bearing). `Tiers.maxRecruitable` caps every maxTier
+   fallback; the naval ladder ships the best tier it is *allowed*; the
+   Evaluator anchors the sunk halls (6/4/3, the UNIVERSITY convention).
+3. **The reshuffle's structural finds** — two latent termination hazards the
+   flip exposed, fixed at the root: DiplomacyPolicy never signs a pact that
+   leaves it with zero living enemies (four NORMALs froze a game in a
+   self-renewing all-pact clique), and the argmax now scores candidates
+   against a visibility set frozen at the turn's start (an advance must never
+   be penalized for the fog it lifts — every capture on the frozen fog seed
+   scored negative for revealing the defender's interior). The flip itself
+   landed with ZERO bar edits — every chaotic gate survived again.
+4. **Content** — three new buildings in all four silhouette languages
+   (Barracks/Archery range/Siege workshop ×4 civs, all below the defense
+   height band), muster-locked unit cards, glyphs `H A E`, and all 21 missions
+   retuned: Academy 3 became the Barracks-and-merge lesson, Academy 6 the
+   war-schools lesson (build the workshop → field the catapult → crack the
+   keeps), survive/naval missions pre-place halls per seat, both finales sell
+   the whole trio, and every research-off mission caps `maxTier` at 3 (the
+   Knight's Fortress would be a lock nothing opens).
+
+Follow-ups worth considering: per-civ muster deltas (a Shogunate range
+discount), a "musters at" line in the Chronicle, and an upgraded hall tier
+(drill yard → war academy) if a second production chain ever lands.
+
 ## Designed-for, not yet built
 
 ### Map editor — SHIPPED
@@ -191,7 +239,9 @@ purchase-card detail label in `BottomBar`, `GameViewModel.infoCardFor` +
 economy-panel row if it earns + `ShopInfo` field, `GuideCatalog` entry +
 `forStructure`, `EDITOR_BUILDINGS` in the map editor, `BriefingConcepts.advanced`,
 a campaign glyph in `tools/build_campaigns.py`, and `ALL_BUILDINGS` in ALL THREE
-campaign sources (narrow teaching trays silently widen otherwise).
+campaign sources (narrow teaching trays silently widen otherwise). If the
+building gates unit creation, extend `Rules.requiredBuildingsFor` and give
+`MilitaryPolicy` a demand trigger for it instead of an Evaluator steering term.
 
 **New unit tier**: extend `RuleConstants.unitCost/unitUpkeep/maxTier`, check every
 `tier - 1` indexing site, AI `MoveGenerator` cheapest-breaker logic handles it

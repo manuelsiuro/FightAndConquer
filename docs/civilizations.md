@@ -89,8 +89,8 @@ Full pipeline detail in [asset-pipeline.md](asset-pipeline.md); the contract:
   Other civs bake into `assets/pieces/<civ>/<kind>.pmesh` from
   `art/blender/pieces/<civ>/*.py` scripts (`KIND = "<CIV>_<KIND>"`,
   `export_piece(PIECE, coll, subdir="<civ>")`), GLBs in `art/models/<civ>/`.
-- **Only player-owned kinds fork** — the 23 in `PieceMeshes.CIV_FORKED_KINDS`
-  (4 soldiers, archer, catapult, boat, warship, fishing boat, and the 14
+- **Only player-owned kinds fork** — the 26 in `PieceMeshes.CIV_FORKED_KINDS`
+  (4 soldiers, archer, catapult, boat, warship, fishing boat, and the 17
   buildings). Neutral board
   furniture (`NEUTRAL_KINDS`: tree, gravestone, gold vein, fertile, fish shoal)
   never forks and always renders Kingdom art.
@@ -124,6 +124,17 @@ hoard spilling gold / counting house under a scalloped canopy with scales /
 white kura storehouse with koban. Fortress: concentric square bailey / trelleborg
 ring-fort with a dragon-prowed gatehouse / battered-wall kasbah with a crescent
 keep / stone-based tenshu with shachihoko and a nobori.
+
+The muster line in each language — Barracks: stone-footed drill hall with a
+spear rack and training pell / hird longhouse with wall shields and dragon
+prows / arcaded askar hall under a gold dome / ashigaru dojo with stacked eaves
+and a nobori. Archery range: straw target butt on a tripod before a lean-to /
+round-shield target hung in a timber frame / crescent-topped qabaq pole with a
+ring target under a striped awning / kyudo lane framed by a torii. Siege
+workshop: open shed over a half-built siege arm with a spoked wheel / boat-shed
+with a dragon-headed ram beam / domed forge beside a trebuchet arm under an
+awning / scaffolded siege yard under tiered eaves. All twelve sit below the
+defense height band — a hall with zero defense must never read as a garrison.
 
 ## Adding a fifth civilization
 

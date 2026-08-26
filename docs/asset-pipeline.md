@@ -113,7 +113,7 @@ identical to procedural meshes. `PieceMeshes` tries
 `assets/pieces/<kind_lowercase>.pmesh` first and falls back to the procedural
 token set per kind, so a missing/broken asset can never crash the game.
 
-Shipped model set (28 — every `PieceKind` has a bake, no procedural fallback
+Shipped model set (31 — every `PieceKind` has a bake, no procedural fallback
 ships): `unit_t1..t4`, `archer`, `catapult`, the naval `boat` (longboat, faction
 sail), `warship` (ram + faction shields) and `fishing_boat` (stub dory, stern
 net boom, gold catch — a visible class below the longboat), `capital`, `farm`, `tower`,
@@ -123,7 +123,12 @@ rotations**: rotated geometry once pushed the radius past the 0.45 budget),
 the research line `university` (~0.40 — a new civic height band between economy
 and defense), `bank` (economy band) and `fortress` (~0.55–0.58 — above the
 castle's 0.51, below the watchtower, and deliberately NOT a twin-turret
-silhouette), `tree`, `gravestone`, plus the terrain deposits `gold_vein`,
+silhouette), the muster line `barracks` (~0.42, drill hall + spear rack +
+training pell), `archery_range` (~0.33, the target butt IS the read) and
+`siege_workshop` (~0.35, open shed + half-built siege arm + wheel) — military
+support sits at 0.26–0.42, deliberately BELOW the defense band (0.465–0.61) so
+a zero-defense hall never reads as a garrison — `tree`, `gravestone`, plus the
+terrain deposits `gold_vein`,
 `fertile` and the sea `fish_shoal` (low edge-scatter rings — the hex center
 stays clear so units never clip them).
 `PieceMeshLoaderTest` re-validates every checked-in `.pmesh` against the converter

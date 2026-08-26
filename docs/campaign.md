@@ -86,6 +86,7 @@ printed grid up with the board.
 | `0` | land owned by seat 0 (any digit is a seat) |
 | `0C 0T 0K 0F 0M 0R 0L 0W 0P 0Y` | capital, tower, castle, farm, mine, market, lumber camp, watchtower, port, fishery |
 | `0U 0N 0S` | university, bank, fortress |
+| `0H 0A 0E` | barracks, archery range, siege workshop (`B` is the bridge head-token, so the barracks is a Hall) |
 | `:name` | declares an **anchor** on that hex |
 
 Anchors are the reason this is maintainable: anywhere in the level dict, `"@keep_a"` is
@@ -106,6 +107,15 @@ rules that already existed plus one new field:
 
 `disabledBuildings` is enforced in `Legality.checkBuyBuilding`, so the AI cannot build
 what the player cannot either.
+
+The muster gate (`militaryBuildingsRequired`, on everywhere) adds a second kind of
+lever: a mission can sell a hall in the tray (Academy 3 teaches the Barracks this
+way, Academy 6 the Archery range and Siege workshop) or **pre-place** one with a
+map glyph (`0H`/`1H`…) when the muster race is not the lesson — the survive
+missions and the naval chapters do this for every seat whose pressure the mission
+is tuned around. A mission that fields tier 2+ must do one or the other, and a
+research-off mission caps `maxTier` at 3 (the Knight's Fortress lives behind
+research, so a tier-4 card would be a lock nothing opens).
 
 `Difficulty.PASSIVE` (shown as "Dormant") is a seat that only ever ends its turn —
 a training dummy for missions whose lesson a live opponent would drown out. It is
