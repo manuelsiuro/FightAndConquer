@@ -171,7 +171,14 @@ private fun matchTitle(data: DebriefData): String {
             stringResource(mapShapeLowercaseRes(shape)),
         )
     } else {
-        stringResource(R.string.campaign_title)
+        // No name and no generation params: either a campaign mission, or a
+        // skirmish record seeded from a pre-record save (size/shape are only
+        // known at generation time) — title it by its kind, not "Campaign".
+        when (meta.kind) {
+            MatchKind.SKIRMISH_VS_AI -> stringResource(R.string.menu_mode_vs_ai)
+            MatchKind.PASS_AND_PLAY -> stringResource(R.string.menu_mode_pass_and_play)
+            MatchKind.CAMPAIGN, MatchKind.CUSTOM_MAP -> stringResource(R.string.campaign_title)
+        }
     }
 }
 
