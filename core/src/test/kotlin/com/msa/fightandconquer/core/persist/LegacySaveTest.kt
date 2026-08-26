@@ -75,6 +75,8 @@ class LegacySaveTest {
         "universityCost", "bankCost", "bankIncome",
         "fortressCost", "fortressDefense",
         "incomePercent", "unitAttackBonus", "unitDefenseBonus",
+        // RuleConstants (muster buildings)
+        "militaryBuildingsRequired", "barracksCost", "archeryRangeCost", "siegeWorkshopCost",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

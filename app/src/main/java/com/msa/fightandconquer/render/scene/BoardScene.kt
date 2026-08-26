@@ -1239,6 +1239,9 @@ class BoardScene(
         Building.UNIVERSITY -> PieceKind.UNIVERSITY
         Building.BANK -> PieceKind.BANK
         Building.FORTRESS -> PieceKind.FORTRESS
+        Building.BARRACKS -> PieceKind.BARRACKS
+        Building.ARCHERY_RANGE -> PieceKind.ARCHERY_RANGE
+        Building.SIEGE_WORKSHOP -> PieceKind.SIEGE_WORKSHOP
     }
 
     /**
@@ -1323,6 +1326,9 @@ class BoardScene(
                 Building.STRONG_TOWER -> ownerRules.strongTowerDefense
                 Building.CAPITAL -> ownerRules.capitalDefense
                 Building.FORTRESS -> ownerRules.fortressDefense
+                // The else is silent by design, and it deliberately covers the
+                // zero-defense muster line (barracks/range/workshop): a building
+                // added here without a Rules.buildingDefense arm shows no ring.
                 else -> continue
             }
             // A source inside the fog contributes nothing — not even to a

@@ -141,6 +141,7 @@ internal class StateBuilder(private val base: GameState) {
             Building.MINE, Building.MARKET, Building.LUMBER_CAMP, Building.WATCHTOWER,
             Building.PORT, Building.FISHERY,
             Building.UNIVERSITY, Building.BANK, Building.FORTRESS,
+            Building.BARRACKS, Building.ARCHERY_RANGE, Building.SIEGE_WORKSHOP,
             -> events.add(GameEvent.BuildingDestroyed(hex, tile.building))
             // A bridge outlives its conquerors — capturing the span keeps it.
             Building.BRIDGE -> {}

@@ -83,10 +83,11 @@ class GameEngineTest {
         val engine = GameEngine(s)
         // Empty own hex 2, default (research-on) rules: all four unit tiers
         // affordable at 100, archer + catapult, tower + market + lumber camp +
-        // university; the research-gated castle/bank/fortress show as LOCKED
-        // cards (placement-probed); farm rejected (hex 2 not adjacent to the
-        // capital at 0), mine rejected (no gold vein), watchtower rejected
-        // (fog off), port absent even as a locked card (no coast anywhere).
+        // university + the (inert while dormant) muster line; the research-gated
+        // castle/bank/fortress show as LOCKED cards (placement-probed); farm
+        // rejected (hex 2 not adjacent to the capital at 0), mine rejected (no
+        // gold vein), watchtower rejected (fog off), port absent even as a
+        // locked card (no coast anywhere).
         val options = engine.buyableAt(hex(2))
         assertEquals(
             setOf(
@@ -113,6 +114,9 @@ class GameEngineTest {
                     55,
                     lockedByTech = com.msa.fightandconquer.core.model.Tech.ENGINEERING,
                 ),
+                PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.BARRACKS, 20),
+                PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.ARCHERY_RANGE, 16),
+                PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.SIEGE_WORKSHOP, 25),
             ),
             options.toSet(),
         )

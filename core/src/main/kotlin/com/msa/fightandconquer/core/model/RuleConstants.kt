@@ -231,6 +231,20 @@ data class RuleConstants(
     /** Flat garrison defense added to land units (research: Armory). 0 is the identity. */
     val unitDefenseBonus: Int = 0,
 
+    // --- Muster buildings (expansion) ---
+    /**
+     * Master gate for the military-prerequisite system. On: creating a soldier of
+     * tier 2+ (buy OR merge) needs a working BARRACKS anywhere in the realm (tier 4
+     * additionally a FORTRESS), an Archer needs an ARCHERY_RANGE, a Catapult a
+     * SIEGE_WORKSHOP — see Rules.requiredBuildingsFor. Off: the pre-muster game;
+     * the three muster buildings still sell as inert structures. Dormant (false)
+     * until the sanctioned reshuffle window flips it.
+     */
+    val militaryBuildingsRequired: Boolean = false,
+    val barracksCost: Int = 20,
+    val archeryRangeCost: Int = 16,
+    val siegeWorkshopCost: Int = 25,
+
     // --- Campaign ---
     /**
      * Buildings this game does not offer at all. Empty in skirmish; a campaign level
@@ -308,6 +322,10 @@ data class RuleConstants(
         require(fortressDefense >= 0) { "fortressDefense must stay >= 0: $fortressDefense" }
         require(unitAttackBonus >= 0 && unitDefenseBonus >= 0) {
             "unit combat bonuses must stay >= 0: attack $unitAttackBonus, defense $unitDefenseBonus"
+        }
+        require(barracksCost >= 0 && archeryRangeCost >= 0 && siegeWorkshopCost >= 0) {
+            "muster building costs must stay >= 0: " +
+                "barracks $barracksCost, range $archeryRangeCost, workshop $siegeWorkshopCost"
         }
     }
 }

@@ -311,6 +311,7 @@ object Rules {
             Building.FARM, Building.MINE, Building.MARKET,
             Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT,
             Building.FISHERY, Building.BRIDGE, Building.UNIVERSITY, Building.BANK,
+            Building.BARRACKS, Building.ARCHERY_RANGE, Building.SIEGE_WORKSHOP,
             -> 0
         }
     }
@@ -500,6 +501,9 @@ object Rules {
         com.msa.fightandconquer.core.model.BuildingType.UNIVERSITY -> rules.universityCost
         com.msa.fightandconquer.core.model.BuildingType.BANK -> rules.bankCost
         com.msa.fightandconquer.core.model.BuildingType.FORTRESS -> rules.fortressCost
+        com.msa.fightandconquer.core.model.BuildingType.BARRACKS -> rules.barracksCost
+        com.msa.fightandconquer.core.model.BuildingType.ARCHERY_RANGE -> rules.archeryRangeCost
+        com.msa.fightandconquer.core.model.BuildingType.SIEGE_WORKSHOP -> rules.siegeWorkshopCost
     }
 
     // --- Research (see docs/game-rules.md "Research") ---
@@ -714,7 +718,8 @@ object Rules {
                 Building.WATCHTOWER -> addRange(hex, rules.watchtowerVisionRadius)
                 Building.FARM, Building.MINE, Building.MARKET, Building.LUMBER_CAMP,
                 Building.PORT, Building.FISHERY, Building.BRIDGE,
-                Building.UNIVERSITY, Building.BANK, null,
+                Building.UNIVERSITY, Building.BANK,
+                Building.BARRACKS, Building.ARCHERY_RANGE, Building.SIEGE_WORKSHOP, null,
                 -> {}
             }
         }

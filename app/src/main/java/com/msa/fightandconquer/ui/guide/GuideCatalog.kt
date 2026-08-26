@@ -321,9 +321,34 @@ object GuideCatalog {
         stats = listOf(GuideStat(R.string.info_stat_defense, R.string.info_value_defense_area, defaults.fortressDefense)),
     )
 
+    private val barracks = GuideEntry(
+        id = "building_barracks",
+        iconRes = PieceIcons.building(Building.BARRACKS),
+        nameRes = R.string.building_barracks,
+        descRes = R.string.info_barracks,
+        howToRes = R.string.guide_how_barracks,
+    )
+    private val archeryRange = GuideEntry(
+        id = "building_archery_range",
+        iconRes = PieceIcons.building(Building.ARCHERY_RANGE),
+        nameRes = R.string.building_archery_range,
+        descRes = R.string.info_archery_range,
+        howToRes = R.string.guide_how_archery_range,
+    )
+    private val siegeWorkshop = GuideEntry(
+        id = "building_siege_workshop",
+        iconRes = PieceIcons.building(Building.SIEGE_WORKSHOP),
+        nameRes = R.string.building_siege_workshop,
+        descRes = R.string.info_siege_workshop,
+        howToRes = R.string.guide_how_siege_workshop,
+    )
+
     private val buildings = GuideSection(
         R.string.guide_section_buildings,
-        listOf(capital, farm, tower, castle, mine, market, lumberCamp, watchtower, port, fishery, bridge, university, bank, fortress),
+        listOf(
+            capital, farm, tower, castle, mine, market, lumberCamp, watchtower, port, fishery, bridge,
+            university, bank, fortress, barracks, archeryRange, siegeWorkshop,
+        ),
     )
 
     private val resources = GuideSection(
@@ -428,6 +453,9 @@ object GuideCatalog {
         BuildingType.UNIVERSITY -> university
         BuildingType.BANK -> bank
         BuildingType.FORTRESS -> fortress
+        BuildingType.BARRACKS -> barracks
+        BuildingType.ARCHERY_RANGE -> archeryRange
+        BuildingType.SIEGE_WORKSHOP -> siegeWorkshop
     }
 
     /** The guide entry for a purchasable unit (all soldier tiers share one entry). */

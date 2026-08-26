@@ -705,4 +705,7 @@ private val EDITOR_BUILDINGS = listOf(
     Building.UNIVERSITY,
     Building.BANK,
     Building.FORTRESS,
+    Building.BARRACKS,
+    Building.ARCHERY_RANGE,
+    Building.SIEGE_WORKSHOP,
 )

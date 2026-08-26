@@ -84,6 +84,9 @@ object PieceIcons {
             Building.UNIVERSITY -> R.drawable.piece_vikings_university
             Building.BANK -> R.drawable.piece_vikings_bank
             Building.FORTRESS -> R.drawable.piece_vikings_fortress
+            Building.BARRACKS -> R.drawable.piece_vikings_barracks
+            Building.ARCHERY_RANGE -> R.drawable.piece_vikings_archery_range
+            Building.SIEGE_WORKSHOP -> R.drawable.piece_vikings_siege_workshop
         }
         Civilization.SULTANATE -> when (building) {
             Building.CAPITAL -> R.drawable.piece_sultanate_capital
@@ -100,6 +103,9 @@ object PieceIcons {
             Building.UNIVERSITY -> R.drawable.piece_sultanate_university
             Building.BANK -> R.drawable.piece_sultanate_bank
             Building.FORTRESS -> R.drawable.piece_sultanate_fortress
+            Building.BARRACKS -> R.drawable.piece_sultanate_barracks
+            Building.ARCHERY_RANGE -> R.drawable.piece_sultanate_archery_range
+            Building.SIEGE_WORKSHOP -> R.drawable.piece_sultanate_siege_workshop
         }
         Civilization.SHOGUNATE -> when (building) {
             Building.CAPITAL -> R.drawable.piece_shogunate_capital
@@ -116,6 +122,9 @@ object PieceIcons {
             Building.UNIVERSITY -> R.drawable.piece_shogunate_university
             Building.BANK -> R.drawable.piece_shogunate_bank
             Building.FORTRESS -> R.drawable.piece_shogunate_fortress
+            Building.BARRACKS -> R.drawable.piece_shogunate_barracks
+            Building.ARCHERY_RANGE -> R.drawable.piece_shogunate_archery_range
+            Building.SIEGE_WORKSHOP -> R.drawable.piece_shogunate_siege_workshop
         }
     }
 
@@ -167,6 +176,9 @@ object PieceIcons {
         Building.UNIVERSITY -> R.drawable.piece_university
         Building.BANK -> R.drawable.piece_bank
         Building.FORTRESS -> R.drawable.piece_fortress
+        Building.BARRACKS -> R.drawable.piece_barracks
+        Building.ARCHERY_RANGE -> R.drawable.piece_archery_range
+        Building.SIEGE_WORKSHOP -> R.drawable.piece_siege_workshop
     }
 
     // Neutral markers: never fork per civ.

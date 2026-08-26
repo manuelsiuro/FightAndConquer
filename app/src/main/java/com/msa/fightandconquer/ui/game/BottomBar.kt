@@ -420,6 +420,9 @@ private fun PurchaseCard(
                 BuildingType.UNIVERSITY -> stringResource(R.string.shop_research_per_turn)
                 BuildingType.BANK -> stringResource(R.string.shop_income_per_turn, shop.bankIncome)
                 BuildingType.FORTRESS -> stringResource(R.string.shop_defense, shop.fortressDefense)
+                BuildingType.BARRACKS -> stringResource(R.string.shop_musters_soldiers)
+                BuildingType.ARCHERY_RANGE -> stringResource(R.string.shop_musters_archers)
+                BuildingType.SIEGE_WORKSHOP -> stringResource(R.string.shop_musters_catapults)
             }
         }
     }

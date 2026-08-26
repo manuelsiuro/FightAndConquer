@@ -84,6 +84,9 @@ fun buildingNameRes(building: com.msa.fightandconquer.core.model.Building): Int 
     com.msa.fightandconquer.core.model.Building.UNIVERSITY -> R.string.building_university
     com.msa.fightandconquer.core.model.Building.BANK -> R.string.building_bank
     com.msa.fightandconquer.core.model.Building.FORTRESS -> R.string.building_fortress
+    com.msa.fightandconquer.core.model.Building.BARRACKS -> R.string.building_barracks
+    com.msa.fightandconquer.core.model.Building.ARCHERY_RANGE -> R.string.building_archery_range
+    com.msa.fightandconquer.core.model.Building.SIEGE_WORKSHOP -> R.string.building_siege_workshop
 }
 
 /** Technology -> display name resource. */

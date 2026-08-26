@@ -25,6 +25,12 @@ object BriefingConcepts {
         BuildingType.BRIDGE,
         BuildingType.FISHERY,
         BuildingType.PORT,
+        // The muster line sits below the naval group for the same reason the
+        // research line does: its teaching missions surface it without evicting
+        // the naval chips the sea missions were built around.
+        BuildingType.SIEGE_WORKSHOP,
+        BuildingType.ARCHERY_RANGE,
+        BuildingType.BARRACKS,
         // Research line sits below the naval group: research missions surface it
         // without evicting the naval chips the sea missions were built around.
         BuildingType.UNIVERSITY,
@@ -78,6 +84,12 @@ object BriefingConcepts {
             if (type in rules.disabledBuildings) continue
             if (!rules.navalEnabled && type in NAVAL_BUILDINGS) continue
             if (!rules.researchEnabled && type in RESEARCH_BUILDINGS) continue
+            if (!rules.militaryBuildingsRequired && type in MUSTER_BUILDINGS) continue
+            if (!rules.specialUnitsEnabled &&
+                (type == BuildingType.ARCHERY_RANGE || type == BuildingType.SIEGE_WORKSHOP)
+            ) {
+                continue
+            }
             if (!rules.fogOfWar && type == BuildingType.WATCHTOWER) continue
             val entry = GuideCatalog.forStructure(type)
             concepts += BriefingConcept(entry.nameRes, entry.id)
@@ -86,4 +98,7 @@ object BriefingConcepts {
     }
 
     private val NAVAL_BUILDINGS = setOf(BuildingType.PORT, BuildingType.FISHERY, BuildingType.BRIDGE)
+
+    private val MUSTER_BUILDINGS =
+        setOf(BuildingType.BARRACKS, BuildingType.ARCHERY_RANGE, BuildingType.SIEGE_WORKSHOP)
 }

@@ -22,6 +22,17 @@ enum class Building {
     BANK,
     /** Heavy fortification (defense above the strong tower) unlocked by Engineering. */
     FORTRESS,
+
+    // --- Muster line (militaryBuildingsRequired games only) ---
+    // Pure recruiting prerequisites: no income, no defense, no vision; destroyed
+    // on capture like any other structure. The gate is realm-wide (one working,
+    // non-starving instance anywhere) — see Rules.requiredBuildingsFor.
+    /** Musters soldier tiers 2-3 (tier 4 additionally needs a FORTRESS). */
+    BARRACKS,
+    /** Required to field Archers. */
+    ARCHERY_RANGE,
+    /** Required to field Catapults. */
+    SIEGE_WORKSHOP,
 }
 
 /** Buildings a player can purchase (the Capital is never bought). */
@@ -41,4 +52,7 @@ enum class BuildingType(val building: Building) {
     UNIVERSITY(Building.UNIVERSITY),
     BANK(Building.BANK),
     FORTRESS(Building.FORTRESS),
+    BARRACKS(Building.BARRACKS),
+    ARCHERY_RANGE(Building.ARCHERY_RANGE),
+    SIEGE_WORKSHOP(Building.SIEGE_WORKSHOP),
 }

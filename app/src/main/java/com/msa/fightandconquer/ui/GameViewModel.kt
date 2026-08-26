@@ -2053,6 +2053,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     UiText.of(R.string.info_fortress),
                     stat(R.string.info_stat_defense, UiText.of(R.string.info_value_plain, rules.fortressDefense)),
                 )
+                Building.BARRACKS -> Triple(R.string.building_barracks, UiText.of(R.string.info_barracks), null)
+                Building.ARCHERY_RANGE ->
+                    Triple(R.string.building_archery_range, UiText.of(R.string.info_archery_range), null)
+                Building.SIEGE_WORKSHOP ->
+                    Triple(R.string.building_siege_workshop, UiText.of(R.string.info_siege_workshop), null)
             }
             val card = InfoCard(
                 UiText.of(titleRes),

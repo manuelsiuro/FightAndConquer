@@ -145,6 +145,9 @@
     <string name="shop_walkway">Troop walkway</string>
     <string name="shop_research_per_turn">+1 research</string>
     <string name="shop_requires_tech">%1$s</string>
+    <string name="shop_musters_soldiers">Trains soldiers</string>
+    <string name="shop_musters_archers">Trains archers</string>
+    <string name="shop_musters_catapults">Builds catapults</string>
     <string name="cd_purchase_card">%1$s, costs %2$d coins</string>
     <string name="cd_purchase_unaffordable">%1$s, costs %2$d coins — not affordable</string>
     <string name="cd_purchase_unit">%1$s, costs %2$d coins — attack %3$d, defense %4$d</string>
@@ -175,6 +178,9 @@
     <string name="building_university">University</string>
     <string name="building_bank">Bank</string>
     <string name="building_fortress">Fortress</string>
+    <string name="building_barracks">Barracks</string>
+    <string name="building_archery_range">Archery range</string>
+    <string name="building_siege_workshop">Siege workshop</string>
 
     <!-- Technologies -->
     <string name="tech_smithing">Smithing</string>
@@ -234,6 +240,9 @@
     <string name="info_university">Scholars at work — each University adds progress to your research every turn</string>
     <string name="info_bank">Vaulted coin — steady income with no ground requirement</string>
     <string name="info_fortress">Heavy fortification — outclasses the castle; siege engines ignore its walls</string>
+    <string name="info_barracks">Drill hall — your realm can muster Spearmen and Barons while one stands fed</string>
+    <string name="info_archery_range">Practice butts — your realm can field Archers while one stands fed</string>
+    <string name="info_siege_workshop">Engineer\'s yard — your realm can build Catapults while one stands fed</string>
     <string name="info_fish_shoal">Teeming waters — a coastal Fishery within two hexes earns from it</string>
     <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
     <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
@@ -508,7 +517,10 @@
     <string name="guide_how_university">Build one on any clear hex you own. Each standing University adds one point of progress to your active research at the start of your turn — a second one makes every discovery come faster. Guard it: a captured or cut-off University stops working.</string>
     <string name="guide_how_bank">Unlocked by the Banking research. Place it anywhere you own for a steady flow of coin — no vein, coast or neighbors required.</string>
     <string name="guide_req_bank">Requires the Banking research</string>
-    <string name="guide_how_fortress">Unlocked by the Engineering research. The strongest wall in the game — but catapults and warships ignore building defense entirely, so garrison it.</string>
+    <string name="guide_how_fortress">Unlocked by the Engineering research. The strongest wall in the game — but catapults and warships ignore building defense entirely, so garrison it. Also the muster hall for Knights: without a standing Fortress you cannot create tier-4 soldiers.</string>
+    <string name="guide_how_barracks">Build one anywhere in your realm to muster Spearmen and Barons — buying and merging both need it. A cut-off or captured Barracks stops training until another stands fed. Knights additionally need a Fortress.</string>
+    <string name="guide_how_archery_range">Build one anywhere in your realm to field Archers. It only counts while fed — a cut-off range trains nobody.</string>
+    <string name="guide_how_siege_workshop">Build one anywhere in your realm to construct Catapults. It only counts while fed — a cut-off workshop builds nothing.</string>
     <string name="guide_req_fortress">Requires the Engineering research</string>
     <string name="guide_how_fish_shoal">The sea\'s gold vein. Capture the nearest coast and build a Fishery next to the shoal to harvest it.</string>
     <string name="guide_desc_capital">The heart of your empire.</string>
