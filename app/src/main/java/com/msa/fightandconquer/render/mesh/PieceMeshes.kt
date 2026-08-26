@@ -17,6 +17,7 @@ enum class PieceKind {
     CAPITAL, FARM, TOWER, STRONG_TOWER,
     MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT, FISHERY, BRIDGE,
     UNIVERSITY, BANK, FORTRESS,
+    BARRACKS, ARCHERY_RANGE, SIEGE_WORKSHOP,
     TREE, GRAVESTONE,
     GOLD_VEIN, FERTILE, FISH_SHOAL,
 }
@@ -416,6 +417,49 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
             Part(up(Primitives.merlonRing(4, 0.075f, 0.035f, 0.06f, 0.028f, baseY = 0.46f)), ColorRole.STONE),
             Part(up(Primitives.boxAt(0f, 0f, 0.095f, 0.05f, 0.095f, baseY = 0.40f)), ColorRole.FACTION),
             Part(up(Primitives.boxAt(0f, -0.185f, 0.04f, 0.10f, 0.012f)), ColorRole.PIP),
+        )
+
+        // Muster line: silhouette-faithful tokens until the .pmesh bakes land.
+        // Barracks: stone-footed drill hall + faction gable roof + ink door.
+        PieceKind.BARRACKS -> listOf(
+            Part(up(Primitives.boxAt(0f, 0f, 0.15f, 0.05f, 0.10f)), ColorRole.STONE),
+            Part(up(Primitives.boxAt(0f, 0f, 0.14f, 0.15f, 0.09f, baseY = 0.05f)), ColorRole.TRUNK),
+            Part(up(Primitives.wedgeAt(0f, 0f, 0.16f, 0.11f, 0.10f, baseY = 0.20f)), ColorRole.FACTION),
+            Part(up(Primitives.boxAt(0f, -0.095f, 0.03f, 0.09f, 0.01f, baseY = 0.05f)), ColorRole.PIP),
+        )
+        // Archery range: straw target butt on a stand + faction lean-to shelter.
+        PieceKind.ARCHERY_RANGE -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.012f, 0.12f, 6, cx = -0.05f, cz = -0.10f)
+                        cylinderInto(0.012f, 0.12f, 6, cx = 0.05f, cz = -0.10f)
+                        cylinderInto(0.016f, 0.12f, 6, cx = -0.06f, cz = 0.13f)
+                        cylinderInto(0.016f, 0.12f, 6, cx = 0.06f, cz = 0.13f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.cylinder(0.085f, 0.05f, 12, baseY = 0.12f, cx = 0f, cz = -0.10f)), ColorRole.GOLD),
+            Part(up(Primitives.cylinder(0.03f, 0.06f, 8, baseY = 0.12f, cx = 0f, cz = -0.10f)), ColorRole.PIP),
+            Part(up(Primitives.wedgeAt(0f, 0.13f, 0.09f, 0.05f, 0.07f, baseY = 0.12f)), ColorRole.FACTION),
+        )
+        // Siege workshop: open work shed + faction roof + log stock outside.
+        PieceKind.SIEGE_WORKSHOP -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0.11f, 0.15f, 0.18f, 0.015f)
+                        boxInto(-0.14f, 0.02f, 0.015f, 0.18f, 0.10f)
+                        boxInto(0.14f, 0.02f, 0.015f, 0.18f, 0.10f)
+                        cylinderInto(0.028f, 0.10f, 7, cx = -0.19f, cz = -0.12f)
+                        cylinderInto(0.028f, 0.10f, 7, cx = 0.19f, cz = -0.12f)
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(up(Primitives.wedgeAt(0f, 0.02f, 0.17f, 0.09f, 0.13f, baseY = 0.18f)), ColorRole.FACTION),
+            Part(up(Primitives.boxAt(0.06f, -0.14f, 0.025f, 0.05f, 0.02f)), ColorRole.GOLD),
         )
 
         // Naval (expansion). Boats float on sea tops; front faces -Z like all pieces.

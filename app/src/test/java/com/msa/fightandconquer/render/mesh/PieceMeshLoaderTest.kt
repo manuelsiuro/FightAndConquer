@@ -138,6 +138,7 @@ class PieceMeshLoaderTest {
             "unit_t1", "unit_t2", "unit_t3", "unit_t4",
             "capital", "farm", "tower", "strong_tower", "tree", "gravestone",
             "fishing_boat",
+            "barracks", "archery_range", "siege_workshop",
         )) {
             org.junit.Assert.assertTrue("missing baked asset for $kind", kind in shipped)
         }
