@@ -52,6 +52,7 @@ import com.msa.fightandconquer.core.persist.SaveCodec
 import com.msa.fightandconquer.core.persist.SaveGame
 import com.msa.fightandconquer.core.record.MatchKind
 import com.msa.fightandconquer.core.record.MatchMeta
+import com.msa.fightandconquer.core.record.MatchRecordSave
 import com.msa.fightandconquer.core.record.MatchRecorderState
 import com.msa.fightandconquer.ui.campaign.CampaignProgressStore
 import com.msa.fightandconquer.ui.campaign.CampaignRepository
@@ -553,10 +554,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * The debrief's data source, folded live because the engine keeps no full-game log.
-     * In-memory only by design (docs/debrief.md): null for a match resumed from an
-     * autosave, which therefore finishes without a debrief.
+     * Persisted as the turn-start snapshot in [SaveGame.record] and restored (or
+     * seeded, for a pre-field save) on Continue — every finished match offers a
+     * debrief (docs/debrief.md).
      */
     private var recorder: MatchRecorderState? = null
+
+    /** The chronicle as of the current turn's start — what an autosave must carry. */
+    private var turnStartRecorder: MatchRecorderState? = null
 
     /** What the debrief screen shows; survives match teardown, set by [openDebrief]. */
     var debriefData: DebriefData? = null
@@ -620,6 +625,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         shape = setup.shape,
                     ),
                 )
+                turnStartRecorder = recorder
                 startEngine(GameEngine(state), showOpeningBanner = setup.mode == GameMode.PASS_AND_PLAY)
             }
         }
@@ -656,12 +662,45 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     tracker = CampaignTracker()
                     uiSignals = mutableSetOf()
                 }
-                // The chronicle is in-memory only: a resumed match plays unrecorded
-                // rather than fabricating half a story (docs/debrief.md).
-                recorder = null
+                // The chronicle rides the save as its turn-start snapshot; restore
+                // re-folds the replayed turn (the campaign-tracker pattern). A save
+                // written before the field existed is seeded a partial record at the
+                // resume point, so every finished match offers a debrief.
+                val turnStart = save.record ?: seedRecord(save, ref.takeIf { level != null }, level)
+                turnStartRecorder = turnStart
+                recorder = MatchRecordSave.restore(save, turnStart)
                 startEngine(GameEngine.fromSave(save), showOpeningBanner = false)
             }
         }
+    }
+
+    /**
+     * A partial chronicle for a save that predates [SaveGame.record]: the series
+     * begin at the resume round, totals and moments start empty (docs/debrief.md).
+     * The mode is inferred the way [newGame] records it; a campaign ref whose level
+     * failed to resolve is passed as null — the resume degrades to a skirmish, and
+     * the seeded kind must match what actually plays. `size`/`shape` are only known
+     * at generation time and stay null (the debrief title handles that).
+     */
+    private fun seedRecord(save: SaveGame, ref: CampaignSaveRef?, level: LevelDef?): MatchRecorderState {
+        val state = save.turnStartState
+        val kind = when {
+            ref?.campaignId == CUSTOM_CAMPAIGN -> MatchKind.CUSTOM_MAP
+            ref != null -> MatchKind.CAMPAIGN
+            state.players.count { it.kind is PlayerKind.Human } > 1 -> MatchKind.PASS_AND_PLAY
+            else -> MatchKind.SKIRMISH_VS_AI
+        }
+        return MatchRecorderState.start(
+            state,
+            MatchMeta(
+                kind = kind,
+                seed = state.config.seed,
+                landHexes = state.tiles.values.count { it.terrain == Terrain.LAND },
+                fogOfWar = state.config.rules.fogOfWar,
+                levelId = ref?.levelId,
+                customMapName = if (ref?.campaignId == CUSTOM_CAMPAIGN) level?.map?.name else null,
+            ),
+        )
     }
 
     fun openSetup() {
@@ -717,6 +756,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 customMapName = def.level.map.name,
             ),
         )
+        turnStartRecorder = recorder
         startEngine(GameEngine(state), showOpeningBanner = false)
     }
 
@@ -744,6 +784,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 levelId = levelId,
             ),
         )
+        turnStartRecorder = recorder
         startEngine(GameEngine(state), showOpeningBanner = false)
     }
 
@@ -857,6 +898,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         lastHumanSeat = null
         _visibility.value = null
         recorder = null
+        turnStartRecorder = null
         clearCampaignRun()
     }
 
@@ -1239,6 +1281,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         recorder?.let {
             recorder = MatchRecorderState.step(it, before, engine.state.value, engine.lastEvents)
         }
+        // The engine rebases its save snapshot on a turn boundary; every scoreboard
+        // the save carries has to be rebased with it (see recordAtTurnStart /
+        // trackerAtTurnStart). The chronicle's rebase sits ABOVE the campaign
+        // early-return — skirmishes have no level but do have a chronicle.
+        val turnBoundary = action is GameAction.EndTurn || action is GameAction.Surrender
+        if (turnBoundary) turnStartRecorder = recorder
         val level = activeLevel ?: return
         tracker = CampaignTracker.step(
             prev = tracker,
@@ -1248,9 +1296,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             seat = level.playerSeat,
             objectives = level.objectives,
         )
-        // The engine rebases its save snapshot on a turn boundary; the scoreboard the
-        // save carries has to be rebased with it (see trackerAtTurnStart).
-        if (action is GameAction.EndTurn || action is GameAction.Surrender) {
+        if (turnBoundary) {
             turnStartTracker = tracker
         }
     }
@@ -2212,10 +2258,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 val turnEnds = action == GameAction.EndTurn || ++guard >= AiPlayer.MAX_ACTIONS_PER_TURN
                 withContext(Dispatchers.Main.immediate) {
                     val before = engine.state.value
-                    engine.submit(if (guard >= AiPlayer.MAX_ACTIONS_PER_TURN) GameAction.EndTurn else action)
+                    // Fold what was actually SUBMITTED: a guard-forced EndTurn is a
+                    // turn boundary too, and the turn-start scoreboards must rebase
+                    // on it or the following autosave goes one turn stale.
+                    val submitted = if (guard >= AiPlayer.MAX_ACTIONS_PER_TURN) GameAction.EndTurn else action
+                    engine.submit(submitted)
                     // The scoreboards count the AI's turn too — a boat it sinks is a unit
                     // the player lost.
-                    foldScoreboards(before, engine, action)
+                    foldScoreboards(before, engine, submitted)
                     refreshHud()
                 }
                 if (turnEnds) {
@@ -2275,7 +2325,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      * replayed actions on load, exactly as the state itself is.
      */
     private fun saveWithCampaign(engine: GameEngine): SaveGame {
-        val save = engine.toSave()
+        // Every save mode carries the chronicle; only campaign runs add their ref.
+        val save = engine.toSave().copy(record = recordAtTurnStart())
         val level = activeLevel ?: return save
         val campaignId = activeCampaignId ?: return save
         return save.copy(
@@ -2296,6 +2347,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      * this turn's kills and losses a second time on top of an already-current tally.
      */
     private fun trackerAtTurnStart(): CampaignTracker = turnStartTracker ?: tracker
+
+    /** The chronicle as of the snapshot's turn start — the [trackerAtTurnStart] hazard applies verbatim. */
+    private fun recordAtTurnStart(): MatchRecorderState? = turnStartRecorder ?: recorder
 
     // ----- HUD -----
 
