@@ -77,6 +77,9 @@ class LegacySaveTest {
         "incomePercent", "unitAttackBonus", "unitDefenseBonus",
         // RuleConstants (muster buildings)
         "militaryBuildingsRequired", "barracksCost", "archeryRangeCost", "siegeWorkshopCost",
+        // SaveGame (debrief persistence) — nested record keys need no entries: they
+        // only occur inside an object a legacy save cannot contain.
+        "record",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

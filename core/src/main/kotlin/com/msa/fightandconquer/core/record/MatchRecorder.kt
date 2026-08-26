@@ -11,6 +11,8 @@ import com.msa.fightandconquer.core.model.GamePhase
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.PlayerId
 import com.msa.fightandconquer.core.model.PlayerKind
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /** How the match was set up — the debrief's byline. */
 enum class MatchKind { SKIRMISH_VS_AI, PASS_AND_PLAY, CAMPAIGN, CUSTOM_MAP }
@@ -19,6 +21,7 @@ enum class MatchKind { SKIRMISH_VS_AI, PASS_AND_PLAY, CAMPAIGN, CUSTOM_MAP }
  * Match facts a [GameState] cannot tell you after the fact: the setup that produced it.
  * Captured at match start because the app does not retain its setup object afterwards.
  */
+@Serializable
 data class MatchMeta(
     val kind: MatchKind,
     val seed: Long,
@@ -33,6 +36,7 @@ data class MatchMeta(
 )
 
 /** One seat's identity; index in [MatchRecorderState.seats] = [PlayerId.value]. */
+@Serializable
 data class SeatDescriptor(
     val isHuman: Boolean,
     /** AI seats only. */
@@ -44,6 +48,7 @@ data class SeatDescriptor(
  * One seat's per-round samples as parallel arrays keyed by [rounds]. A seat that is
  * eliminated simply stops getting samples, so its series ends where it died.
  */
+@Serializable
 data class SeatSeries(
     val rounds: List<Int> = emptyList(),
     val hexes: List<Int> = emptyList(),
@@ -54,15 +59,36 @@ data class SeatSeries(
 )
 
 /** A turning point worth retelling. Seat fields are [PlayerId.value] indices. */
+@Serializable
 sealed interface KeyMoment {
     val round: Int
 
+    @Serializable
+    @SerialName("capitalLooted")
     data class CapitalLooted(override val round: Int, val by: Int, val victim: Int, val loot: Int) : KeyMoment
+
+    @Serializable
+    @SerialName("pactBetrayed")
     data class PactBetrayed(override val round: Int, val breaker: Int, val victim: Int, val penalty: Int) : KeyMoment
+
+    @Serializable
+    @SerialName("wentBankrupt")
     data class WentBankrupt(override val round: Int, val seat: Int) : KeyMoment
+
+    @Serializable
+    @SerialName("shipSunk")
     data class ShipSunk(override val round: Int, val owner: Int, val by: Int) : KeyMoment
+
+    @Serializable
+    @SerialName("eliminated")
     data class Eliminated(override val round: Int, val seat: Int) : KeyMoment
+
+    @Serializable
+    @SerialName("crowned")
     data class Crowned(override val round: Int, val winner: Int) : KeyMoment
+
+    @Serializable
+    @SerialName("breakthrough")
     data class Breakthrough(
         override val round: Int,
         val seat: Int,
@@ -71,6 +97,7 @@ sealed interface KeyMoment {
 }
 
 /** Running per-seat tallies of facts no later state reveals. */
+@Serializable
 data class SeatTotals(
     val unitsKilled: Int = 0,
     val unitsLost: Int = 0,
@@ -85,10 +112,13 @@ data class SeatTotals(
  *
  * Advanced by a **pure fold** — [step] over one reducer transition — exactly like
  * [com.msa.fightandconquer.core.campaign.CampaignTracker]: nothing here influences the
- * reducer; it is scoreboard, not rules. In-memory only by design — it is never
- * serialized, and a match resumed from an autosave plays unrecorded (see
- * docs/debrief.md for the trade-off).
+ * reducer; it is scoreboard, not rules. Persistence follows the tracker's pattern
+ * too: the autosave carries the TURN-START snapshot ([SaveGame.record][
+ * com.msa.fightandconquer.core.persist.SaveGame]) and [MatchRecordSave.restore]
+ * re-folds the replayed turn, so a resumed match keeps its chronicle
+ * (docs/debrief.md).
  */
+@Serializable
 data class MatchRecorderState(
     val meta: MatchMeta,
     val seats: List<SeatDescriptor>,

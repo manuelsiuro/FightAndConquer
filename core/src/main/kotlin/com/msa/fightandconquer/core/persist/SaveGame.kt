@@ -22,6 +22,13 @@ data class SaveGame(
      * save written before campaigns existed — decode unchanged.
      */
     val campaign: com.msa.fightandconquer.core.campaign.CampaignSaveRef? = null,
+    /**
+     * The match chronicle as it stood at the turn start this save snapshots —
+     * restored by [com.msa.fightandconquer.core.record.MatchRecordSave.restore],
+     * which re-folds the replayed turn (the [campaign] tracker pattern). Defaulted,
+     * so every older save decodes unchanged (guarded by LegacySaveTest).
+     */
+    val record: com.msa.fightandconquer.core.record.MatchRecorderState? = null,
 )
 
 object SaveCodec {

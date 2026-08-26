@@ -128,6 +128,52 @@ class MatchRecorderTest {
     }
 
     @Test
+    fun `a record full of moments survives the save codec byte-for-byte`() {
+        // The conquest scenario: loot + elimination + crowning exercise the
+        // polymorphic KeyMoment encoding.
+        val state = TestStates.custom(
+            owners = (0..5).associate { hex(it) to 0 } + mapOf(hex(6) to 1),
+            capital0 = hex(0),
+            capital1 = hex(6),
+        ).withUnit(owner = 0, tier = 3, at = hex(5))
+        val engine = GameEngine(state)
+        var recorder = MatchRecorderState.start(state, meta(state))
+        recorder = fold(recorder, engine, GameAction.MoveUnit(state.unitIdAt(hex(5)), hex(6)))
+
+        val save = com.msa.fightandconquer.core.persist.SaveGame(turnStartState = state, record = recorder)
+        val decoded = com.msa.fightandconquer.core.persist.SaveCodec.decode(
+            com.msa.fightandconquer.core.persist.SaveCodec.encode(save),
+        )
+        assertEquals(save, decoded)
+        assertEquals(recorder, decoded.record)
+    }
+
+    @Test
+    fun `a resumed save rebuilds the identical chronicle`() {
+        // Mid-turn save: the persisted TURN-START record plus the replayed
+        // actions must land on exactly the live fold (the tracker pattern).
+        val state = TestStates.strip(9, 0..2, 6..8)
+        val engine = GameEngine(state)
+        val turnStart = MatchRecorderState.start(state, meta(state))
+        var live = turnStart
+        live = fold(live, engine, GameAction.BuyUnit(1, hex(1)))
+        live = fold(live, engine, GameAction.MoveUnit(engine.state.value.unitAt(hex(1))!!.id, hex(2)))
+
+        val save = engine.toSave().copy(record = turnStart)
+        val roundTripped = com.msa.fightandconquer.core.persist.SaveCodec.decode(
+            com.msa.fightandconquer.core.persist.SaveCodec.encode(save),
+        )
+        assertEquals(live, MatchRecordSave.restore(roundTripped))
+    }
+
+    @Test
+    fun `a record-less legacy save with no seed stays unrecorded`() {
+        val state = TestStates.strip(9, 0..2, 6..8)
+        val save = com.msa.fightandconquer.core.persist.SaveGame(turnStartState = state)
+        assertEquals(null, MatchRecordSave.restore(save))
+    }
+
+    @Test
     fun `the fold is deterministic and a finished record is inert`() {
         val state = TestStates.strip(9, 0..2, 6..8)
 
