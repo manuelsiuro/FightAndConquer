@@ -29,7 +29,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
@@ -37,10 +36,15 @@ import com.msa.fightandconquer.ui.EconomyBreakdown
 import com.msa.fightandconquer.ui.PieceIcons
 import com.msa.fightandconquer.ui.UiColors
 
+/**
+ * The economy sheet's scrolling body: income and upkeep side by side — the
+ * sheet's full width is what freed the two ledgers from stacking. The pinned
+ * [EconomySummary] rides the sheet's footer slot (see GameScreen).
+ */
 @Composable
-internal fun EconomyPanel(economy: EconomyBreakdown, topAnchor: Dp) {
-    HudSidePanel(topAnchor, pinned = { EconomySummary(economy) }) {
-        Column {
+internal fun EconomySheetContent(economy: EconomyBreakdown) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.weight(1f)) {
             PanelHeader(stringResource(R.string.economy_income))
             EconomyRow(
                 stringResource(R.string.economy_hexes_row, economy.hexCount, economy.hexIncomePerHex),
@@ -82,23 +86,28 @@ internal fun EconomyPanel(economy: EconomyBreakdown, topAnchor: Dp) {
                 )
             }
         }
-        if (economy.tiers.isNotEmpty()) {
-            Column {
-                PanelHeader(stringResource(R.string.economy_upkeep))
-                for (row in economy.tiers) {
-                    EconomyRow(
-                        stringResource(
-                            R.string.economy_upkeep_row,
-                            row.count,
-                            stringResource(row.nameRes),
-                            row.each,
-                        ),
-                        stringResource(R.string.economy_amount_negative, row.total),
-                        iconRes = row.iconRes,
-                        tintable = false,
-                        tint = UiColors.alert,
-                    )
-                }
+        Column(Modifier.weight(1f)) {
+            PanelHeader(stringResource(R.string.economy_upkeep))
+            if (economy.tiers.isEmpty()) {
+                EconomyRow(
+                    stringResource(R.string.economy_upkeep_none),
+                    stringResource(R.string.info_value_plain, 0),
+                    valueColor = UiColors.inkMuted,
+                )
+            }
+            for (row in economy.tiers) {
+                EconomyRow(
+                    stringResource(
+                        R.string.economy_upkeep_row,
+                        row.count,
+                        stringResource(row.nameRes),
+                        row.each,
+                    ),
+                    stringResource(R.string.economy_amount_negative, row.total),
+                    iconRes = row.iconRes,
+                    tintable = false,
+                    tint = UiColors.alert,
+                )
             }
         }
     }
@@ -106,7 +115,7 @@ internal fun EconomyPanel(economy: EconomyBreakdown, topAnchor: Dp) {
 
 /** Pinned below the scrolling rows: the two numbers the panel exists for. */
 @Composable
-private fun ColumnScope.EconomySummary(economy: EconomyBreakdown) {
+internal fun ColumnScope.EconomySummary(economy: EconomyBreakdown) {
     Column(
         Modifier
             .fillMaxWidth()

@@ -27,7 +27,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
@@ -40,80 +39,79 @@ import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.setup.scaleClickable
 
 /**
- * The mission objectives, in the same slot the economy and diplomacy panels use — the
- * three are mutually exclusive, so the board is never covered by more than one.
+ * The mission objectives, now an on-demand bottom sheet like the other glanceable
+ * surfaces (opened from the top bar's Objectives entry; the ViewModel keeps the
+ * sheets mutually exclusive).
  */
 @Composable
-internal fun ObjectivesPanel(run: CampaignRunState, topAnchor: Dp) {
-    HudSidePanel(topAnchor) {
-        Column {
+internal fun ObjectivesSheetContent(run: CampaignRunState) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                run.levelNameText ?: stringResource(run.levelName),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = UiColors.ink,
+                modifier = Modifier.weight(1f),
+            )
+            run.turnLimit?.let {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.campaign_turn_limit, run.round, it),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (run.round >= it - 3) UiColors.alert else UiColors.inkMuted,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        run.objectives.forEach { line ->
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                Modifier.padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    run.levelNameText ?: stringResource(run.levelName),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = UiColors.ink,
-                    modifier = Modifier.weight(1f),
-                )
-                run.turnLimit?.let {
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        stringResource(R.string.campaign_turn_limit, run.round, it),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (run.round >= it - 3) UiColors.alert else UiColors.inkMuted,
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            run.objectives.forEach { line ->
-                Row(
-                    Modifier.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                // 18 dp check circle: filled positive when done, hairline-weight
+                // inactiveGlyph ring while pending.
+                Box(
+                    Modifier
+                        .size(18.dp)
+                        .then(
+                            if (line.done) {
+                                Modifier.background(UiColors.positive, CircleShape)
+                            } else {
+                                Modifier.border(1.dp, UiColors.inactiveGlyph, CircleShape)
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    // 18 dp check circle: filled positive when done, hairline-weight
-                    // inactiveGlyph ring while pending.
-                    Box(
-                        Modifier
-                            .size(18.dp)
-                            .then(
-                                if (line.done) {
-                                    Modifier.background(UiColors.positive, CircleShape)
-                                } else {
-                                    Modifier.border(1.dp, UiColors.inactiveGlyph, CircleShape)
-                                },
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (line.done) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                tint = UiColors.surface,
-                                modifier = Modifier.size(12.dp),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        line.text.resolve(),
-                        fontSize = 13.sp,
-                        color = if (line.done) UiColors.inkMuted else UiColors.ink,
-                        textDecoration = if (line.done) TextDecoration.LineThrough else null,
-                        modifier = Modifier.weight(1f),
-                    )
-                    line.counter?.let {
-                        Text(
-                            it.resolve(),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = UiColors.inkMuted,
+                    if (line.done) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = UiColors.surface,
+                            modifier = Modifier.size(12.dp),
                         )
                     }
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    line.text.resolve(),
+                    fontSize = 13.sp,
+                    color = if (line.done) UiColors.inkMuted else UiColors.ink,
+                    textDecoration = if (line.done) TextDecoration.LineThrough else null,
+                    modifier = Modifier.weight(1f),
+                )
+                line.counter?.let {
+                    Text(
+                        it.resolve(),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = UiColors.inkMuted,
+                    )
                 }
             }
         }

@@ -32,7 +32,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
@@ -44,34 +43,34 @@ import com.msa.fightandconquer.ui.PactUiState
 import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.setup.scaleClickable
 
+/** The diplomacy sheet's body: one line per living opponent, actions inline. */
 @Composable
-internal fun DiplomacyPanel(state: DiplomacyPanelState, viewModel: GameViewModel, topAnchor: Dp) {
-    HudSidePanel(topAnchor) {
-        Column {
-            PanelHeader(stringResource(R.string.diplomacy_title))
-            val visible = state.rows.filter { !it.eliminated }
-            visible.forEachIndexed { index, row ->
-                if (index > 0) HorizontalDivider(color = UiColors.divider)
-                DiplomacyRow(row, state, viewModel)
-            }
+internal fun DiplomacySheetContent(state: DiplomacyPanelState, viewModel: GameViewModel) {
+    Column {
+        PanelHeader(stringResource(R.string.diplomacy_title))
+        val visible = state.rows.filter { !it.eliminated }
+        visible.forEachIndexed { index, row ->
+            if (index > 0) HorizontalDivider(color = UiColors.divider)
+            DiplomacyRow(row, state, viewModel)
         }
-        Text(
-            stringResource(
-                R.string.diplomacy_footer,
-                state.pactDurationRounds,
-                state.breakPenaltyPercent,
-            ),
-            fontSize = 11.sp,
-            color = UiColors.inkMuted,
-        )
     }
+    Text(
+        stringResource(
+            R.string.diplomacy_footer,
+            state.pactDurationRounds,
+            state.breakPenaltyPercent,
+        ),
+        fontSize = 11.sp,
+        color = UiColors.inkMuted,
+    )
 }
 
 @Composable
 private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel: GameViewModel) {
     var tributeOpen by remember(row.playerIndex) { mutableStateOf(false) }
     Column(Modifier.padding(vertical = 9.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // The sheet's width fits disc, name, pill and both actions on one line.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val factionDescription = stringResource(R.string.cd_faction_color, row.playerIndex + 1)
             Box(
                 Modifier
@@ -79,19 +78,14 @@ private fun DiplomacyRow(row: PactStatus, panel: DiplomacyPanelState, viewModel:
                     .background(UiColors.faction(row.playerIndex), CircleShape)
                     .semantics { contentDescription = factionDescription },
             )
-            Spacer(Modifier.width(8.dp))
             Text(
                 seatLabel(row.playerIndex, row.isHuman),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = UiColors.ink,
-                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(8.dp))
             StatusPill(row)
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.weight(1f))
             if (row.state == PactUiState.WAR) {
                 PanelButton(
                     onClick = { viewModel.proposePact(row.playerIndex) },
