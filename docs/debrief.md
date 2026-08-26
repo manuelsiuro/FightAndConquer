@@ -4,7 +4,9 @@ A match currently ends with a bare verdict overlay and a single button; nothing 
 the game's story survives the scrim. The debrief turns the finish into a ceremony,
 a story, and the numbers: one scrollable screen showing how the war was won —
 per-seat timelines, the turning points, and end-of-war honours. It exists only for
-the match that just ended; nothing is written to disk.
+the match that just ended; the chronicle rides the autosave (as its turn-start
+snapshot) so an interrupted match keeps its story, but no match history is kept
+after the debrief closes.
 
 ## Why a live recorder
 
@@ -22,12 +24,17 @@ engine, `campaign/CampaignTracker`'s cousin:
   drop-oldest events flow — the same rule `CampaignTracker` documents: fine for
   a renderer that reconciles from state, fatal for a tally of facts no later
   state reveals.
-- **In-memory only.** The `GameViewModel` starts it in `newGame` / `startLevel`
-  / `playCustomMap`, folds it in the shared scoreboard step on both the human
-  and AI submit paths, and drops it at match teardown. `SaveGame` is unchanged;
-  a match resumed from an autosave plays unrecorded and simply hides the
-  debrief button. Persistence (match history) is a deliberate non-goal of this
-  scope.
+- **Persisted the way the campaign tracker is.** The `GameViewModel` starts it
+  in `newGame` / `startLevel` / `playCustomMap`, folds it in the shared
+  scoreboard step on both the human and AI submit paths, and drops it at match
+  teardown. Every autosave carries the TURN-START snapshot (`SaveGame.record`,
+  rebased on each turn boundary exactly like `CampaignSaveRef.tracker` — the
+  live record would double-fold the replayed turn), and Continue rebuilds the
+  live chronicle with `record/MatchRecordSave.restore`, which re-folds
+  `actionsThisTurn` through the reducer. A save written before the field
+  existed is **seeded** a partial record at the resume point (mode inferred
+  from the save; `size`/`shape` unknowable and null). Match history — keeping
+  chronicles after the debrief closes — remains a non-goal.
 
 ## What is recorded
 
@@ -72,16 +79,19 @@ with `onFaction`, no emoji, no dialogs).
 **Entry points**: the skirmish `GameOverOverlay` gains a primary filled
 "View debrief" above a now-outlined "Back to menu"; `CampaignOutcomeOverlay`
 gains an outlined "View debrief" between Retry and Menu (Next stays primary).
-The button hides when no recorder exists (resumed match).
+The button shows for every finished match — a match resumed from a save that
+predates `SaveGame.record` shows a partial chronicle beginning at the resume
+round.
 
 ## Trade-offs
 
 - **Pass-and-play reveals everything** — the debrief shows every seat's economy
   and fog trajectory. Acceptable: fog already lifts the moment the game
   finishes, and the match is over.
-- **Process death loses the chronicle** — the recorder is not carried in the
-  autosave at this scope. The resumed match still plays correctly; it just
-  finishes without a debrief.
+- **A pre-field save resumes with a partial chronicle** — its series start at
+  the resume round and its totals/moments begin empty; only what happens after
+  the resume is retold. Saves written since the field carry the full story
+  across any number of interruptions.
 - Recorder cost is O(events) per action plus one sample per seat per round —
   no per-frame work, nothing on the render path.
 
@@ -89,7 +99,10 @@ The button hides when no recorder exists (resumed match).
 
 - `:core` — `record/MatchRecorderTest`: one sample per living seat per round +
   round-0 baseline; sunk/loot/betrayal attribution via the before-state;
-  eliminated-seat series truncation; fold determinism (fold twice → equal).
+  eliminated-seat series truncation; fold determinism (fold twice → equal);
+  save-codec round trip (polymorphic `KeyMoment`), restore parity (turn-start
+  snapshot + refold == live fold) and the record-less legacy null. The
+  `"record"` key joins `persist/LegacySaveTest`'s strip set.
 - `:app` — build + existing unit suites stay green; `DebriefText`'s exhaustive
   `when` over `KeyMoment` fails compilation on an unmapped moment type.
 - On device — play a SMALL skirmish to the end: screenshot the finish overlay

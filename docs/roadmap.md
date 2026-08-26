@@ -216,10 +216,11 @@ the determinism tests in `:core` are the tripwire.
   - *Seeded & daily challenges* — seed entry + "beat my map" share codes
     (the `FCM1` envelope machinery exists) and a daily fixed-seed map scored
     by rounds-to-win with local personal bests.
-  - *Match history* — persist the debrief's `MatchRecord`s
-    (`CustomMapStore`-style one-file-per-match store, autosave piggyback for
-    the in-flight draft) behind a History screen; deliberately cut from the
-    debrief's first scope.
+  - *Match history* — persist finished debriefs (`CustomMapStore`-style
+    one-file-per-match store) behind a History screen. The in-flight
+    chronicle's autosave piggyback now EXISTS (`SaveGame.record` +
+    `MatchRecordSave.restore` — a resumed match keeps its debrief); only the
+    keep-after-the-debrief store and its screen remain unbuilt.
 - Translations: the string *extraction* is done (every user-facing string is in
   `res/values/strings.xml`, with `UiText` carrying resource ids out of the
   ViewModel), so shipping a language is just adding `values-<lang>/strings.xml`.

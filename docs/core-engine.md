@@ -195,7 +195,7 @@ which is how the tutorial teaches one building at a time without any gating code
 
 ## Persistence (`persist/`)
 
-`SaveGame(version, turnStartState, actionsThisTurn, campaign?)` — restoring **replays** the
+`SaveGame(version, turnStartState, actionsThisTurn, campaign?, record?)` — restoring **replays** the
 turn's actions through the reducer, which doubles as an integrity check
 (`fromSave` rebuilds the undo stack via `submit`). JSON via `SaveCodec`,
 which points at `persist/CompatJson` — the one configuration every persisted
@@ -205,6 +205,9 @@ stay self-describing across rule tuning. The app stores one autosave at
 `filesDir/autosave.json`; finished games delete it. `campaign: CampaignSaveRef?` (defaulted)
 names the mission and carries the turn-start `CampaignTracker`, which is re-folded across
 the replayed actions so a resumed mission scores identically to one never interrupted.
+`record: MatchRecorderState?` (defaulted) follows the same pattern for the match
+chronicle: the turn-start snapshot, re-folded by `record/MatchRecordSave.restore`,
+so a resumed match keeps its debrief (docs/debrief.md).
 Campaign career progress is a separate permanent file (`CampaignProgress`).
 
 ## Map generation (`map/`)
