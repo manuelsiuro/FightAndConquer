@@ -70,6 +70,8 @@ object MoveGenerator {
         for (t in 1..rules.maxTier) {
             soldierStrength[t] = Rules.buyStrength(state, me, t, com.msa.fightandconquer.core.model.UnitType.SOLDIER)
         }
+        // Muster ceiling once per call, not per unit (a tile scan per lookup).
+        val maxRecruitable = Tiers.maxRecruitable(state, me)
 
         // --- Capital defense (range-bound movement means nobody teleports home:
         // the garrison must be raised BEFORE the axe falls, so when an enemy is
@@ -89,8 +91,9 @@ object MoveGenerator {
         if (capitalThreat > 0) {
             for (hex in capitalGuardHexes.sortedBy { it.packed }) {
                 // Solve the garrison through buyDefense (Armory research raises it);
-                // identity without research: smallest t with t >= threat.
-                val tier = Tiers.cheapestGarrison(state, me, capitalThreat) ?: rules.maxTier
+                // identity without research: smallest t with t >= threat. The
+                // fallback is the best tier the muster halls allow, not maxTier.
+                val tier = Tiers.cheapestGarrison(state, me, capitalThreat) ?: maxRecruitable
                 if (treasury >= rules.unitCost[tier - 1]) out.add(GameAction.BuyUnit(tier, hex))
                 if (tier > 1 && treasury >= rules.unitCost[0]) out.add(GameAction.BuyUnit(1, hex))
             }
@@ -139,10 +142,14 @@ object MoveGenerator {
             }
             // Merge only when the merged tier would break a currently-unbreakable
             // frontier hex: my strength at this tier fails against D, the next
-            // tier's succeeds. Identity without research: D == unit.tier.
-            val mergedBreaks = unit.tier < rules.maxTier && frontierDefenses.any { d ->
-                soldierStrength[unit.tier] <= d && d < soldierStrength[unit.tier + 1]
-            }
+            // tier's succeeds. Identity without research: D == unit.tier. The
+            // reducer refuses a merge past the muster gate (reach.mergeTargets is
+            // already filtered) — the guard just avoids proposing doomed pairs.
+            val mergedBreaks = unit.tier < rules.maxTier &&
+                unit.tier + 1 <= maxRecruitable &&
+                frontierDefenses.any { d ->
+                    soldierStrength[unit.tier] <= d && d < soldierStrength[unit.tier + 1]
+                }
             if (mergedBreaks) {
                 reach.mergeTargets.sortedBy { it.packed }.forEach { targetHex ->
                     out.add(GameAction.MergeUnits(unit.id, state.tiles.getValue(targetHex).unit!!))
@@ -348,7 +355,11 @@ object MoveGenerator {
             if (rules.specialUnitsEnabled && difficulty != Difficulty.EASY) {
                 // Catapults where BUILDING defense is the blocker: the cheapest-tier
                 // logic can't crack defense >= maxTier, a catapult ignores it.
-                if (treasury >= eff.catapultCost) {
+                // Muster-gated behind the Siege Workshop; generating doomed
+                // candidates would only waste reducer runs (the Port idiom).
+                if (treasury >= eff.catapultCost &&
+                    Rules.unitAvailable(state, me, 1, com.msa.fightandconquer.core.model.UnitType.CATAPULT)
+                ) {
                     frontier.entries
                         .filter { (hex, defense) ->
                             val siegeDefense = Rules.defenseOf(state, hex, com.msa.fightandconquer.core.model.UnitType.CATAPULT)
@@ -363,8 +374,10 @@ object MoveGenerator {
                         }
                 }
                 // Archers to harden threatened borders: rank by how many own hexes the
-                // aura would actually raise.
-                if (treasury >= eff.archerCost) {
+                // aura would actually raise. Muster-gated behind the Archery Range.
+                if (treasury >= eff.archerCost &&
+                    Rules.unitAvailable(state, me, 1, com.msa.fightandconquer.core.model.UnitType.ARCHER)
+                ) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&

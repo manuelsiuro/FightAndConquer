@@ -110,7 +110,10 @@ internal object NavalPolicy {
         val treasury = state.player(me).treasury
         fun sustainable(cost: Int, upkeep: Int): Boolean =
             treasury >= cost && (net >= upkeep || treasury >= cost + upkeep * SAVINGS_TURNS)
-        val bestTier: Int? = (rules.maxTier downTo 1).firstOrNull { t ->
+        // Muster-capped: the ladder saves for and ships the best tier it is
+        // ALLOWED to create — never a tier whose hall is missing (silent stall).
+        val maxRecruitable = Tiers.maxRecruitable(state, me)
+        val bestTier: Int? = (minOf(rules.maxTier, maxRecruitable) downTo 1).firstOrNull { t ->
             sustainable(rules.unitCost[t - 1], rules.unitUpkeep[t - 1])
         }
 
@@ -162,7 +165,7 @@ internal object NavalPolicy {
                 // Identity without research: max(minCoast + 1, enemyBest, 1),
                 // capped at maxTier — settle for the best tier when none suffices.
                 val coastBar = if (minCoast == Int.MAX_VALUE) 0 else minCoast
-                Tiers.marineTier(state, me, coastBar, enemyBest ?: 0) ?: rules.maxTier
+                Tiers.marineTier(state, me, coastBar, enemyBest ?: 0) ?: maxRecruitable
             }
         }
         // The floor in STRENGTH units — my effective strength of the solved tier —
@@ -567,7 +570,11 @@ internal object NavalPolicy {
         return null
     }
 
-    /** Income buildings the ladder may raze to reclaim ground (never defenses, ports, bridges — or the University the research plan hangs on), cheapest first. */
+    /**
+     * Income buildings the ladder may raze to reclaim ground (never defenses,
+     * ports, bridges — or the University the research plan hangs on, or the
+     * muster halls the marines themselves hang on), cheapest first.
+     */
     private val expendable = listOf(
         Building.FARM, Building.WATCHTOWER, Building.LUMBER_CAMP,
         Building.MARKET, Building.MINE, Building.FISHERY, Building.BANK,

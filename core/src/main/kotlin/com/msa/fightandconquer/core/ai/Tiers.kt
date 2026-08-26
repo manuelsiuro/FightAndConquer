@@ -16,17 +16,33 @@ import com.msa.fightandconquer.core.model.UnitType
  */
 internal object Tiers {
 
+    /**
+     * Highest soldier tier [me] may currently create under the muster rules
+     * (>= 1 — the Peasant is never gated). The tier loops below skip gated
+     * tiers through this; `gated = false` is the DEMAND probe MilitaryPolicy
+     * uses to see which school a blocked plan is waiting on.
+     */
+    fun maxRecruitable(state: GameState, me: PlayerId): Int {
+        var best = 1
+        for (t in 2..state.config.rules.maxTier) {
+            if (Rules.unitAvailable(state, me, t, UnitType.SOLDIER)) best = t
+        }
+        return best
+    }
+
     /** Smallest buyable soldier tier that CAPTURES against [defense] (strictly greater), or null. */
-    fun cheapestBreaker(state: GameState, me: PlayerId, defense: Int): Int? {
+    fun cheapestBreaker(state: GameState, me: PlayerId, defense: Int, gated: Boolean = true): Int? {
         for (t in 1..state.config.rules.maxTier) {
+            if (gated && !Rules.unitAvailable(state, me, t, UnitType.SOLDIER)) continue
             if (Rules.buyStrength(state, me, t, UnitType.SOLDIER) > defense) return t
         }
         return null
     }
 
     /** Smallest soldier tier whose garrison contribution HOLDS against [threat] (>=), or null. */
-    fun cheapestGarrison(state: GameState, me: PlayerId, threat: Int): Int? {
+    fun cheapestGarrison(state: GameState, me: PlayerId, threat: Int, gated: Boolean = true): Int? {
         for (t in 1..state.config.rules.maxTier) {
+            if (gated && !Rules.unitAvailable(state, me, t, UnitType.SOLDIER)) continue
             if (Rules.buyDefense(state, me, t, UnitType.SOLDIER) >= threat) return t
         }
         return null
@@ -56,8 +72,9 @@ internal object Tiers {
      * (strength > [minCoast]) and stands up to the enemy's best visible
      * soldier (garrison defense >= [enemyBest]), or null when no tier does.
      */
-    fun marineTier(state: GameState, me: PlayerId, minCoast: Int, enemyBest: Int): Int? {
+    fun marineTier(state: GameState, me: PlayerId, minCoast: Int, enemyBest: Int, gated: Boolean = true): Int? {
         for (t in 1..state.config.rules.maxTier) {
+            if (gated && !Rules.unitAvailable(state, me, t, UnitType.SOLDIER)) continue
             if (Rules.buyStrength(state, me, t, UnitType.SOLDIER) > minCoast &&
                 Rules.buyDefense(state, me, t, UnitType.SOLDIER) >= enemyBest
             ) {
