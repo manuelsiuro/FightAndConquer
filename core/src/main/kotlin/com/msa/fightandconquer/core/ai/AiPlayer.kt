@@ -47,6 +47,15 @@ class AiPlayer(private val difficulty: Difficulty) {
             }
         }
 
+        // The muster halls are threshold policies for the same structural reason:
+        // a pure prerequisite pays nothing the turn it stands (see MilitaryPolicy).
+        // Before the naval ladder — it funds the Barracks the marine tiers wait on.
+        if (state.config.rules.militaryBuildingsRequired) {
+            MilitaryPolicy.action(state, difficulty)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
+        }
+
         // Naval invasion is a threshold policy too: a single-action greedy search
         // can never justify the intermediate ferry steps (see NavalPolicy).
         // Fishing follows for the same structural reason, and AFTER invasion —

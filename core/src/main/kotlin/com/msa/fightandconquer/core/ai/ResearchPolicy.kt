@@ -160,26 +160,6 @@ internal object ResearchPolicy {
         }
     }
 
-    /**
-     * Placement: own, non-starving, clear land, deposits kept free for their
-     * buildings; interior preferred (protect the tech engine), lowest packed
-     * tie-break. Never the last empty own land hex in a naval game — the
-     * MoveGenerator muster-yard valve, replicated because this policy does not
-     * go through the candidate list.
-     */
-    private fun universitySpot(state: GameState, me: PlayerId): Hex? {
-        val empty = state.tiles.entries.filter { (_, t) ->
-            t.owner == me && !t.starving && t.terrain == Terrain.LAND &&
-                t.building == null && t.unit == null && t.flora == null && t.deposit == null
-        }
-        if (state.config.rules.navalEnabled && empty.size <= 1) return null
-        return empty
-            .minWithOrNull(
-                compareBy<Map.Entry<Hex, Tile>>(
-                    { (hex, _) -> if (HexMath.neighbors(hex).all { state.tiles[it]?.owner == me }) 0 else 1 },
-                    { (hex, _) -> hex.packed },
-                ),
-            )
-            ?.key
-    }
+    /** The shared interior spot chooser (see [interiorBuildSpot]) — pure delegation. */
+    private fun universitySpot(state: GameState, me: PlayerId): Hex? = interiorBuildSpot(state, me)
 }

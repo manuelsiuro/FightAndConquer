@@ -81,6 +81,14 @@ object Evaluator {
                             // decision, only distort cross-position comparisons.
                             Building.UNIVERSITY -> if (!tile.starving) buildingScore += 8.0
                             Building.BANK -> buildingScore += 6.0
+                            // Muster line: anchors the sunk prerequisite
+                            // (MilitaryPolicy buys it — these price keeping and
+                            // defending it, never the purchase). Zero-valued in
+                            // dormant games (the buildings never appear), so no
+                            // snapshot can reshuffle.
+                            Building.BARRACKS -> buildingScore += 6.0
+                            Building.SIEGE_WORKSHOP -> buildingScore += 4.0
+                            Building.ARCHERY_RANGE -> buildingScore += 3.0
                             else -> {}
                         }
                     }
