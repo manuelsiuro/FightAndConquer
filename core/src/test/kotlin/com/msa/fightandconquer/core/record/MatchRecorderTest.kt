@@ -58,6 +58,32 @@ class MatchRecorderTest {
     }
 
     @Test
+    fun `strength rides the series and tracks the army`() {
+        val state = TestStates.strip(9, 0..2, 6..8)
+        val engine = GameEngine(state)
+        var recorder = MatchRecorderState.start(state, meta(state))
+
+        assertEquals("unit-less baseline", listOf(0), recorder.series[0].strength)
+
+        recorder = fold(recorder, engine, GameAction.BuyUnit(1, hex(1)))
+        repeat(2) { recorder = fold(recorder, engine, GameAction.EndTurn) }
+
+        assertEquals(recorder.series[0].rounds.size, recorder.series[0].strength.size)
+        assertEquals(recorder.series[1].rounds.size, recorder.series[1].strength.size)
+        assertTrue("the bought soldier registers", recorder.series[0].strength.last() > 0)
+    }
+
+    @Test
+    fun `a pre-strength series decodes with an empty strength list`() {
+        val decoded = com.msa.fightandconquer.core.persist.CompatJson.decodeFromString(
+            SeatSeries.serializer(),
+            """{"rounds":[0,1],"hexes":[3,3],"income":[3,3],"upkeep":[0,0],"treasury":[100,103],"units":[0,0]}""",
+        )
+        assertEquals(listOf(0, 1), decoded.rounds)
+        assertEquals(emptyList<Int>(), decoded.strength)
+    }
+
+    @Test
     fun `sinking an enemy boat is credited and retold, losing your own is only a loss`() {
         val state = TestStates.strip(9, 0..2, 6..8)
             .withSea(listOf(hex(3), hex(4)))

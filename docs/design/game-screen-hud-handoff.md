@@ -331,11 +331,12 @@ Unchanged from the current implementation unless noted:
 
 - Tap a hex to select, tap again to deselect. The purchase tray opens on a friendly capital.
   Undo reverts the last action. Banners dismiss on tap.
-- **One side panel at a time**: Economy (from the coin block), Diplomacy (from the new top-bar
-  button), Objectives (from the overflow menu). Opening one closes the other.
+- **One glanceable sheet at a time**: Economy, Diplomacy, Research, War report (action-bar
+  circles), Objectives (overflow menu). Opening one closes the rest — see the 2026-08-26
+  addendum: the 264 dp side panel became a bottom sheet.
 - **Every unhandled touch falls through to the board.** HUD surfaces are opaque and therefore
-  consume touches — the bottom cluster and the 264 dp side panel are sized to leave the board's
-  center free.
+  consume touches; an open bottom sheet is the one modal exception — its scrim consumes
+  everything and a tap on it dismisses.
 - **Armed patterns, never dialogs**: end-turn-with-unmoved-units and Resign both arm on the
   first tap and commit on the second; 3 s or an explicit ✕ disarms. Destructive results use Undo.
 - **Press feedback**: 0.96 scale + ripple on every tappable surface.
@@ -356,7 +357,8 @@ No new state is introduced by this restyle. The HUD reads:
 - `treasury`, `netPerTurn`, income/upkeep breakdown, treasury projection
 - `freshUnitCount`, `pendingProposalCount` (now drives the Diplomacy button badge, not a pill)
 - `selection`: none | unit | hex — drives which bottom surface is shown
-- `openPanel`: none | economy | diplomacy | objectives (mutually exclusive)
+- `openPanel`: none | economy | diplomacy | research | objectives | stats (mutually exclusive
+  bottom sheets; objectives are on-demand, no longer default-visible)
 - `purchaseTrayOpen` + per-item affordability
 - `endTurnArmed: Boolean` with a 3 s timeout, plus `unmovedUnitCount`
 - `toasts: List<Toast>` capped at 3, `coachHint`, `incomingProposal`
@@ -406,3 +408,40 @@ chrome above; deltas only:
 - **Type**: the app's existing display face at weights 400 / 600 / 700 / 800.
 - The grey diagonally-striped boxes with monospace captions in the mockups are **placeholders**
   for the 3D board and every baked render.
+
+---
+
+## Addendum — bottom sheets replace the side panel (2026-08-26)
+
+The 264 dp right side panel (frames 04–06) is retired. Economy, Diplomacy, Research and
+campaign Objectives now open as **bottom sheets**, joined by a new **War report** stats
+sheet. All within the chrome above; deltas only:
+
+- **Container** (`HudBottomSheet`): full-width, top-only **radius 28** (the radii table's
+  "bottom sheets 28"), opaque `surface` + hairline + `boardLift` via a `Shape` overload of
+  `hudSurface`. Drag handle per Setup's civ picker (34×4 hairline bar in a 48 dp zone).
+  Scrim is the picker's `#6B2E2A26`, now the `sheetScrim` token. Height caps at 60 % of the
+  window — the board's top half stays visible; content scrolls inside with an optional
+  pinned footer (the old side panel's slot). Width caps at 560 dp for landscape.
+- Deliberately **in-composition**, not material3's `ModalBottomSheet`: a separate window
+  escapes the immersive flags (system bars would pop back) and stacks above every in-game
+  overlay. Dismiss = scrim tap / system Back / handle drag past 30 %. Slide-up 250 ms in,
+  200 ms out. This is a modal *container*, not a dialog — the no-dialogs rule bans
+  confirmation dialogs, and nothing in a sheet ever asks confirm/cancel.
+- **Economy**: income and upkeep as two side-by-side columns; the net/projection emphasis
+  block and warning strips ride the pinned footer.
+- **Diplomacy**: disc · name · status pill · Propose/Tribute all on one line per opponent;
+  tribute chips still expand below.
+- **Research**: one lane per branch, three ~100 dp tech cards left-to-right with 12×2
+  connectors (`positive` once the tier before is done) — the linearity is the reading
+  direction. Cards always show cost + duration; LOCKED (missing prerequisite) and the new
+  BUSY (slot occupied) dim to `inactiveGlyph` — no alert-red while unreachable. In-progress
+  wears a faction border + 3 dp bar; lane headers count n/3. Pinned footer = the active
+  research card.
+- **Objectives** are on-demand from the overflow menu now, no longer default-visible.
+- **War report** (new, 5th action-bar circle, `ic_chart`): the viewer's own recorder series
+  as a lens-switchable timeline (Territory / Economy / Treasury / Army), a NOW strip of
+  live numbers, record totals, and the viewer's own turning points (suffered ones on a 12 %
+  alert wash). Own faction only — enemy series stay hidden under fog and hot-seat;
+  comparisons remain the debrief's.
+- Toasts render **above** the scrim: a rejection toast must read while its sheet is open.

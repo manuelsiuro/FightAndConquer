@@ -32,9 +32,9 @@ import com.msa.fightandconquer.ui.setup.scaleClickable
 
 /**
  * One-tap game actions as floating circles under the top bar: diplomacy,
- * research, economy, and jump-to-fresh-unit. Panels keep their single home —
- * the top bar itself carries no panel entry points anymore (a third circle
- * inside the bar was measured out, docs/ui-hud.md).
+ * research, economy, the war report, and jump-to-fresh-unit. Panels keep their
+ * single home — the top bar itself carries no panel entry points anymore (a
+ * third circle inside the bar was measured out, docs/ui-hud.md).
  */
 @Composable
 internal fun ActionBar(
@@ -43,6 +43,7 @@ internal fun ActionBar(
     economyOpen: Boolean,
     diplomacyOpen: Boolean,
     researchOpen: Boolean,
+    statsOpen: Boolean,
     viewModel: GameViewModel,
 ) {
     Row(
@@ -72,6 +73,12 @@ internal fun ActionBar(
             description = stringResource(R.string.cd_open_economy),
             active = economyOpen,
             onClick = { viewModel.toggleEconomyPanel() },
+        )
+        ActionCircle(
+            glyph = painterResource(R.drawable.ic_chart),
+            description = stringResource(R.string.cd_open_stats),
+            active = statsOpen,
+            onClick = { viewModel.toggleStatsPanel() },
         )
         ActionCircle(
             glyph = painterResource(R.drawable.ic_flag),

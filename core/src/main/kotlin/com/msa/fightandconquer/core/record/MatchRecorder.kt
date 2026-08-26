@@ -56,6 +56,8 @@ data class SeatSeries(
     val upkeep: List<Int> = emptyList(),
     val treasury: List<Int> = emptyList(),
     val units: List<Int> = emptyList(),
+    /** Sum of [Rules.strengthOf] over the seat's units; records that predate the field resume with a shorter list. */
+    val strength: List<Int> = emptyList(),
 )
 
 /** A turning point worth retelling. Seat fields are [PlayerId.value] indices. */
@@ -265,6 +267,8 @@ data class MatchRecorderState(
             upkeep = prev.upkeep + upkeepNow,
             treasury = prev.treasury + state.player(id).treasury,
             units = prev.units + state.units.values.count { it.owner == id },
+            strength = prev.strength +
+                state.units.values.filter { it.owner == id }.sumOf { Rules.strengthOf(state, it) },
         )
     }
 }

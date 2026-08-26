@@ -259,7 +259,7 @@ private fun OverflowMenu(
                 ),
                 onClick = {
                     onDismiss()
-                    viewModel.showObjectivesPanel()
+                    viewModel.toggleObjectivesPanel()
                 },
             )
         }

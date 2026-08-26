@@ -80,15 +80,30 @@ class ResearchPanelStateTest {
     }
 
     @Test
-    fun `an active research marks its node and locks the rest`() {
+    fun `an active research marks its node and stalls the rest`() {
         val panel = buildResearchPanel(
             state(research = ResearchState(active = ActiveResearch(Tech.COINAGE, 2))),
             PlayerId(0),
         )!!
         assertEquals(TechUiStatus.IN_PROGRESS, panel.node(Tech.COINAGE).status)
         assertEquals(2, panel.node(Tech.COINAGE).progress)
-        assertEquals(TechUiStatus.LOCKED, panel.node(Tech.SMITHING).status)
+        // Reachable-but-slot-taken is BUSY; a missing prerequisite stays LOCKED —
+        // the sheet dims the two differently.
+        assertEquals(TechUiStatus.BUSY, panel.node(Tech.SMITHING).status)
+        assertEquals(TechUiStatus.LOCKED, panel.node(Tech.BANKING).status)
         assertEquals(Tech.COINAGE, panel.active?.tech)
+    }
+
+    @Test
+    fun `busy never outranks a missing prerequisite`() {
+        val panel = buildResearchPanel(
+            state(research = ResearchState(active = ActiveResearch(Tech.SMITHING, 1))),
+            PlayerId(0),
+        )!!
+        assertEquals(TechUiStatus.IN_PROGRESS, panel.node(Tech.SMITHING).status)
+        assertEquals(TechUiStatus.BUSY, panel.node(Tech.COINAGE).status)
+        assertEquals(TechUiStatus.LOCKED, panel.node(Tech.ARMORY).status)
+        assertEquals(TechUiStatus.LOCKED, panel.node(Tech.BANKING).status)
     }
 
     @Test

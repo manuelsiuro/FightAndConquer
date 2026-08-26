@@ -161,8 +161,13 @@ data class EconomyBreakdown(
     val upkeepRisk: Boolean,
 )
 
-/** Research panel: one node per technology, grouped by branch. */
-enum class TechUiStatus { LOCKED, AVAILABLE, IN_PROGRESS, DONE }
+/**
+ * Research panel: one node per technology, grouped by branch. LOCKED = the tier
+ * below is not researched yet; BUSY = reachable, but the single research slot is
+ * occupied — the sheet dims the two differently so a tree mid-research doesn't
+ * read as dead.
+ */
+enum class TechUiStatus { LOCKED, BUSY, AVAILABLE, IN_PROGRESS, DONE }
 
 data class TechNodeUi(
     val tech: com.msa.fightandconquer.core.model.Tech,
@@ -207,8 +212,8 @@ fun buildResearchPanel(
         val status = when {
             research.has(tech) -> TechUiStatus.DONE
             research.active?.tech == tech -> TechUiStatus.IN_PROGRESS
-            research.active != null -> TechUiStatus.LOCKED
             tech.prerequisite?.let { !research.has(it) } == true -> TechUiStatus.LOCKED
+            research.active != null -> TechUiStatus.BUSY
             else -> TechUiStatus.AVAILABLE
         }
         return TechNodeUi(
@@ -422,8 +427,9 @@ object UiSignals {
     const val ECONOMY_OPENED = "economyOpened"
     const val DIPLOMACY_OPENED = "diplomacyOpened"
     const val RESEARCH_OPENED = "researchOpened"
+    const val STATS_OPENED = "statsOpened"
 
-    val all = setOf(UNIT_SELECTED, ECONOMY_OPENED, DIPLOMACY_OPENED, RESEARCH_OPENED)
+    val all = setOf(UNIT_SELECTED, ECONOMY_OPENED, DIPLOMACY_OPENED, RESEARCH_OPENED, STATS_OPENED)
 }
 
 /** One line of the in-game objectives strip. */
@@ -484,6 +490,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _research = MutableStateFlow<ResearchPanelState?>(null)
     val research: StateFlow<ResearchPanelState?> = _research.asStateFlow()
+
+    /** Mission objectives sheet; on-demand since objectives left the always-on side slot. */
+    private val _objectivesOpen = MutableStateFlow(false)
+    val objectivesOpen: StateFlow<Boolean> = _objectivesOpen.asStateFlow()
+
+    /** The live war report; null == sheet closed (the glanceable-panel idiom). */
+    private val _stats = MutableStateFlow<GameStatsState?>(null)
+    val stats: StateFlow<GameStatsState?> = _stats.asStateFlow()
 
     private val _incomingProposals = MutableStateFlow<List<IncomingProposal>>(emptyList())
     val incomingProposals: StateFlow<List<IncomingProposal>> = _incomingProposals.asStateFlow()
@@ -887,9 +901,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _hud.value = null
         _highlights.value = HighlightSet()
         _overlayLabels.value = emptyList()
-        _economy.value = null
-        _diplomacy.value = null
-        _research.value = null
+        closePanels()
         _incomingProposals.value = emptyList()
         _infoCard.value = null
         _toasts.value = emptyList()
@@ -940,8 +952,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         eventsJob?.cancel()
         engine = newEngine
         selectedUnit = null; selectedHex = null; pendingPactBreak = null
-        _diplomacy.value = null
-        _research.value = null
+        closePanels()
         lastHumanSeat = null
         banner = if (showOpeningBanner) 0 else null
         freshUnitCursor = 0
@@ -961,9 +972,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun onHexTapped(hex: Hex) {
         val engine = engine ?: return
         val hudNow = _hud.value ?: return
-        _economy.value = null // board taps dismiss the glanceable panels
-        _diplomacy.value = null
-        _research.value = null
+        closePanels() // board taps dismiss the glanceable sheets (belt to the scrim's braces)
         if (banner != null || !hudNow.currentIsHuman || hudNow.winner != null) return
         if (_campaignRun.value?.outcome != null) return
         val state = engine.state.value
@@ -1203,6 +1212,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val engine = engine ?: return
         clearSelection()
         _economy.value = null
+        _stats.value = null // the report must not follow the turn to another seat
         freshUnitCursor = 0
         submit(GameAction.EndTurn)
         autosave()
@@ -1472,28 +1482,55 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // ----- economy panel -----
 
     fun toggleEconomyPanel() {
-        _diplomacy.value = null
-        _research.value = null
-        _economy.value = if (_economy.value == null) computeEconomy() else null
+        val open = _economy.value == null
+        closePanels()
+        _economy.value = if (open) computeEconomy() else null
         if (_economy.value != null) signalUi(UiSignals.ECONOMY_OPENED)
     }
 
-    /**
-     * Closes the glanceable panels so the campaign objectives slot shows again
-     * (objectives occupy the panel slot whenever nothing else does).
-     */
-    fun showObjectivesPanel() {
+    /** The bottom sheets are mutually exclusive; every dismiss path funnels here. */
+    fun closePanels() {
         _economy.value = null
         _diplomacy.value = null
         _research.value = null
+        _stats.value = null
+        _objectivesOpen.value = false
+    }
+
+    fun toggleObjectivesPanel() {
+        val open = !_objectivesOpen.value
+        closePanels()
+        _objectivesOpen.value = open
+    }
+
+    // ----- war report -----
+
+    fun toggleStatsPanel() {
+        val open = _stats.value == null
+        closePanels()
+        _stats.value = if (open) computeStats() else null
+        if (_stats.value != null) signalUi(UiSignals.STATS_OPENED)
+    }
+
+    private fun computeStats(): GameStatsState? {
+        val engine = engine ?: return null
+        val record = recorder ?: return null
+        val state = engine.state.value
+        if (state.phase !is GamePhase.Playing) return null
+        // The current human's report; during an AI turn (or on resume mid-AI) the
+        // last human to play keeps the perspective — the fog-viewpoint rule.
+        val viewer = state.currentPlayer.takeIf { state.player(it).kind is PlayerKind.Human }
+            ?: lastHumanSeat?.let { PlayerId(it) }
+            ?: return null
+        return buildGameStats(record, state, viewer)
     }
 
     // ----- research -----
 
     fun toggleResearchPanel() {
-        _economy.value = null
-        _diplomacy.value = null
-        _research.value = if (_research.value == null) computeResearch() else null
+        val open = _research.value == null
+        closePanels()
+        _research.value = if (open) computeResearch() else null
         if (_research.value != null) signalUi(UiSignals.RESEARCH_OPENED)
     }
 
@@ -1511,9 +1548,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // ----- diplomacy -----
 
     fun toggleDiplomacyPanel() {
-        _economy.value = null
-        _research.value = null
-        _diplomacy.value = if (_diplomacy.value == null) computeDiplomacy() else null
+        val open = _diplomacy.value == null
+        closePanels()
+        _diplomacy.value = if (open) computeDiplomacy() else null
         if (_diplomacy.value != null) signalUi(UiSignals.DIPLOMACY_OPENED)
     }
 
@@ -2442,6 +2479,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (_economy.value != null) _economy.value = computeEconomy()
         if (_diplomacy.value != null) _diplomacy.value = computeDiplomacy()
         if (_research.value != null) _research.value = computeResearch()
+        if (_stats.value != null) _stats.value = computeStats()
         // Incoming proposals surface only to the acting human, never behind a banner.
         _incomingProposals.value = if (
             rules.diplomacyEnabled && banner == null && state.phase is GamePhase.Playing &&

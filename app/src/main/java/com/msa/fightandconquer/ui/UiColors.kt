@@ -51,6 +51,9 @@ class UiColorScheme(
     /** Scrim behind full-screen overlays (turn banner, outcomes): paper @ 92%. */
     val overlayScrim = background.copy(alpha = 0.92f)
 
+    /** Scrim behind bottom sheets — lighter than [overlayScrim] so the board stays legible. */
+    val sheetScrim = Color(0x6B2E2A26)
+
     /**
      * Secondary text tokens. The faction pastels are far too light to carry white
      * text, so anything sitting on them uses [onFaction]; these three cover the

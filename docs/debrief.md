@@ -42,12 +42,19 @@ engine, `campaign/CampaignTracker`'s cousin:
 |---|---|---|
 | `MatchMeta` | mode (skirmish/pass-and-play/campaign/custom), seed, land-hex count, fog flag, level name | captured at match start (`GameSetup` is not retained afterwards) |
 | `SeatDescriptor` | human/AI, difficulty, civ — one per seat, index = `PlayerId.value` | `initial.players` |
-| Series | per seat, one sample per round: hexes, income, upkeep, treasury, units — parallel arrays keyed by a `rounds` list; eliminated seats simply stop | sampled on `GameEvent.TurnStarted` (income/upkeep ride the event; the rest reads the after-state); round-0 baseline at start |
+| Series | per seat, one sample per round: hexes, income, upkeep, treasury, units, strength (Σ `Rules.strengthOf` over the seat's units; defaulted `emptyList()`, so a pre-field save resumes with a shorter list — consumers tail-align against `rounds`) — parallel arrays keyed by a `rounds` list; eliminated seats simply stop | sampled on `GameEvent.TurnStarted` (income/upkeep ride the event; the rest reads the after-state); round-0 baseline at start |
 | `KeyMoment` | CapitalLooted, PactBetrayed, WentBankrupt, ShipSunk, Eliminated, Crowned, Breakthrough (a completed research — the one place AI research becomes visible) — round-stamped, capped at 300 | folded from `lastEvents`; attribution uses the **before**-state (`before.units[event.unit]`, `before.currentPlayer`) |
 | `SeatTotals` | kills, losses, boats sunk, hexes captured, pacts broken | running event tallies |
 
 Superlatives ("Largest realm", "Admiral", …) are computed at **display time**
 from series peaks + totals — the recorder stores facts, not judgments.
+
+The debrief is no longer the recorder's only consumer: the in-game **war report**
+bottom sheet (`ui/game/GameStatsSheet.kt`, `buildGameStats` in
+`ui/GameStatsState.kt`) graphs the live record mid-match — but strictly the
+viewer's own seat, because under fog (and in hot-seat) the other seats' series
+are hidden information. The full cross-faction picture stays here, where fog has
+lifted.
 
 ## Screen anatomy
 

@@ -47,6 +47,8 @@ fun GameScreen(viewModel: GameViewModel) {
     val economy by viewModel.economy.collectAsState()
     val diplomacy by viewModel.diplomacy.collectAsState()
     val research by viewModel.research.collectAsState()
+    val objectivesOpen by viewModel.objectivesOpen.collectAsState()
+    val stats by viewModel.stats.collectAsState()
     val incomingProposals by viewModel.incomingProposals.collectAsState()
     val infoCard by viewModel.infoCard.collectAsState()
     val campaignRun by viewModel.campaignRun.collectAsState()
@@ -154,6 +156,7 @@ fun GameScreen(viewModel: GameViewModel) {
                             economyOpen = economy != null,
                             diplomacyOpen = diplomacy != null,
                             researchOpen = research != null,
+                            statsOpen = stats != null,
                             viewModel = viewModel,
                         )
                     }
@@ -166,14 +169,42 @@ fun GameScreen(viewModel: GameViewModel) {
                 BottomBar(state, infoCard, viewModel, onOpenGuide = openGuide)
             }
 
-            // One panel at a time in the slot under the top bar: objectives are shown
-            // whenever the glanceable panels are closed, since a mission's terms are not
-            // something the player should have to go looking for.
-            when {
-                economy != null -> EconomyPanel(economy!!, topAnchor)
-                diplomacy != null -> DiplomacyPanel(diplomacy!!, viewModel, topAnchor)
-                research != null -> ResearchPanel(research!!, state.currentPlayer, topAnchor, viewModel)
-                campaignRun != null -> ObjectivesPanel(campaignRun!!, topAnchor)
+            // The glanceable surfaces are mutually exclusive bottom sheets (the
+            // ViewModel enforces one-at-a-time). Content rides rememberRetained so
+            // it survives the slide-out after its flow nulls. Toasts render after
+            // the sheets — a rejection toast must read above the scrim.
+            val economyRetained = rememberRetained(economy)
+            HudBottomSheet(
+                visible = economy != null,
+                onDismiss = viewModel::closePanels,
+                pinned = { economyRetained?.let { EconomySummary(it) } },
+            ) {
+                economyRetained?.let { EconomySheetContent(it) }
+            }
+            val diplomacyRetained = rememberRetained(diplomacy)
+            HudBottomSheet(visible = diplomacy != null, onDismiss = viewModel::closePanels) {
+                diplomacyRetained?.let { DiplomacySheetContent(it, viewModel) }
+            }
+            val researchRetained = rememberRetained(research)
+            HudBottomSheet(
+                visible = research != null,
+                onDismiss = viewModel::closePanels,
+                pinned = {
+                    researchRetained?.let { ResearchSheetFooter(it, state.currentPlayer) }
+                },
+            ) {
+                researchRetained?.let { ResearchSheetBody(it, state.currentPlayer, viewModel) }
+            }
+            val objectivesRetained = rememberRetained(campaignRun)
+            HudBottomSheet(
+                visible = objectivesOpen && campaignRun != null,
+                onDismiss = viewModel::closePanels,
+            ) {
+                objectivesRetained?.let { ObjectivesSheetContent(it) }
+            }
+            val statsRetained = rememberRetained(stats)
+            HudBottomSheet(visible = stats != null, onDismiss = viewModel::closePanels) {
+                statsRetained?.let { GameStatsSheet(it) }
             }
             ToastStack(toasts, topAnchor)
 

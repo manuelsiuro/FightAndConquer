@@ -119,6 +119,8 @@
     <string name="cd_fresh_units">%d units still able to act. Jump to the next one</string>
     <string name="cd_open_menu">Open game menu</string>
     <string name="cd_open_research">Open the research panel</string>
+    <string name="cd_open_stats">Open the war report</string>
+    <string name="cd_sheet_dismiss">Dismiss panel</string>
 
     <!-- Bottom bar -->
     <string name="cd_unit_stats">Attack %1$s, defense %2$d, upkeep %3$d per turn</string>
@@ -301,8 +303,10 @@
     <string name="research_branch_coin">Coin</string>
     <string name="research_branch_stone">Stone</string>
     <string name="research_branch_sail">Sail</string>
+    <string name="research_branch_progress">%1$d/%2$d</string>
     <string name="cd_research_start">Start %1$s, costs %2$d coins, %3$d turns</string>
     <string name="cd_research_locked">%1$s, locked</string>
+    <string name="cd_research_busy">%1$s, waiting — one research at a time, costs %2$d coins</string>
     <string name="cd_research_done">%1$s, researched</string>
     <string name="cd_research_in_progress">%1$s in progress, %2$d of %3$d</string>
 
@@ -326,6 +330,7 @@
     <string name="economy_amount_positive">+%d</string>
     <string name="economy_amount_negative">−%d</string>
     <string name="economy_treasury_next">Treasury next turn</string>
+    <string name="economy_upkeep_none">No units yet</string>
     <string name="economy_warn_bankruptcy">Bankruptcy next turn — all units will die!</string>
     <string name="economy_warn_upkeep">Treasury won\'t cover another round of upkeep</string>
 
@@ -536,7 +541,7 @@
     <string name="guide_basic_naval_how">Build a Port on your coast, buy a Longboat on the sea beside it, and walk a soldier aboard. Sail to a foreign shore and tap the beach to land — a strong passenger can storm defended ground. Keep the colony alive with a port of its own, and watch for enemy warships on the way.</string>
     <string name="guide_basic_research_title">Research</string>
     <string name="guide_basic_research_desc">Universities turn coin into lasting advantages: sharper steel, richer coffers, new buildings, open sea lanes. Research is paid up front and completed over turns — one technology at a time, in four branches of three.</string>
-    <string name="guide_basic_research_how">Build a University, open Research from the menu, and pick a technology you can afford. Every University you hold adds one point of progress at the start of your turn; when the bar fills, the advantage is yours for the rest of the match. Each branch unlocks in order, and losing your last University freezes progress until you build another.</string>
+    <string name="guide_basic_research_how">Build a University, open Research from the book button below the top bar, and pick a technology you can afford. Every University you hold adds one point of progress at the start of your turn; when the bar fills, the advantage is yours for the rest of the match. Each branch unlocks in order, and losing your last University freezes progress until you build another.</string>
 
     <!-- Field guide: Resources &amp; terrain -->
     <string name="guide_how_gold_vein">A resource in the ground — worthless until you build a Mine on top of it, which turns it into steady gold.</string>
@@ -626,6 +631,21 @@
     <string name="debrief_lens_treasury">Treasury</string>
     <string name="debrief_legend_you">%1$s — you</string>
     <string name="debrief_no_moments">A quiet war — no betrayals, no lootings, no bankruptcies.</string>
+
+    <!-- War report (in-game stats sheet) -->
+    <string name="stats_title">War report</string>
+    <string name="stats_now_label">Now</string>
+    <string name="stats_record_label">Record</string>
+    <string name="stats_moments_label">Your turning points</string>
+    <string name="stats_territory_value">%1$d hexes (%2$d%%)</string>
+    <string name="stats_net_value">+%1$d / −%2$d</string>
+    <string name="stats_units_value">%1$d units</string>
+    <string name="stats_strength_value">Strength %1$d</string>
+    <string name="stats_treasury_value">%1$d gold</string>
+    <string name="stats_lens_economy">Economy</string>
+    <string name="stats_lens_army">Army</string>
+    <string name="stats_total_losses">%1$d losses</string>
+    <string name="stats_moment_round">R%1$d</string>
     <string name="debrief_round">Round %1$d</string>
     <string name="moment_capital_looted">%1$s looted the capital of %2$s for %3$d gold</string>
     <string name="moment_pact_broken">%1$s betrayed %2$s, paying %3$d gold</string>
@@ -764,7 +784,7 @@
     <string name="level_academy_ink_and_iron_name">Ink and Iron</string>
     <string name="level_academy_ink_and_iron_briefing">Two castle gates seal the eastern road, and no soldier you can raise strikes harder than they hold. The garrison answers walls with walls; you will answer them with scholarship. Found a University, put your scholars to work, and carry sharper steel through the pass.</string>
     <string name="level_academy_ink_and_iron_debrief">A technology is a tower you build once and carry to every battlefield after. The gates fell to a discovery, not a bigger army.</string>
-    <string name="hint_academy_ink_and_iron_scroll">Open Research from the menu in the top corner. Knowledge is bought like anything else.</string>
+    <string name="hint_academy_ink_and_iron_scroll">Open Research with the book button below the top bar. Knowledge is bought like anything else.</string>
     <string name="hint_academy_ink_and_iron_university">Build a University on the open ground. Every one you own adds a point of progress at the start of your turn.</string>
     <string name="hint_academy_ink_and_iron_smithing">Start Smithing. Your barons strike at three — the gates hold at three, and a tie loses. Then research on: coin or stone, the slot is yours.</string>
     <string name="hint_academy_ink_and_iron_gate">Sharper steel is ready. Take both gates.</string>
