@@ -718,10 +718,11 @@
     <string name="hint_academy_coin_and_crown_upkeep">Watch the upkeep line. If it ever passes your income, your soldiers starve.</string>
 
     <string name="level_academy_shoulder_name">Shoulder to Shoulder</string>
-    <string name="level_academy_shoulder_briefing">Two outposts, each with a defender. A single farmhand is not enough — but two of them, standing together, are something else entirely.</string>
+    <string name="level_academy_shoulder_briefing">Two outposts, each with a defender. A single farmhand is not enough — but two of them, drilled together under a barracks roof, are something else entirely.</string>
     <string name="level_academy_shoulder_debrief">A merge costs nothing but the two soldiers you already had. It is the cheapest strength in the game.</string>
     <string name="hint_academy_shoulder_defense">Pick up a soldier: the shield numbers show how hard each hex is to take.</string>
-    <string name="hint_academy_shoulder_merge">Two peasants in one territory merge into a spearman. Move one onto the other.</string>
+    <string name="hint_academy_shoulder_muster">Spearmen need somewhere to train. Build a Barracks on any free hex of your land.</string>
+    <string name="hint_academy_shoulder_merge">With the Barracks standing, two peasants in one territory merge into a spearman. Move one onto the other.</string>
     <string name="hint_academy_shoulder_storm">Attack must beat Defense outright — a tie is not enough. Take both outposts.</string>
 
     <string name="level_academy_stone_and_timber_name">Stone and Timber</string>
@@ -738,9 +739,10 @@
     <string name="hint_academy_cut_the_line_loot">Taking a capital pays you half of what is in its treasury. Finish them.</string>
 
     <string name="level_academy_ranged_and_siege_name">Ranged and Siege</string>
-    <string name="level_academy_ranged_and_siege_briefing">Two castles, three defence apiece, and a rival content to sit behind them. Knights can be bought. Walls have to be answered.</string>
+    <string name="level_academy_ranged_and_siege_briefing">Two castles, three defence apiece, and a rival content to sit behind them. Soldiers can be mustered. Walls have to be answered — and the answer is built in a workshop.</string>
     <string name="level_academy_ranged_and_siege_debrief">The catapult is slow, expensive and fragile. It is also the only thing on the board that does not care about walls.</string>
     <string name="hint_academy_ranged_and_siege_castle">Tap the castle. Three defence — no soldier you can afford beats that.</string>
+    <string name="hint_academy_ranged_and_siege_workshop">Siege engines are built, not born. Raise a Siege workshop on a free hex — the Archery range unlocks archers the same way.</string>
     <string name="hint_academy_ranged_and_siege_catapult">Build a catapult. It ignores buildings entirely, but only moves two hexes a turn.</string>
     <string name="hint_academy_ranged_and_siege_archer">An archer beside the catapult keeps it alive. Take both keeps.</string>
 
@@ -852,6 +854,7 @@
     <string name="level_crown_breach_briefing">A line of castles across the waist of the continent, built by someone who never expected siege engines.</string>
     <string name="level_crown_breach_debrief">Walls are an answer to soldiers. They were never an answer to engineering.</string>
     <string name="hint_crown_breach_wall">Two keeps, three defence each. Soldiers will not do it.</string>
+    <string name="hint_crown_breach_workshop">No workshop, no engines. Raise a Siege workshop behind your lines first.</string>
     <string name="hint_crown_breach_siege">Build a catapult. Walls mean nothing to it — enemy soldiers still do.</string>
     <string name="hint_crown_breach_through">Take both keeps and the line is broken.</string>
 

@@ -81,20 +81,30 @@ class GameEngineTest {
     fun `buyableAt lists exactly the affordable legal options`() {
         val s = strip(9, 0..2, 6..8).withUnit(owner = 0, tier = 1, at = hex(1))
         val engine = GameEngine(s)
-        // Empty own hex 2, default (research-on) rules: all four unit tiers
-        // affordable at 100, archer + catapult, tower + market + lumber camp +
-        // university + the (inert while dormant) muster line; the research-gated
-        // castle/bank/fortress show as LOCKED cards (placement-probed); farm
-        // rejected (hex 2 not adjacent to the capital at 0), mine rejected (no
-        // gold vein), watchtower rejected (fog off), port absent even as a
-        // locked card (no coast anywhere).
+        // Empty own hex 2, default (research-on, muster-on) rules: the peasant
+        // sells, tiers 2-4 and the specials show as muster-LOCKED cards (no
+        // halls stand yet), tower + market + lumber camp + university + the
+        // muster line sell; the research-gated castle/bank/fortress show as
+        // research-locked cards (placement-probed); farm rejected (hex 2 not
+        // adjacent to the capital at 0), mine rejected (no gold vein),
+        // watchtower rejected (fog off), port absent even as a locked card (no
+        // coast anywhere).
         val options = engine.buyableAt(hex(2))
+        val hall = com.msa.fightandconquer.core.model.Building.BARRACKS
         assertEquals(
             setOf(
-                PurchaseOption.Unit(1, 10), PurchaseOption.Unit(2, 20),
-                PurchaseOption.Unit(3, 30), PurchaseOption.Unit(4, 40),
-                PurchaseOption.Unit(1, 14, com.msa.fightandconquer.core.model.UnitType.ARCHER, strength = 1, defense = 2),
-                PurchaseOption.Unit(1, 30, com.msa.fightandconquer.core.model.UnitType.CATAPULT, strength = 2, defense = 2),
+                PurchaseOption.Unit(1, 10),
+                PurchaseOption.Unit(2, 20, lockedByBuilding = hall),
+                PurchaseOption.Unit(3, 30, lockedByBuilding = hall),
+                PurchaseOption.Unit(4, 40, lockedByBuilding = hall),
+                PurchaseOption.Unit(
+                    1, 14, com.msa.fightandconquer.core.model.UnitType.ARCHER, strength = 1, defense = 2,
+                    lockedByBuilding = com.msa.fightandconquer.core.model.Building.ARCHERY_RANGE,
+                ),
+                PurchaseOption.Unit(
+                    1, 30, com.msa.fightandconquer.core.model.UnitType.CATAPULT, strength = 2, defense = 2,
+                    lockedByBuilding = com.msa.fightandconquer.core.model.Building.SIEGE_WORKSHOP,
+                ),
                 PurchaseOption.Structure(com.msa.fightandconquer.core.model.BuildingType.TOWER, 15),
                 PurchaseOption.Structure(
                     com.msa.fightandconquer.core.model.BuildingType.STRONG_TOWER,
@@ -120,9 +130,11 @@ class GameEngineTest {
             ),
             options.toSet(),
         )
-        // On the hex with the tier-1 unit: only a tier-1 buy-merge is offered for units.
+        // On the hex with the tier-1 unit: only a tier-1 buy-merge is offered
+        // for units — muster-locked, since merging makes a spearman and no
+        // hall stands.
         val mergeOptions = engine.buyableAt(hex(1)).filterIsInstance<PurchaseOption.Unit>()
-        assertEquals(listOf(PurchaseOption.Unit(1, 10)), mergeOptions)
+        assertEquals(listOf(PurchaseOption.Unit(1, 10, lockedByBuilding = hall)), mergeOptions)
     }
 
     @Test

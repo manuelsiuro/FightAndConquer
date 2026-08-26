@@ -34,9 +34,10 @@ object DiplomacyPolicy {
             // A dormant seat signs too: it has no war to fight. (AiPlayer short-circuits
             // before ever reaching here; the branch keeps the `when` honest.)
             Difficulty.EASY, Difficulty.PASSIVE -> true
-            Difficulty.NORMAL -> shouldAccept(state, me, proposal.from)
+            Difficulty.NORMAL -> shouldAccept(state, me, proposal.from) && leavesAnEnemy(state, me, proposal.from)
             Difficulty.HARD ->
                 shouldAccept(state, me, proposal.from) &&
+                    leavesAnEnemy(state, me, proposal.from) &&
                     !isPrey(state, me, proposal.from) &&
                     aliveCount(state) > 2 // duel endgame: peace is pure delay
         }
@@ -59,6 +60,7 @@ object DiplomacyPolicy {
                 .filter { enemy ->
                     neighborPower.getValue(enemy) * 10 >= myPower * 11 &&
                         d.pactBetween(me, enemy) == null &&
+                        leavesAnEnemy(state, me, enemy) &&
                         d.proposalBetween(me, enemy) == null &&
                         d.proposalBetween(enemy, me) == null &&
                         (d.lastProposalRound(me, enemy) ?: Int.MIN_VALUE) +
@@ -117,6 +119,20 @@ object DiplomacyPolicy {
     }
 
     // ----- shared assessments -----
+
+    /**
+     * Signing with [candidate] must leave at least one living NON-partner
+     * opponent. A realm pacted with every rival cannot win — and four NORMALs
+     * once froze a full game in a self-renewing all-pact clique (each expiry
+     * re-signed because "two adjacent enemies" was true again for an instant).
+     * Never sign the last war away; EASY/PASSIVE keep their always-sign
+     * identity (they initiate nothing, so they cannot build the clique).
+     */
+    private fun leavesAnEnemy(state: GameState, me: PlayerId, candidate: PlayerId): Boolean =
+        state.players.any { p ->
+            !p.eliminated && p.id != me && p.id != candidate &&
+                state.diplomacy.pactBetween(me, p.id) == null
+        }
 
     private fun shouldAccept(state: GameState, me: PlayerId, proposer: PlayerId): Boolean =
         powerOf(state, me, proposer) * 10 >= powerOf(state, me, me) * 9 ||

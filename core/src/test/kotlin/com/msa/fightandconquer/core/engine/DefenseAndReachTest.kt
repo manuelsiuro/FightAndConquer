@@ -253,7 +253,9 @@ class ReachabilityTest {
 
     @Test
     fun `same tier friendly unit is a merge target not a move target`() {
-        val s = base
+        // The standing hall keeps hex 2 a merge target under the muster gate.
+        val s = strip(9, 0..3, 6..8)
+            .withBuilding(com.msa.fightandconquer.core.model.Building.BARRACKS, at = hex(3))
             .withUnit(owner = 0, tier = 1, at = hex(1))
             .withUnit(owner = 0, tier = 1, at = hex(2))
         val reach = Rules.reachable(s, s.unitIdAt(hex(1)))

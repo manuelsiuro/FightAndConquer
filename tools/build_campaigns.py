@@ -30,6 +30,7 @@ board when odd rows are indented by one half-space.
     0R      market      0L lumber camp           0W watchtower
     0P      port        0Y fishery
     0U      university  0N bank     0S fortress
+    0H      barracks    0A archery range         0E siege workshop
     0$ / 0% owned land carrying a deposit
 
 Any token may carry a ``:name`` suffix to declare an anchor:
@@ -74,6 +75,10 @@ BUILDINGS = {
     "U": "UNIVERSITY",
     "N": "BANK",
     "S": "FORTRESS",
+    # Muster line ("B" is the bridge head-token, so the barracks is a Hall).
+    "H": "BARRACKS",
+    "A": "ARCHERY_RANGE",
+    "E": "SIEGE_WORKSHOP",
 }
 DEPOSITS = {"$": "GOLD_VEIN", "%": "FERTILE", "*": "FISH_SHOAL"}
 FLORA = {"t": "tree", "g": "grave"}

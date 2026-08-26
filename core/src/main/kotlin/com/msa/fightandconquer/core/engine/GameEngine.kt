@@ -149,7 +149,18 @@ class GameEngine private constructor(
         fun lockFor(action: GameAction.BuyUnit, check: LegalityResult): com.msa.fightandconquer.core.model.Building? {
             if ((check as? LegalityResult.Rejected)?.reason != RejectionReason.UNIT_NEEDS_BUILDING) return null
             if (Legality.check(recruitProbe(s), action) !is LegalityResult.Ok) return null
-            return Rules.missingUnitBuilding(s, s.currentPlayer, action.tier, action.type)
+            // A buy-merge creates tier + 1 — the lock names THAT tier's hall.
+            val occupant = s.unitAt(action.at)
+            val resultTier = if (
+                action.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER &&
+                occupant?.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER &&
+                occupant.tier == action.tier
+            ) {
+                action.tier + 1
+            } else {
+                action.tier
+            }
+            return Rules.missingUnitBuilding(s, s.currentPlayer, resultTier, action.type)
         }
         for (tier in 1..s.config.rules.maxTier) {
             val action = GameAction.BuyUnit(tier, hex)

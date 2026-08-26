@@ -190,7 +190,8 @@ class BuyAndMergeTest {
 
     @Test
     fun `buy-merge upgrades the standing unit`() {
-        val s = base.withUnit(owner = 0, tier = 1, at = hex(1))
+        // A standing hall: tier-2 creation is muster-gated since the flip.
+        val s = base.withBuilding(Building.BARRACKS, at = hex(2)).withUnit(owner = 0, tier = 1, at = hex(1))
         val standing = s.unitIdAt(hex(1))
         val (next, events) = Reducer.reduce(s, GameAction.BuyUnit(1, hex(1)))
         assertEquals(2, next.units.getValue(standing).tier)
@@ -200,7 +201,9 @@ class BuyAndMergeTest {
 
     @Test
     fun `merging two peasants makes a spearman`() {
-        val s = base
+        // The wider strip hangs the muster hall on a free own hex.
+        val s = strip(9, 0..3, 6..8)
+            .withBuilding(Building.BARRACKS, at = hex(3))
             .withUnit(owner = 0, tier = 1, at = hex(1))
             .withUnit(owner = 0, tier = 1, at = hex(2))
         val a = s.unitIdAt(hex(1))

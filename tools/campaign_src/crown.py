@@ -48,10 +48,10 @@ GRANARY = dict(
         researchEnabled=False,
         specialUnitsEnabled=False,
         diplomacyEnabled=False,
-        disabledBuildings=buildings("FARM", "TOWER", "MARKET", "LUMBER_CAMP"),
+        disabledBuildings=buildings("FARM", "TOWER", "MARKET", "LUMBER_CAMP", "BARRACKS"),
         **LANDLOCKED,
     ),
-    treasury=[30, 25],
+    treasury=[35, 30],
     objectives=[
         {"type": "income", "coins": 32},
         {"type": "build", "building": "FARM", "count": 3},
@@ -75,12 +75,12 @@ SIEGE_OF_ASH = dict(
     seed=302,
     map="""
 ~  ~  ~   ~  ~         ~  ~  ~   ~  ~   ~  ~  ~
-  ~  ~  1   1  1         .  .  2   2  2   ~  ~  ~
+  ~  ~  1   1H 1         .  .  2   2H 2   ~  ~  ~
 ~  1  1   1C 1         .  .  2   2C 2   2  ~  ~
   ~  1  1   .  .         .  .  .   2  2   2  ~  ~
 ~  .  .   .  .         .  .  .   .  .   .  ~  ~
   ~  0  0   0  0         0  .  .   .  .   .  ~  ~
-~  ~  0   0  0C        0  0  .   .  .   ~  ~  ~
+~  ~  0H  0  0C        0  0  .   .  .   ~  ~  ~
   ~  ~  ~   0  0         0:muster .  .   .  ~  ~  ~  ~
 ~  ~  ~   ~  ~         ~  ~  ~   ~  ~   ~  ~  ~
 """,
@@ -88,10 +88,12 @@ SIEGE_OF_ASH = dict(
     rules=dict(
         researchEnabled=False,
         diplomacyEnabled=False,
-        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MARKET", "LUMBER_CAMP"),
+        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MARKET", "LUMBER_CAMP", "BARRACKS"),
         **LANDLOCKED,
     ),
-    treasury=[50, 40, 40],
+    # Every seat's hall is pre-placed on the map — the survive clock leaves no
+    # room to fund one, and the claimants' pressure IS the mission.
+    treasury=[55, 40, 40],
     units=[
         {"seat": 0, "hex": "@capital0", "unitType": "SOLDIER", "tier": 2},
         {"seat": 0, "hex": "@muster", "unitType": "SOLDIER", "tier": 2},
@@ -127,7 +129,7 @@ IRON_VEINS = dict(
     map="""
 ~  ~  ~   ~  ~   ~  ~   ~  ~   ~  ~  ~  ~
   ~  ~  .   .  .   .  .   .  .   .  ~  ~  ~
-~  .  0   0  .   .  .$:vein_a .  .   1  1  ~  ~
+~  .  0   0  .   .  .$:vein_a .  .   1  1H ~  ~
   ~  0  0C  0  .   .  .   .  .   1  1C  1  ~  ~
 ~  0  0   .  .   .$:vein_b .  .   .  1   1  ~  ~
   ~  .  .   .  .   .  .   .$:vein_c .   .  .  ~  ~
@@ -139,10 +141,10 @@ IRON_VEINS = dict(
     rules=dict(
         researchEnabled=False,
         diplomacyEnabled=False,
-        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET"),
+        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "BARRACKS"),
         **LANDLOCKED,
     ),
-    treasury=[45, 40],
+    treasury=[55, 45],
     objectives=[
         {"type": "captureHexes", "hexes": ["@vein_a", "@vein_b", "@vein_c"]},
         {"type": "build", "building": "MINE", "count": 3},
@@ -167,12 +169,12 @@ LAST_WALL = dict(
     seed=304,
     map="""
 ~  ~  ~   ~   ~  ~   ~  ~   ~  ~   ~  ~  ~
-  ~  ~  1   1   1  .   .  2   2  2   ~  ~  ~
+  ~  ~  1   1H  1  .   .  2   2H 2   ~  ~  ~
 ~  1  1   1C  1  .   .  2   2C 2   2  ~  ~
   ~  1  1   .   .  .   .  .   2  2   2  ~  ~
 ~  .  .   .   .  .   .  .   .  .   .  ~  ~
   ~  .  .   0K:bastion 0  0   .  .   .  .   .  ~  ~
-~  ~  .   0   0C 0   0  .   .  .   ~  ~  ~
+~  ~  .   0H  0C 0   0  .   .  .   ~  ~  ~
   ~  ~  ~   .   0  0:muster .  .   .  ~   ~  ~  ~
 ~  ~  ~   ~   ~  ~   ~  ~   ~  ~   ~  ~  ~
 """,
@@ -180,11 +182,13 @@ LAST_WALL = dict(
     rules=dict(
         researchEnabled=False,
         disabledBuildings=buildings(
-            "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP",
+            "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP", "BARRACKS",
         ),
         **LANDLOCKED,
     ),
-    treasury=[60, 45, 45],
+    # Every seat's hall is pre-placed — the throne's defense and the claimants'
+    # pressure are the mission's tuning, not a muster race.
+    treasury=[65, 45, 45],
     objectives=[{"type": "survive", "rounds": 16}],
     failures=[
         {"type": "loseHexes", "hexes": ["@bastion"]},
@@ -222,7 +226,7 @@ BREACH = dict(
     map="""
 ~  ~  ~   ~  ~  ~   ~          ~  ~   ~  ~  ~  ~
   ~  ~  .   .  .  .   1K:keep_a 1  .   .  .  ~  ~
-~  .  0   0  .  .   1          1C 1   .  .  ~  ~
+~  .  0   0H .  .   1          1C 1   .  .  ~  ~
   ~  0  0C  0  .  .   1          1  1   .  .  ~  ~
 ~  0  0   .  .  .   1K:keep_b 1  .   .  .  ~  ~
   ~  .  .   .  .  .   .          .  .   .  .  ~  ~
@@ -236,15 +240,20 @@ BREACH = dict(
         diplomacyEnabled=False,
         disabledBuildings=buildings(
             "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP",
+            "SIEGE_WORKSHOP",
         ),
         **LANDLOCKED,
     ),
-    treasury=[55, 45],
+    # The player's barracks is pre-placed (the EASY defender keeps its turtle
+    # tuning — no free hall for it); the widened purse funds the workshop the
+    # wall is cracked by.
+    treasury=[75, 45],
     objectives=[{"type": "captureHexes", "hexes": ["@keep_a", "@keep_b"]}],
     failures=[{"type": "turnLimit", "rounds": 45}],
-    par=22,
+    par=24,
     hints=[
         {"id": "wall", "until": {"type": "uiSignal", "name": "unitSelected"}, "focus": ["@keep_a", "@keep_b"]},
+        {"id": "workshop", "until": {"type": "buildings", "building": "SIEGE_WORKSHOP", "count": 1}},
         {"id": "siege", "until": {"type": "units", "unitType": "CATAPULT", "count": 1}},
         {"id": "through", "until": {"type": "objectiveDone", "index": 0}},
     ],
@@ -268,9 +277,14 @@ THREE_THRONES = dict(
 ~  ~  ~   ~  ~   ~  ~   ~  ~   ~  ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "NORMAL")],
+    # The muster trio is deliberately ABSENT from this list — the finale sells
+    # everything the campaign taught. Tier 3: the Knight's Fortress lives
+    # behind research, which is off. Each purse grows by a barracks.
     rules=dict(
-        researchEnabled=False, disabledBuildings=["WATCHTOWER", "PORT", "FISHERY", "BRIDGE", "UNIVERSITY", "BANK", "FORTRESS"], **LANDLOCKED),
-    treasury=[55, 55, 55],
+        researchEnabled=False, maxTier=3,
+        disabledBuildings=["WATCHTOWER", "PORT", "FISHERY", "BRIDGE", "UNIVERSITY", "BANK", "FORTRESS"],
+        **LANDLOCKED),
+    treasury=[65, 65, 65],
     objectives=[{"type": "conquerAll"}],
     par=40,
     # A genuine three-way: the stand-in is as likely to be the one eliminated.

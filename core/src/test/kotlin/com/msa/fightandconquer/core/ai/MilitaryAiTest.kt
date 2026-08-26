@@ -125,7 +125,10 @@ class MilitaryAiTest {
     fun `the policy is null flag-off and never proposes an illegal action`() {
         assertEquals(
             null,
-            MilitaryPolicy.action(wide(RuleConstants()), com.msa.fightandconquer.core.model.Difficulty.HARD),
+            MilitaryPolicy.action(
+                wide(RuleConstants(militaryBuildingsRequired = false)),
+                com.msa.fightandconquer.core.model.Difficulty.HARD,
+            ),
         )
         for (fixture in listOf(
             wide(),
@@ -144,12 +147,13 @@ class MilitaryAiTest {
     }
 
     @Test
-    fun `flag off keeps the candidate stream byte-identical`() {
-        val flagOff = wide(RuleConstants())
-        val withField = wide(RuleConstants(militaryBuildingsRequired = false))
-        assertEquals(
-            MoveGenerator.candidates(flagOff, com.msa.fightandconquer.core.model.Difficulty.HARD),
-            MoveGenerator.candidates(withField, com.msa.fightandconquer.core.model.Difficulty.HARD),
-        )
+    fun `flag off restores the ungated candidate stream`() {
+        val flagOff = wide(RuleConstants(militaryBuildingsRequired = false))
+            .withEnemyTower(hex(13))
+            .withTreasury(0, 500)
+        val buys = MoveGenerator.candidates(flagOff, com.msa.fightandconquer.core.model.Difficulty.HARD)
+            .filterIsInstance<GameAction.BuyUnit>()
+        // No halls anywhere, yet the tier-3 breaker sells — the pre-muster game.
+        assertTrue(buys.any { it.type == UnitType.SOLDIER && it.tier == 3 })
     }
 }

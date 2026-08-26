@@ -5,6 +5,7 @@ import com.msa.fightandconquer.core.TestStates.strip
 import com.msa.fightandconquer.core.TestStates.unitIdAt
 import com.msa.fightandconquer.core.TestStates.withFlora
 import com.msa.fightandconquer.core.TestStates.withSea
+import com.msa.fightandconquer.core.TestStates.withBuilding
 import com.msa.fightandconquer.core.TestStates.withUnit
 import com.msa.fightandconquer.core.model.BuildingType
 import com.msa.fightandconquer.core.model.Flora
@@ -119,8 +120,10 @@ class RejectionReasonCoverageTest {
 
     @Test
     fun `merging across unreachable distance is rejected as not in the same region`() {
-        // Same connected region, but 5 steps is beyond a peasant's reach.
+        // Same connected region, but 5 steps is beyond a peasant's reach. A
+        // standing hall keeps the reach test (not the muster gate) the story.
         val far = strip(9, 0..5, 7..8)
+            .withBuilding(com.msa.fightandconquer.core.model.Building.BARRACKS, at = hex(3))
             .withUnit(owner = 0, tier = 1, at = hex(0))
             .withUnit(owner = 0, tier = 1, at = hex(5))
         assertEquals(
@@ -131,7 +134,10 @@ class RejectionReasonCoverageTest {
 
     @Test
     fun `walking onto a mergeable friend via move is rejected - merging is its own action`() {
+        // The hall keeps hex 2 a merge target (a gate-filtered target would
+        // misreport as unreachable instead).
         val s = base
+            .withBuilding(com.msa.fightandconquer.core.model.Building.BARRACKS, at = hex(3))
             .withUnit(owner = 0, tier = 1, at = hex(1))
             .withUnit(owner = 0, tier = 1, at = hex(2))
         assertEquals(

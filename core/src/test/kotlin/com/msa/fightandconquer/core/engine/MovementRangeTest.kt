@@ -4,6 +4,7 @@ import com.msa.fightandconquer.core.TestStates.hex
 import com.msa.fightandconquer.core.TestStates.strip
 import com.msa.fightandconquer.core.TestStates.unitIdAt
 import com.msa.fightandconquer.core.TestStates.withSea
+import com.msa.fightandconquer.core.TestStates.withBuilding
 import com.msa.fightandconquer.core.TestStates.withUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -76,12 +77,16 @@ class MovementRangeTest {
     @Test
     fun `merging obeys the same range`() {
         // Two peasants 4 steps apart cannot merge; 2 steps apart they can.
+        // The standing hall keeps range (not the muster gate) the story.
+        val hall = com.msa.fightandconquer.core.model.Building.BARRACKS
         val far = strip(10, 0..7, 9..9)
+            .withBuilding(hall, at = hex(7))
             .withUnit(owner = 0, tier = 1, at = hex(0))
             .withUnit(owner = 0, tier = 1, at = hex(4))
         assertFalse(hex(4) in Rules.reachable(far, far.unitIdAt(hex(0))).mergeTargets)
 
         val near = strip(10, 0..7, 9..9)
+            .withBuilding(hall, at = hex(7))
             .withUnit(owner = 0, tier = 1, at = hex(0))
             .withUnit(owner = 0, tier = 1, at = hex(2))
         assertTrue(hex(2) in Rules.reachable(near, near.unitIdAt(hex(0))).mergeTargets)

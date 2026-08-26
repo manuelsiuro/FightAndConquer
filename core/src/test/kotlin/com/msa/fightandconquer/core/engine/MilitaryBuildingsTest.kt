@@ -190,9 +190,13 @@ class MilitaryBuildingsTest {
 
     @Test
     fun `flag off is the identity - everything above is legal with no halls`() {
-        ok(base.withTreasury(0, 100), GameAction.BuyUnit(2, hex(2)))
-        ok(base.withTreasury(0, 100), GameAction.BuyUnit(1, hex(2), UnitType.ARCHER))
-        val s = base
+        val off = strip(
+            9, 0..2, 6..8,
+            rules = com.msa.fightandconquer.core.model.RuleConstants(militaryBuildingsRequired = false),
+        )
+        ok(off.withTreasury(0, 100), GameAction.BuyUnit(2, hex(2)))
+        ok(off.withTreasury(0, 100), GameAction.BuyUnit(1, hex(2), UnitType.ARCHER))
+        val s = off
             .withUnit(owner = 0, tier = 1, at = hex(1))
             .withUnit(owner = 0, tier = 1, at = hex(2))
         ok(s, GameAction.MergeUnits(s.unitIdAt(hex(1)), s.unitIdAt(hex(2))))

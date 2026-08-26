@@ -108,7 +108,11 @@ class SpecialUnitRulesTest {
 
     @Test
     fun `specials never merge by any path`() {
+        // Standing halls: the merge-shape refusals (not the muster gate) are
+        // this test's story.
         val s = strip(9, 0..5, 6..8)
+            .withBuilding(Building.BARRACKS, at = hex(4))
+            .withBuilding(Building.ARCHERY_RANGE, at = hex(5))
             .withUnit(owner = 0, tier = 1, at = hex(1), type = UnitType.ARCHER)
             .withUnit(owner = 0, tier = 1, at = hex(3))
         val archer = s.unitIdAt(hex(1))
@@ -169,7 +173,10 @@ class SpecialUnitRulesTest {
     @Test
     fun `buy capture with a catapult ignores buildings`() {
         // Tower-covered neutral-owned... enemy hex adjacent to P0 land: catapult buy-captures it.
-        val s = strip(9, 0..5, 6..8).withBuilding(Building.TOWER, at = hex(6))
+        // The standing workshop satisfies the muster gate.
+        val s = strip(9, 0..5, 6..8)
+            .withBuilding(Building.SIEGE_WORKSHOP, at = hex(4))
+            .withBuilding(Building.TOWER, at = hex(6))
         val (next, events) = Reducer.reduce(s, GameAction.BuyUnit(1, hex(6), UnitType.CATAPULT))
         assertTrue(events.any { it is GameEvent.HexCaptured })
         assertTrue(events.any { it is GameEvent.BuildingDestroyed })

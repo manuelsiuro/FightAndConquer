@@ -14,15 +14,26 @@ import kotlin.math.min
 /** Position scoring from [me]'s perspective. Higher is better. */
 object Evaluator {
 
-    fun score(state: GameState, me: PlayerId, difficulty: Difficulty): Double {
+    fun score(
+        state: GameState,
+        me: PlayerId,
+        difficulty: Difficulty,
+        visibleOverride: Set<com.msa.fightandconquer.core.hex.Hex>? = null,
+    ): Double {
         (state.phase as? GamePhase.Finished)?.let {
             return if (it.winner == me) 1e9 else -1e9
         }
 
         // Fog of war: the AI honors fog — enemy information outside its own vision
         // simply doesn't exist for scoring (own assets are always fully visible).
-        val visible: Set<com.msa.fightandconquer.core.hex.Hex>? =
-            if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
+        // [visibleOverride] freezes the set across a one-ply comparison: a
+        // candidate must never be penalized for the fog it LIFTS — an advance
+        // reveals enemy ground that already existed, and pricing the reveal as
+        // a loss froze whole invasions at the beachhead (the measured fog-1
+        // stall: every capture scored negative because it uncovered the
+        // defender's interior).
+        val visible: Set<com.msa.fightandconquer.core.hex.Hex>? = visibleOverride
+            ?: if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
 
         // Own buildings are valued at MY effective (civ) caps — same table their
         // income is actually paid from, so the valuation can't drift from it.

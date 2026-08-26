@@ -6,6 +6,7 @@ import com.msa.fightandconquer.core.engine.Legality
 import com.msa.fightandconquer.core.engine.LegalityResult
 import com.msa.fightandconquer.core.engine.Reducer
 import com.msa.fightandconquer.core.engine.Rng
+import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.GameState
 
@@ -69,7 +70,11 @@ class AiPlayer(private val difficulty: Difficulty) {
             }
         }
 
-        val baseline = Evaluator.score(state, me, difficulty)
+        // One frozen visibility set for the whole comparison: candidates are
+        // judged on what is known NOW, never penalized for what they reveal
+        // (see Evaluator.score's visibleOverride).
+        val frozenVisible = if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
+        val baseline = Evaluator.score(state, me, difficulty, frozenVisible)
         var best: GameAction = GameAction.EndTurn
         var bestScore = baseline
 
@@ -83,7 +88,7 @@ class AiPlayer(private val difficulty: Difficulty) {
             }
             val result = Reducer.reduce(state, action)
             if (result.events.firstOrNull() is GameEvent.ActionRejected) continue
-            val score = Evaluator.score(result.state, me, difficulty)
+            val score = Evaluator.score(result.state, me, difficulty, frozenVisible)
             if (score > bestScore + EPSILON) {
                 best = action
                 bestScore = score

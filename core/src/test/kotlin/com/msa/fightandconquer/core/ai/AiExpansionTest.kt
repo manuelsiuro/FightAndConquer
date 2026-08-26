@@ -114,6 +114,9 @@ class AiExpansionTest {
             owners,
             capital0 = center,
             capital1 = enemyCapital,
+            // The muster hall now shares the quiet-front purse (the policy
+            // founds a barracks for the overseas war before the argmax shops).
+            treasury = 120,
         )
         val ai = AiPlayer(Difficulty.NORMAL)
         var built = false
@@ -157,8 +160,13 @@ class AiExpansionTest {
         // Strong tower guards hex 27 at defense 3; treasury 35 affords a catapult (30)
         // but not the tier-4 soldier (40) — only siege can take the hex. The 27-hex
         // economy keeps net income healthy so the catapult's upkeep is sustainable.
+        // The standing halls satisfy the muster gate (a hall-less policy would
+        // spend this turn's purse founding one) — this test is about the
+        // catapult cracking what soldiers cannot, not about founding halls.
         val stuck = strip(30, 0..26, 27..29)
             .withTreasury(0, 35)
+            .withBuilding(Building.BARRACKS, at = hex(24))
+            .withBuilding(Building.SIEGE_WORKSHOP, at = hex(25))
             .withBuilding(Building.STRONG_TOWER, at = hex(27))
         val cracked = playOneTurn(stuck, AiPlayer(Difficulty.HARD))
         assertEquals(

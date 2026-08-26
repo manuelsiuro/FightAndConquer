@@ -134,7 +134,10 @@ class RuleVariantGateTest {
 
     @Test
     fun `lowered maxTier rejects buy-merge onto a cap-tier occupant`() {
-        val s = capped.withUnit(owner = 0, tier = 2, at = hex(1))
+        // The hall keeps the tier cap (not the muster gate) the story.
+        val s = capped
+            .withBuilding(com.msa.fightandconquer.core.model.Building.BARRACKS, at = hex(2))
+            .withUnit(owner = 0, tier = 2, at = hex(1))
         assertEquals(
             RejectionReason.HEX_OCCUPIED_INCOMPATIBLE,
             rejected(GameEngine(s).submit(GameAction.BuyUnit(2, hex(1)))),

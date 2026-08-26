@@ -116,9 +116,11 @@ COIN_AND_CROWN = dict(
 )
 
 # --- 3. Shoulder to Shoulder ------------------------------------------------
-# Merging and the defense number. Both outposts are garrisoned by a dormant
-# peasant (defense 1), and the purse is deliberately too thin for a spearman —
-# the only way through is to walk two peasants into one.
+# The Barracks, merging and the defense number. Spearmen must be mustered: the
+# hall comes first, then two peasants walk into one. Both outposts are
+# garrisoned by a dormant peasant (defense 1), and after the hall the purse is
+# deliberately too thin for a bought spearman — the merge is the only way
+# through.
 
 SHOULDER_TO_SHOULDER = dict(
     id="academy_shoulder",
@@ -134,20 +136,24 @@ SHOULDER_TO_SHOULDER = dict(
 """,
     seats=["player", DORMANT],
     rules=dict(
-        researchEnabled=False, maxTier=2, disabledBuildings=buildings("FARM"), **LAND_ONLY),
-    treasury=[12, DORMANT_PURSE],
+        researchEnabled=False, maxTier=2, disabledBuildings=buildings("FARM", "BARRACKS"), **LAND_ONLY),
+    treasury=[32, DORMANT_PURSE],
     units=[
         {"seat": 0, "hex": "@capital0", "unitType": "SOLDIER", "tier": 1},
         {"seat": 0, "hex": "@shed", "unitType": "SOLDIER", "tier": 1},
         {"seat": 1, "hex": "@post_a", "unitType": "SOLDIER", "tier": 1},
         {"seat": 1, "hex": "@post_b", "unitType": "SOLDIER", "tier": 1},
     ],
-    objectives=[{"type": "captureHexes", "hexes": ["@post_a", "@post_b"]}],
-    par=8,
+    objectives=[
+        {"type": "build", "building": "BARRACKS", "count": 1},
+        {"type": "captureHexes", "hexes": ["@post_a", "@post_b"]},
+    ],
+    par=10,
     hints=[
         {"id": "defense", "until": {"type": "uiSignal", "name": "unitSelected"}, "focus": ["@post_a"]},
+        {"id": "muster", "until": {"type": "buildings", "building": "BARRACKS", "count": 1}},
         {"id": "merge", "until": {"type": "units", "unitType": "SOLDIER", "count": 1, "tier": 2}},
-        {"id": "storm", "until": {"type": "objectiveDone", "index": 0}, "focus": ["@post_a", "@post_b"]},
+        {"id": "storm", "until": {"type": "objectiveDone", "index": 1}, "focus": ["@post_a", "@post_b"]},
     ],
 )
 
@@ -162,7 +168,7 @@ STONE_AND_TIMBER = dict(
 ~  ~   ~  ~   ~   ~          ~          ~   ~  ~   ~  ~
   ~  .   .  .   .t  .          .          .   .  .   ~  ~
 ~  .   0  0   .   .t         .          .   .  1   .  ~
-  ~  0  0C  0   .:pass_a .          .:pass_c 1   1C 1   .  ~
+  ~  0  0C  0   .:pass_a .          .:pass_c 1H  1C 1   .  ~
 ~  0   0  .t  .   .:pass_b .          .   1  1   .  ~
   ~  .   .  .   .t  .          .          .   .  .   ~  ~
 ~  ~   .  .   .   .          .          .   .  ~   ~  ~
@@ -172,16 +178,18 @@ STONE_AND_TIMBER = dict(
     rules=dict(
         researchEnabled=False,
         maxTier=3,
-        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "LUMBER_CAMP"),
+        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "LUMBER_CAMP", "BARRACKS"),
         **LAND_ONLY,
     ),
-    treasury=[30, 30],
+    # The rival's barracks is pre-placed (its purse cannot fund hall + army);
+    # the player's extra 10 covers their own hall.
+    treasury=[40, 30],
     objectives=[
         {"type": "build", "building": "TOWER", "count": 1},
         {"type": "holdHexes", "hexes": ["@pass_a", "@pass_b", "@pass_c"], "rounds": 4},
     ],
     failures=[{"type": "turnLimit", "rounds": 25}],
-    par=14,
+    par=15,
     hints=[
         {"id": "trees", "until": {"type": "treasury", "coins": 40}},
         {"id": "tower", "until": {"type": "buildings", "building": "TOWER", "count": 1}},
@@ -204,7 +212,7 @@ CUT_THE_LINE = dict(
 ~  ~  ~   ~   ~  ~   ~          ~  ~   ~  ~  ~
   ~  .  .   .   .  .   .          1  1   1  ~  ~
 ~  .  0   0   .  .   .          1  1   1  ~  ~
-  ~  0  0C  0   .  .   .:neck    1  1C  1  .  ~
+  ~  0  0C  0   .  .   .:neck    1  1C  1H .  ~
 ~  0  0   .   .  .   .          1  1   1  ~  ~
   ~  .  .   .   .  1  1          1  1   .  ~  ~
 ~  ~  .   .   .  .   .          .  ~   ~  ~  ~
@@ -213,11 +221,15 @@ CUT_THE_LINE = dict(
     seats=["player", ("ai", "EASY")],
     rules=dict(
         researchEnabled=False,
-        maxTier=4,
-        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP"),
+        # Tier 3 is the cap: the Knight's Fortress lives behind research, which
+        # is off — a tier-4 card here would be a lock nothing ever opens.
+        maxTier=3,
+        disabledBuildings=buildings(
+            "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP", "BARRACKS",
+        ),
         **LAND_ONLY,
     ),
-    treasury=[40, 25],
+    treasury=[50, 25],
     objectives=[{"type": "eliminate", "seat": 1}],
     failures=[{"type": "turnLimit", "rounds": 30}],
     par=18,
@@ -228,9 +240,10 @@ CUT_THE_LINE = dict(
 )
 
 # --- 6. Ranged and Siege ----------------------------------------------------
-# Archers and catapults against a castle line no soldier ladder can crack in
-# time. The catapult objective comes first on purpose: the level is a lesson
-# about the right tool, not a grind.
+# The war schools: archers and catapults against a castle line no soldier
+# ladder can crack in time — and each tool must be mustered at its own
+# building first. The workshop objective comes first on purpose: the level is
+# a lesson about building the right tool, not a grind.
 
 RANGED_AND_SIEGE = dict(
     id="academy_ranged_and_siege",
@@ -250,22 +263,29 @@ RANGED_AND_SIEGE = dict(
     seats=["player", ("ai", "EASY")],
     rules=dict(
         researchEnabled=False,
-        maxTier=4,
+        # Tier 3: the Knight's Fortress lives behind research, which is off.
+        maxTier=3,
         navalEnabled=False,
         diplomacyEnabled=False,
-        disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP"),
+        disabledBuildings=buildings(
+            "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP",
+            "BARRACKS", "ARCHERY_RANGE", "SIEGE_WORKSHOP",
+        ),
     ),
-    treasury=[45, 30],
+    # The old 45 plus a workshop (25) and a range (16) — the tray teaches both.
+    treasury=[85, 30],
     objectives=[
+        {"type": "build", "building": "SIEGE_WORKSHOP", "count": 1},
         {"type": "field", "unitType": "CATAPULT", "count": 1},
         {"type": "captureHexes", "hexes": ["@keep_a", "@keep_b"]},
     ],
-    failures=[{"type": "turnLimit", "rounds": 30}],
-    par=18,
+    failures=[{"type": "turnLimit", "rounds": 35}],
+    par=21,
     hints=[
         {"id": "castle", "until": {"type": "uiSignal", "name": "unitSelected"}, "focus": ["@keep_a"]},
+        {"id": "workshop", "until": {"type": "buildings", "building": "SIEGE_WORKSHOP", "count": 1}},
         {"id": "catapult", "until": {"type": "units", "unitType": "CATAPULT", "count": 1}},
-        {"id": "archer", "until": {"type": "objectiveDone", "index": 1}, "focus": ["@keep_a", "@keep_b"]},
+        {"id": "archer", "until": {"type": "objectiveDone", "index": 2}, "focus": ["@keep_a", "@keep_b"]},
     ],
 )
 
@@ -281,16 +301,18 @@ SALT_AND_SAIL = dict(
     map="""
 ~  ~  ~   ~  ~       ~   ~  ~        ~  ~  ~
   ~  .  .   .  .       ~   ~  ~        .  .  ~
-~  .  0   0  .       ~   ~  .        1  1  ~
+~  .  0   0  .       ~   ~  .        1  1H ~
   ~  0  0C  0  0:cape ~*  ~  .:beach 1C .  ~
-~  0  0   .  .       ~   ~  .        1  .  ~
+~  0  0H  .  .       ~   ~  .        1  .  ~
   ~  .  .   .  .       ~   ~  ~        .  ~  ~
 ~  ~  .   .  .       ~   ~  ~        ~  ~  ~
   ~  ~  ~   ~  ~       ~   ~  ~        ~  ~  ~
 """,
     seats=["player", ("ai", "EASY")],
+    # Both muster halls are pre-placed on the islands — the lesson stays purely
+    # naval, the tray stays narrow. Tier 3: the Fortress lives behind research.
     rules=dict(
-        researchEnabled=False, maxTier=4, diplomacyEnabled=False, disabledBuildings=buildings(
+        researchEnabled=False, maxTier=3, diplomacyEnabled=False, disabledBuildings=buildings(
         "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP", "PORT", "FISHERY", "BRIDGE",
     )),
     treasury=[70, 25],
@@ -330,9 +352,12 @@ WORDS_BEFORE_SWORDS = dict(
   ~  ~  ~  ~   ~  ~   ~  ~   ~  ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "EASY")],
+    # Tier 3: everything ON except research, and the Knight's Fortress lives
+    # behind research — a tier-4 card would be a lock nothing opens. Each purse
+    # grows by a barracks: three seats, three halls to found.
     rules=dict(
-        researchEnabled=False, maxTier=4),
-    treasury=[35, 45, 45],
+        researchEnabled=False, maxTier=3),
+    treasury=[45, 55, 55],
     objectives=[
         {"type": "survive", "rounds": 8},
         {"type": "conquerAll"},
@@ -363,7 +388,7 @@ INK_AND_IRON = dict(
     map="""
 -        0        0        .        -        1        1        -
   0        0        0        .t       -        1        1        -
-0        0C       0:yard   .$       1K:gate_a 1        1C       -
+0H       0C       0:yard   .$       1K:gate_a 1        1C       -
   0        0        0        .t       1K:gate_b 1        1        -
 -        0        0        .        -        1        1        -
 """,

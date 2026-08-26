@@ -237,10 +237,13 @@ data class RuleConstants(
      * tier 2+ (buy OR merge) needs a working BARRACKS anywhere in the realm (tier 4
      * additionally a FORTRESS), an Archer needs an ARCHERY_RANGE, a Catapult a
      * SIEGE_WORKSHOP — see Rules.requiredBuildingsFor. Off: the pre-muster game;
-     * the three muster buildings still sell as inert structures. Dormant (false)
-     * until the sanctioned reshuffle window flips it.
+     * the three muster buildings still sell as inert structures. Defaulted ON for
+     * skirmish AND every shipped campaign mission (each retuned for it); the
+     * Setup screen and the map editor expose the toggle. Legacy-save exposure
+     * class on the flip: identical to researchEnabled's (a pre-flip mid-turn
+     * save whose log contains a now-gated buy replays that action as a no-op).
      */
-    val militaryBuildingsRequired: Boolean = false,
+    val militaryBuildingsRequired: Boolean = true,
     val barracksCost: Int = 20,
     val archeryRangeCost: Int = 16,
     val siegeWorkshopCost: Int = 25,

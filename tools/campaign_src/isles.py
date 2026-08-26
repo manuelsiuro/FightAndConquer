@@ -45,8 +45,8 @@ LANDFALL = dict(
     seed=201,
     map="""
 ~  ~  ~   ~  ~  ~   ~  ~  ~        ~        ~        ~  ~
-  ~  0  0   0  ~:ferry ~   ~  ~  1        1        .        ~  ~
-~  0  0C  0  0P     ~*  ~  .  1C       1        .        ~  ~
+  ~  0  0   0  ~:ferry ~   ~  ~  1        1H       .        ~  ~
+~  0H 0C  0  0P     ~*  ~  .  1C       1        .        ~  ~
   ~  0  0   0  ~:relief ~   ~  ~  .:sand_a .:sand_b .:sand_c ~  ~
 ~  ~  ~   ~  ~  ~   ~  ~  ~        ~        ~        ~  ~
   ~  ~  .   .  .  ~   ~  ~  .        .        .        ~  ~
@@ -55,13 +55,16 @@ LANDFALL = dict(
 ~  ~  ~   ~  ~  ~   ~  ~  ~        ~        ~        ~  ~
 """,
     seats=["player", ("ai", "EASY")],
+    # Both halls are pre-placed on the islands: the chapter is the crossing,
+    # not a muster race. Tier 3: the Fortress lives behind research (off).
     rules=dict(
         researchEnabled=False,
+        maxTier=3,
         diplomacyEnabled=False,
         specialUnitsEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "PORT", "FISHERY", "BRIDGE"),
     ),
-    treasury=[55, 30],
+    treasury=[60, 30],
     units=[
         {"seat": 0, "hex": "@ferry", "unitType": "TRANSPORT", "tier": 1},
         {"seat": 0, "hex": "@capital0", "unitType": "SOLDIER", "tier": 2},
@@ -102,18 +105,20 @@ LIGHTHOUSE = dict(
     seed=202,
     map="""
 ~  ~  ~   ~  ~  ~   ~  ~  ~   ~   ~  ~  ~
-  ~  .  .   .  ~  ~   ~  ~  1   1   1  ~  ~
+  ~  .  .   .  ~  ~   ~  ~  1   1H  1  ~  ~
 ~  .  .   .  .  ~* ~  .  1   1C  1  ~  ~
   ~  .  .   .  ~  ~   ~  ~  1   1   1  ~  ~
 ~  ~  ~   ~  ~  ~   ~  ~  ~   ~   ~  ~  ~
   ~  ~  0   0  0  ~   ~  ~  .   .   .  ~  ~
-~  0  0C  0  0P ~:raid_water ~  .  .   .   .  ~  ~
+~  0H 0C  0  0P ~:raid_water ~  .  .   .   .  ~  ~
   ~  ~  0W:beacon 0  0  ~   ~  ~  .   .   .  ~  ~
 ~  ~  ~   ~  ~  ~   ~  ~  ~   ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL")],
+    # Halls pre-placed; tier 3 — the Fortress lives behind research (off).
     rules=dict(
         researchEnabled=False,
+        maxTier=3,
         fogOfWar=True,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "WATCHTOWER", "PORT", "FISHERY"),
@@ -125,6 +130,10 @@ LIGHTHOUSE = dict(
         {"type": "turnLimit", "rounds": 45},
     ],
     par=12,
+    # A named hex to PROTECT, not a land grab: the opponent model plays for
+    # territory and cannot know the beacon is the mission — the bolder
+    # fog-era raiders now snipe it (the landfall / iron-veins class).
+    aiSolvable=False,
     scripts=[
         {
             "id": "night_raid",
@@ -151,7 +160,7 @@ WOLVES = dict(
     seed=203,
     map="""
 ~  ~  ~   ~   ~   ~   ~  ~  ~   ~   ~  ~  ~
-  ~  0  0   0   ~   ~   ~  ~  1   1   1  ~  ~
+  ~  0  0H  0   ~   ~   ~  ~  1   1H  1  ~  ~
 ~  0  0C  0   0P  ~*  ~  .  1   1C  1  ~  ~
   ~  0  0   0   ~:hunt_a ~:hunt_b ~  ~  1   1   1  ~  ~
 ~  ~  ~   ~   ~   ~   ~  ~  ~   ~   ~  ~  ~
@@ -161,8 +170,11 @@ WOLVES = dict(
 ~  ~  ~   ~   ~   ~   ~  ~  ~   ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL")],
+    # Halls pre-placed on both isles; tier 3 (the Fortress lives behind
+    # research, which is off).
     rules=dict(
         researchEnabled=False,
+        maxTier=3,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "MINE", "MARKET", "PORT", "FISHERY"),
     ),
@@ -220,7 +232,7 @@ STRAIT = dict(
     seed=204,
     map="""
 ~  ~  ~   ~  ~        ~        ~  ~  ~   ~   ~  ~  ~
-  ~  0  0   0  ~        ~        ~  ~  1   1   1  ~  ~
+  ~  0  0   0  ~        ~        ~  ~  1   1H  1  ~  ~
 ~  0  0C  0  0  ~:span_a ~:span_b .  1   1C  1  ~  ~
   ~  0  0   0  ~        ~        ~  ~  1   1   1  ~  ~
 ~  ~  ~   ~  ~        ~        ~  ~  ~   ~   ~  ~  ~
@@ -230,13 +242,16 @@ STRAIT = dict(
 ~  ~  ~   ~  ~        ~        ~  ~  ~   ~   ~  ~  ~
 """,
     seats=["player", ("ai", "EASY")],
+    # Tier 3 (the Fortress lives behind research, which is off); the rival's
+    # hall is pre-placed, the player funds their own from the wider purse.
     rules=dict(
         researchEnabled=False,
+        maxTier=3,
         diplomacyEnabled=False,
         specialUnitsEnabled=False,
-        disabledBuildings=buildings("FARM", "TOWER", "MARKET", "PORT", "BRIDGE"),
+        disabledBuildings=buildings("FARM", "TOWER", "MARKET", "PORT", "BRIDGE", "BARRACKS"),
     ),
-    treasury=[70, 35],
+    treasury=[80, 35],
     objectives=[
         {"type": "build", "building": "BRIDGE", "count": 2},
         {"type": "eliminate", "seat": 1},
@@ -261,21 +276,23 @@ ADMIRALS_GRAVE = dict(
     seed=205,
     map="""
 ~  ~  ~   ~   ~  ~  ~  ~  ~   ~   ~  ~  ~
-  ~  0  0   0   ~  ~  ~  ~  1   1   1  ~  ~
+  ~  0  0   0   ~  ~  ~  ~  1   1H  1  ~  ~
 ~  0  0C  0   0P ~* ~  .  1   1C  1P ~  ~
   ~  0  0   0   ~  ~  ~  ~  1   1   1  ~  ~
 ~  ~  ~   ~   ~  ~  ~  ~  ~   ~   ~  ~  ~
-  ~  ~  .   .   .  ~  ~  ~  2   2   2  ~  ~
+  ~  ~  .   .   .  ~  ~  ~  2   2H  2  ~  ~
 ~  .  .   .   .  ~  ~  2  2   2C  2  ~  ~
   ~  ~  .   .   .  ~  ~  ~  2   2   2  ~  ~
 ~  ~  ~   ~   ~  ~  ~  ~  ~   ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "EASY")],
+    # Tier 3 (the Fortress lives behind research, which is off); the rivals'
+    # halls are pre-placed, the player's comes from the wider purse.
     rules=dict(
-        researchEnabled=False, disabledBuildings=buildings(
-        "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "PORT", "FISHERY", "BRIDGE",
+        researchEnabled=False, maxTier=3, disabledBuildings=buildings(
+        "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "PORT", "FISHERY", "BRIDGE", "BARRACKS",
     )),
-    treasury=[75, 60, 55],
+    treasury=[85, 70, 65],
     objectives=[{"type": "eliminate", "seat": 1}],
     failures=[{"type": "turnLimit", "rounds": 60}],
     par=30,
@@ -306,9 +323,13 @@ CROWN_OF_SALT = dict(
 ~  ~  ~   ~   ~  ~  ~  ~  ~   ~   ~  ~  ~
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "NORMAL")],
+    # The muster trio is deliberately ABSENT from this list — the finale sells
+    # everything the campaign taught. Tier 3: the Knight's Fortress lives
+    # behind research, which is off. Each purse grows by a barracks.
     rules=dict(
-        researchEnabled=False, disabledBuildings=["WATCHTOWER", "UNIVERSITY", "BANK", "FORTRESS"]),
-    treasury=[85, 70, 70],
+        researchEnabled=False, maxTier=3,
+        disabledBuildings=["WATCHTOWER", "UNIVERSITY", "BANK", "FORTRESS"]),
+    treasury=[95, 80, 80],
     objectives=[{"type": "conquerAll"}],
     par=40,
     hints=[
