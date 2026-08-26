@@ -145,6 +145,7 @@
     <string name="shop_walkway">Troop walkway</string>
     <string name="shop_research_per_turn">+1 research</string>
     <string name="shop_requires_tech">%1$s</string>
+    <string name="shop_requires_building">%1$s</string>
     <string name="shop_musters_soldiers">Trains soldiers</string>
     <string name="shop_musters_archers">Trains archers</string>
     <string name="shop_musters_catapults">Builds catapults</string>
@@ -153,6 +154,7 @@
     <string name="cd_purchase_unit">%1$s, costs %2$d coins — attack %3$d, defense %4$d</string>
     <string name="cd_purchase_unit_unaffordable">%1$s, costs %2$d coins, attack %3$d, defense %4$d — not affordable</string>
     <string name="cd_purchase_locked">%1$s, costs %2$d coins — requires the %3$s research</string>
+    <string name="cd_purchase_locked_building">%1$s, costs %2$d coins — requires a standing %3$s</string>
 
     <!-- Piece names -->
     <string name="unit_peasant">Peasant</string>
@@ -440,6 +442,7 @@
     <string name="reject_research_already_complete">That technology is already yours</string>
     <string name="reject_research_needs_prereq">The earlier technology in this branch comes first</string>
     <string name="reject_building_needs_research">That building needs a completed research first</string>
+    <string name="reject_unit_needs_building">That unit needs its muster building standing first</string>
 
     <!-- Info-card actions (rotate / demolish / disband) -->
     <string name="info_action_rotate">Rotate</string>
@@ -485,11 +488,11 @@
     <!-- Field guide: Units -->
     <string name="guide_unit_soldiers">Soldiers</string>
     <string name="guide_desc_soldiers">Your core fighters — four tiers from Peasant to Knight. Higher tiers hit harder but cost far more upkeep.</string>
-    <string name="guide_how_soldiers">Buy one onto your own land. A fresh soldier can move anywhere inside your connected territory, or capture one adjacent hex whose defense is below its Attack. Merge two of the same tier for the next tier up.</string>
+    <string name="guide_how_soldiers">Buy one onto your own land. A fresh soldier can move anywhere inside your connected territory, or capture one adjacent hex whose defense is below its Attack. Merge two of the same tier for the next tier up. Peasants muster freely; Spearmen and Barons need a standing Barracks (buying and merging both), and Knights a Fortress as well.</string>
     <string name="guide_value_soldier_tier">1–4 (its tier)</string>
     <string name="guide_value_soldier_upkeep">2–54/turn by tier</string>
-    <string name="guide_how_archer">Park it on ground you want to hold — it guards its own hex and every neighbour like a tower, but keeps pace with your army. It only attacks at Attack 1, so don\'t rely on it to capture.</string>
-    <string name="guide_how_catapult">Send it at towers and castles — it ignores building defense completely. It moves only 2 hexes per turn and can be intercepted, and it still loses to defending enemy units.</string>
+    <string name="guide_how_archer">Park it on ground you want to hold — it guards its own hex and every neighbour like a tower, but keeps pace with your army. It only attacks at Attack 1, so don\'t rely on it to capture. Fielding one needs a standing Archery range.</string>
+    <string name="guide_how_catapult">Send it at towers and castles — it ignores building defense completely. It moves only 2 hexes per turn and can be intercepted, and it still loses to defending enemy units. Building one needs a standing Siege workshop.</string>
     <string name="guide_req_special">Special units must be enabled</string>
     <string name="guide_how_transport">Buy it on the sea beside your port, then walk a unit onto it to embark. Sail up to 3 hexes per turn, park beside a beach and tap the shore to land — the passenger can even capture the beach with its own Attack. A boat alongside also feeds troops cut off from supply.</string>
     <string name="guide_how_warship">The navy\'s sword: move onto an enemy boat to sink it (ties go to you), or tap an adjacent enemy coastal hex to bombard it — the raid kills the garrison and razes any building except a capital. Towers shrug the bombardment off.</string>

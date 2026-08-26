@@ -24,6 +24,13 @@ sealed interface PurchaseOption {
         /** Display stats resolved at offer time (civ-aware for specials). Defaults = the soldier ladder. */
         val strength: Int = tier,
         val defense: Int = tier,
+        /**
+         * Non-null when the unit is offered but muster-locked: the missing
+         * building (Rules.missingUnitBuilding). The tray renders these as locked
+         * cards (the lockedByTech pattern) — buying one is rejected with
+         * UNIT_NEEDS_BUILDING.
+         */
+        val lockedByBuilding: com.msa.fightandconquer.core.model.Building? = null,
     ) : PurchaseOption
     data class Structure(
         val type: BuildingType,
@@ -134,16 +141,37 @@ class GameEngine private constructor(
     fun buyableAt(hex: Hex): List<PurchaseOption> {
         val s = _state.value
         val options = ArrayList<PurchaseOption>()
+        // Muster-locked units stay visible as locked cards, but only where they
+        // could otherwise stand: the gate fires before the placement checks, so
+        // a rejected buy re-probes with the gate off (and affordability moot) —
+        // Ok means the missing building is the only gap on this hex (the
+        // lockedByTech pattern).
+        fun lockFor(action: GameAction.BuyUnit, check: LegalityResult): com.msa.fightandconquer.core.model.Building? {
+            if ((check as? LegalityResult.Rejected)?.reason != RejectionReason.UNIT_NEEDS_BUILDING) return null
+            if (Legality.check(recruitProbe(s), action) !is LegalityResult.Ok) return null
+            return Rules.missingUnitBuilding(s, s.currentPlayer, action.tier, action.type)
+        }
         for (tier in 1..s.config.rules.maxTier) {
-            if (Legality.check(s, GameAction.BuyUnit(tier, hex)) is LegalityResult.Ok) {
+            val action = GameAction.BuyUnit(tier, hex)
+            val check = Legality.check(s, action)
+            if (check is LegalityResult.Ok) {
                 options.add(PurchaseOption.Unit(tier, s.config.rules.unitCost[tier - 1]))
+            } else {
+                lockFor(action, check)?.let { missing ->
+                    options.add(
+                        PurchaseOption.Unit(tier, s.config.rules.unitCost[tier - 1], lockedByBuilding = missing),
+                    )
+                }
             }
         }
         // Every non-soldier type is a special — the enum is the roster, so a new
         // unit type shows up in the tray without touching this loop.
         for (special in com.msa.fightandconquer.core.model.UnitType.entries) {
             if (special == com.msa.fightandconquer.core.model.UnitType.SOLDIER) continue
-            if (Legality.check(s, GameAction.BuyUnit(1, hex, special)) is LegalityResult.Ok) {
+            val action = GameAction.BuyUnit(1, hex, special)
+            val check = Legality.check(s, action)
+            val missing = if (check is LegalityResult.Ok) null else lockFor(action, check)
+            if (check is LegalityResult.Ok || missing != null) {
                 options.add(
                     PurchaseOption.Unit(
                         tier = 1,
@@ -151,6 +179,7 @@ class GameEngine private constructor(
                         type = special,
                         strength = Rules.buyStrength(s, s.currentPlayer, 1, special),
                         defense = Rules.buyDefense(s, s.currentPlayer, 1, special),
+                        lockedByBuilding = missing,
                     ),
                 )
             }
@@ -181,6 +210,15 @@ class GameEngine private constructor(
         }
         return options
     }
+
+    /** The current player with the muster gate off and a bottomless purse — [buyableAt]'s unit probe. */
+    private fun recruitProbe(s: GameState): GameState =
+        s.copy(
+            config = s.config.copy(rules = s.config.rules.copy(militaryBuildingsRequired = false)),
+            players = s.players.map { p ->
+                if (p.id != s.currentPlayer) p else p.copy(treasury = Int.MAX_VALUE / 2)
+            },
+        )
 
     /** The current player with [tech] granted and a bottomless purse — [buyableAt]'s placement probe. */
     private fun unlockedProbe(s: GameState, tech: com.msa.fightandconquer.core.model.Tech): GameState =

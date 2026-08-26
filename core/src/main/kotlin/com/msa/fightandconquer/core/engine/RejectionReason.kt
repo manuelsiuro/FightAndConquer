@@ -114,4 +114,10 @@ enum class RejectionReason {
     RESEARCH_NEEDS_PREREQUISITE,
     /** The building's unlocking tech is not completed (UI derives it via Rules.requiredTech). */
     BUILDING_NEEDS_RESEARCH,
+    /**
+     * A required muster building (Barracks / Fortress / Archery Range / Siege
+     * Workshop) is not standing fed anywhere in the realm (UI derives which via
+     * Rules.missingUnitBuilding).
+     */
+    UNIT_NEEDS_BUILDING,
 }

@@ -341,7 +341,8 @@ object Rules {
      * - captureTargets: non-owned hexes with defense < strength, adjacent to
      *   the path — the capture is the final step, at path distance <= range;
      * - mergeTargets: same-tier friendly SOLDIERs within range (tier < max;
-     *   specials never merge);
+     *   specials never merge; the merged tier must be musterable —
+     *   [unitAvailable] — so chips, checkMerge and the AI filter as one);
      * - embarkTargets: own empty transports on sea adjacent to the path.
      */
     fun reachable(state: GameState, unitId: UnitId): ReachResult {
@@ -351,6 +352,8 @@ object Rules {
         val rules = state.config.rules
         val strength = strengthOf(state, unit)
         val maxRange = moveRangeOf(state, unit)
+        // Once per call, not per neighbor: identity while the muster flag is off.
+        val mergeAllowed = unitAvailable(state, unit.owner, unit.tier + 1, UnitType.SOLDIER)
         val move = HashSet<Hex>()
         val capture = HashSet<Hex>()
         val merge = HashSet<Hex>()
@@ -378,7 +381,8 @@ object Rules {
                                 when {
                                     occupant == null -> if (standable) move.add(n)
                                     unit.type == UnitType.SOLDIER && occupant.type == UnitType.SOLDIER &&
-                                        occupant.tier == unit.tier && unit.tier < rules.maxTier -> merge.add(n)
+                                        occupant.tier == unit.tier && unit.tier < rules.maxTier &&
+                                        mergeAllowed -> merge.add(n)
                                 }
                             }
                             // Open sea is never capturable by land units — but an
@@ -552,6 +556,55 @@ object Rules {
         tiles.values.count {
             it.owner == player && it.building == Building.UNIVERSITY && !it.starving
         }
+
+    // --- Muster buildings (see docs/game-rules.md "Muster buildings") ---
+
+    /** The realm-wide buildings that gate creating a [tier]/[type] unit — empty when ungated. */
+    fun requiredBuildingsFor(tier: Int, type: UnitType): List<Building> = when (type) {
+        UnitType.SOLDIER -> when {
+            // The Peasant stays free: recruiting can never fully deadlock.
+            tier <= 1 -> emptyList()
+            tier <= 3 -> listOf(Building.BARRACKS)
+            // The Knight additionally needs the heavy keep.
+            else -> listOf(Building.BARRACKS, Building.FORTRESS)
+        }
+        UnitType.ARCHER -> listOf(Building.ARCHERY_RANGE)
+        UnitType.CATAPULT -> listOf(Building.SIEGE_WORKSHOP)
+        // Boats are placement-gated by an adjacent working Port already.
+        UnitType.TRANSPORT, UnitType.WARSHIP, UnitType.FISHING_BOAT -> emptyList()
+    }
+
+    /**
+     * At least one standing, non-starving [building] owned by [player] anywhere in
+     * the realm — the [workingUniversities] predicate, realm-wide.
+     */
+    fun hasWorkingBuilding(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        player: PlayerId,
+        building: Building,
+    ): Boolean = tiles.values.any { it.owner == player && it.building == building && !it.starving }
+
+    /**
+     * The first missing prerequisite for creating a [tier]/[type] unit, or null
+     * when creation is allowed. Binds CREATION by the player — direct buy,
+     * buy-merge and MergeUnits alike — while scripted spawns, disembarks and
+     * map-authored units stay exempt (the [requiredTech] doctrine: authored
+     * content keeps working). The single predicate shared by Legality,
+     * buyableAt's locked cards and the AI — they must never drift. The UI
+     * derives the rejection's missing building through this (the
+     * BUILDING_NEEDS_RESEARCH convention: the reason code carries no payload).
+     * A required building sitting in [RuleConstants.disabledBuildings] still
+     * gates: a campaign that disables the Barracks with the flag on has
+     * deliberately removed tier 2+ from that mission.
+     */
+    fun missingUnitBuilding(state: GameState, player: PlayerId, tier: Int, type: UnitType): Building? {
+        if (!state.config.rules.militaryBuildingsRequired) return null
+        return requiredBuildingsFor(tier, type).firstOrNull { !hasWorkingBuilding(state.tiles, player, it) }
+    }
+
+    /** Whether [player] may currently create a [tier]/[type] unit under the muster rules. */
+    fun unitAvailable(state: GameState, player: PlayerId, tier: Int, type: UnitType): Boolean =
+        missingUnitBuilding(state, player, tier, type) == null
 
     /** Gold paid up front to start [tech], at [player]'s effective rules. */
     fun techCost(state: GameState, player: PlayerId, tech: com.msa.fightandconquer.core.model.Tech): Int =

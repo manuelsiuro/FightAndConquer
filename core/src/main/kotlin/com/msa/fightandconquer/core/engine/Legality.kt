@@ -219,6 +219,11 @@ object Legality {
             if (action.tier != 1) return reject(RejectionReason.INVALID_TIER)
         }
         if (action.tier !in 1..rules.maxTier) return reject(RejectionReason.INVALID_TIER)
+        // Muster gate, before cost (the checkBuyBuilding availability-before-cost
+        // order): the structural refusal, not poverty, is the story.
+        if (!Rules.unitAvailable(state, state.currentPlayer, action.tier, action.type)) {
+            return reject(RejectionReason.UNIT_NEEDS_BUILDING)
+        }
         val cost = Rules.unitCostOf(state, state.currentPlayer, action.tier, action.type)
         val player = state.player(state.currentPlayer)
         if (player.treasury < cost) return reject(RejectionReason.CANNOT_AFFORD, cost)
@@ -232,7 +237,13 @@ object Legality {
                 occupant == null -> LegalityResult.Ok
                 occupant.type != UnitType.SOLDIER || action.type != UnitType.SOLDIER ->
                     reject(RejectionReason.CANNOT_MERGE_SPECIAL)
-                occupant.tier == action.tier && action.tier < rules.maxTier -> LegalityResult.Ok // buy-merge
+                occupant.tier == action.tier && action.tier < rules.maxTier ->
+                    // Buy-merge creates a tier+1 soldier — it needs that tier's muster hall.
+                    if (Rules.unitAvailable(state, state.currentPlayer, action.tier + 1, UnitType.SOLDIER)) {
+                        LegalityResult.Ok
+                    } else {
+                        reject(RejectionReason.UNIT_NEEDS_BUILDING)
+                    }
                 else -> reject(RejectionReason.HEX_OCCUPIED_INCOMPATIBLE)
             }
         }
@@ -414,6 +425,12 @@ object Legality {
         }
         if (a.tier != b.tier) return reject(RejectionReason.TIER_MISMATCH)
         if (a.tier >= state.config.rules.maxTier) return reject(RejectionReason.ALREADY_MAX_TIER)
+        // Before the reach test: reachable() already filters mergeTargets by the
+        // muster gate, so without this arm a missing Barracks would misreport as
+        // NOT_IN_SAME_REGION.
+        if (!Rules.unitAvailable(state, state.currentPlayer, a.tier + 1, UnitType.SOLDIER)) {
+            return reject(RejectionReason.UNIT_NEEDS_BUILDING)
+        }
         val reach = Rules.reachable(state, action.a)
         if (b.hex !in reach.mergeTargets) return reject(RejectionReason.NOT_IN_SAME_REGION)
         return LegalityResult.Ok

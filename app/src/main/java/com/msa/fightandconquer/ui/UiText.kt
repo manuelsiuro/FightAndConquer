@@ -226,4 +226,5 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.RESEARCH_ALREADY_COMPLETE -> UiText.of(R.string.reject_research_already_complete)
     RejectionReason.RESEARCH_NEEDS_PREREQUISITE -> UiText.of(R.string.reject_research_needs_prereq)
     RejectionReason.BUILDING_NEEDS_RESEARCH -> UiText.of(R.string.reject_building_needs_research)
+    RejectionReason.UNIT_NEEDS_BUILDING -> UiText.of(R.string.reject_unit_needs_building)
 }

@@ -375,10 +375,13 @@ private fun PurchaseCard(
     onLearn: (String?) -> Unit,
     onBuy: () -> Unit,
 ) {
-    // Research-locked structure: shown for discoverability, bought never (the
-    // engine rejection explains). A lock is structural, not poverty — the whole
-    // card goes inactiveGlyph instead of the unaffordable alert-cost treatment.
-    val lockedBy = (option as? PurchaseOption.Structure)?.lockedByTech
+    // Locked card: shown for discoverability, bought never (the engine rejection
+    // explains). A lock is structural, not poverty — the whole card goes
+    // inactiveGlyph instead of the unaffordable alert-cost treatment. Structures
+    // lock on a missing tech, units on a missing muster building.
+    val lockedByTech = (option as? PurchaseOption.Structure)?.lockedByTech
+    val lockedByBuilding = (option as? PurchaseOption.Unit)?.lockedByBuilding
+    val locked = lockedByTech != null || lockedByBuilding != null
     val guideEntry = when (option) {
         is PurchaseOption.Unit -> GuideCatalog.forUnit(option.type)
         is PurchaseOption.Structure -> GuideCatalog.forStructure(option.type)
@@ -392,20 +395,25 @@ private fun PurchaseCard(
         is PurchaseOption.Structure -> PieceIcons.building(civ, option.type.building)
     }
     val detail = when (option) {
-        is PurchaseOption.Unit -> stringResource(
-            R.string.shop_upkeep_per_turn,
-            when (option.type) {
-                UnitType.ARCHER -> shop.archerUpkeep
-                UnitType.CATAPULT -> shop.catapultUpkeep
-                UnitType.TRANSPORT -> shop.transportUpkeep
-                UnitType.WARSHIP -> shop.warshipUpkeep
-                UnitType.FISHING_BOAT -> shop.fishingBoatUpkeep
-                UnitType.SOLDIER -> shop.unitUpkeep[option.tier - 1]
-            },
-        )
+        is PurchaseOption.Unit -> when {
+            // The lock replaces the upkeep micro-label: it names the missing hall.
+            lockedByBuilding != null ->
+                stringResource(R.string.shop_requires_building, stringResource(buildingNameRes(lockedByBuilding)))
+            else -> stringResource(
+                R.string.shop_upkeep_per_turn,
+                when (option.type) {
+                    UnitType.ARCHER -> shop.archerUpkeep
+                    UnitType.CATAPULT -> shop.catapultUpkeep
+                    UnitType.TRANSPORT -> shop.transportUpkeep
+                    UnitType.WARSHIP -> shop.warshipUpkeep
+                    UnitType.FISHING_BOAT -> shop.fishingBoatUpkeep
+                    UnitType.SOLDIER -> shop.unitUpkeep[option.tier - 1]
+                },
+            )
+        }
         is PurchaseOption.Structure -> when {
             // The lock replaces the stat micro-label: it names the missing tech.
-            lockedBy != null -> stringResource(R.string.shop_requires_tech, stringResource(techNameRes(lockedBy)))
+            lockedByTech != null -> stringResource(R.string.shop_requires_tech, stringResource(techNameRes(lockedByTech)))
             else -> when (option.type) {
                 BuildingType.FARM -> stringResource(R.string.shop_income_per_turn, shop.farmIncome)
                 BuildingType.TOWER -> stringResource(R.string.shop_defense, shop.towerDefense)
@@ -428,8 +436,15 @@ private fun PurchaseCard(
     }
     val name = stringResource(nameRes)
     val description = when {
-        lockedBy != null ->
-            stringResource(R.string.cd_purchase_locked, name, option.cost, stringResource(techNameRes(lockedBy)))
+        lockedByTech != null ->
+            stringResource(R.string.cd_purchase_locked, name, option.cost, stringResource(techNameRes(lockedByTech)))
+        lockedByBuilding != null ->
+            stringResource(
+                R.string.cd_purchase_locked_building,
+                name,
+                option.cost,
+                stringResource(buildingNameRes(lockedByBuilding)),
+            )
         option is PurchaseOption.Unit && affordable ->
             stringResource(R.string.cd_purchase_unit, name, option.cost, option.strength, option.defense)
         option is PurchaseOption.Unit ->
@@ -456,13 +471,13 @@ private fun PurchaseCard(
             // plinth + name + cost + upkeep always fit without clipping.
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            PiecePlinth(iconRes, PlinthScale.M, desaturated = !affordable || lockedBy != null)
+            PiecePlinth(iconRes, PlinthScale.M, desaturated = !affordable || locked)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     name,
                     fontSize = 13.sp,
                     lineHeight = 16.sp,
-                    color = if (affordable && lockedBy == null) UiColors.ink else UiColors.inactiveGlyph,
+                    color = if (affordable && !locked) UiColors.ink else UiColors.inactiveGlyph,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -473,7 +488,7 @@ private fun PurchaseCard(
                         contentDescription = null,
                         Modifier.size(14.dp),
                         tint = when {
-                            lockedBy != null -> UiColors.inactiveGlyph
+                            locked -> UiColors.inactiveGlyph
                             affordable -> UiColors.coin
                             else -> UiColors.alert
                         },
@@ -485,7 +500,7 @@ private fun PurchaseCard(
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = when {
-                            lockedBy != null -> UiColors.inactiveGlyph
+                            locked -> UiColors.inactiveGlyph
                             affordable -> UiColors.ink
                             else -> UiColors.alert
                         },
@@ -501,13 +516,13 @@ private fun PurchaseCard(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.2.sp,
                             maxLines = 1,
-                            color = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph,
+                            color = if (affordable && !locked) UiColors.inkMuted else UiColors.inactiveGlyph,
                         )
                     }
                 }
                 if (option is PurchaseOption.Unit && option.type == UnitType.FISHING_BOAT) {
                     // No combat pair to show (0/0) — the third line sells the trade.
-                    val statTint = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph
+                    val statTint = if (affordable && !locked) UiColors.inkMuted else UiColors.inactiveGlyph
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             painterResource(R.drawable.ic_coin),
@@ -528,7 +543,7 @@ private fun PurchaseCard(
                         )
                     }
                 } else if (option is PurchaseOption.Unit) {
-                    val statTint = if (affordable) UiColors.inkMuted else UiColors.inactiveGlyph
+                    val statTint = if (affordable && !locked) UiColors.inkMuted else UiColors.inactiveGlyph
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             painterResource(R.drawable.ic_sword),
@@ -568,7 +583,7 @@ private fun PurchaseCard(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.2.sp,
                         maxLines = 1,
-                        color = if (affordable && lockedBy == null) UiColors.inkMuted else UiColors.inactiveGlyph,
+                        color = if (affordable && !locked) UiColors.inkMuted else UiColors.inactiveGlyph,
                     )
                 }
             }
