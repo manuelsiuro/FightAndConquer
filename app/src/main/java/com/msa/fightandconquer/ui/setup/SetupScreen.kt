@@ -89,6 +89,7 @@ fun SetupScreen(
     var specialUnits by rememberSaveable { mutableStateOf(true) }
     var diplomacy by rememberSaveable { mutableStateOf(true) }
     var research by rememberSaveable { mutableStateOf(true) }
+    var musterBuildings by rememberSaveable { mutableStateOf(true) }
     // Always MAX_PLAYERS long: shrinking the seat count parks the hidden picks,
     // growing it re-reveals them.
     var civs by rememberSaveable(stateSaver = civListSaver()) {
@@ -159,6 +160,7 @@ fun SetupScreen(
                                     specialUnits = specialUnits, onSpecial = { specialUnits = it },
                                     diplomacy = diplomacy, onDiplomacy = { diplomacy = it },
                                     research = research, onResearch = { research = it },
+                                    musterBuildings = musterBuildings, onMuster = { musterBuildings = it },
                                 )
                             }
                             // Room to scroll the last section clear of the sticky bar.
@@ -183,6 +185,7 @@ fun SetupScreen(
                                     specialUnits = specialUnits,
                                     diplomacy = diplomacy,
                                     research = research,
+                                    musterBuildings = musterBuildings,
                                     civs = civs.take(playerCount),
                                 ),
                             )

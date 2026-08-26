@@ -174,6 +174,7 @@ class EditorSession(
     fun setDiplomacy(on: Boolean) = setRules { it.copy(diplomacyEnabled = on) }
     fun setNaval(on: Boolean) = setRules { it.copy(navalEnabled = on) }
     fun setResearch(on: Boolean) = setRules { it.copy(researchEnabled = on) }
+    fun setMusterBuildings(on: Boolean) = setRules { it.copy(militaryBuildingsRequired = on) }
 
     private fun setRules(transform: (com.msa.fightandconquer.core.model.RuleConstants) -> com.msa.fightandconquer.core.model.RuleConstants) {
         mutate { def ->

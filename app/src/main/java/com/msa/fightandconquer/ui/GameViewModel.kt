@@ -88,6 +88,7 @@ data class GameSetup(
     val specialUnits: Boolean = true,
     val diplomacy: Boolean = true,
     val research: Boolean = true,
+    val musterBuildings: Boolean = true,
     /** Per-seat civilizations; seats beyond the list's end play [Civilization.DEFAULT]. */
     val civs: List<Civilization> = emptyList(),
 )
@@ -596,6 +597,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     specialUnitsEnabled = setup.specialUnits,
                     diplomacyEnabled = setup.diplomacy,
                     researchEnabled = setup.research,
+                    militaryBuildingsRequired = setup.musterBuildings,
                 ),
                 civs = List(setup.playerCount) { index ->
                     setup.civs.getOrElse(index) { Civilization.DEFAULT }
