@@ -252,6 +252,8 @@
     <string name="info_gold_vein">A rich vein — build a Mine here to extract it</string>
     <string name="info_fertile">Fertile soil — richer harvests, even more with a farm</string>
     <string name="info_stat_vision">Vision</string>
+    <string name="info_stat_beacon">Beacon</string>
+    <string name="info_value_beacon_lit">Lit — safe ground at night</string>
     <string name="info_stat_research">Research</string>
     <string name="info_stat_range">Range</string>
     <string name="info_stat_cargo">Cargo</string>
@@ -452,9 +454,11 @@
 
     <!-- Info-card actions (rotate / demolish / disband) -->
     <string name="info_action_rotate">Rotate</string>
+    <string name="info_action_light_beacon">Light beacon −%d</string>
     <string name="info_action_destroy">Destroy +%d</string>
     <string name="hud_disband">Disband +%d</string>
     <string name="cd_info_action_rotate">Rotate this bridge</string>
+    <string name="cd_info_action_light_beacon">Light a beacon that keeps monsters away at night</string>
     <string name="cd_info_action_destroy">Destroy this building for a partial refund</string>
     <string name="cd_hud_disband">Disband this unit for a partial refund</string>
 
@@ -508,14 +512,14 @@
     <!-- Field guide: Buildings -->
     <string name="guide_how_farm">Grows your income. Place it next to your capital or an existing farm. Each farm costs a little more than the last, and one built on fertile ground earns extra.</string>
     <string name="guide_req_farm">Next to your capital or another farm</string>
-    <string name="guide_how_tower">A cheap wall. Raises the defense of its own hex and all six neighbours, so an enemy needs a stronger unit to break in.</string>
-    <string name="guide_how_castle">A stronger wall than the tower — defends its hex and all six neighbours. Use it to lock down a border or shield your capital.</string>
+    <string name="guide_how_tower">A cheap wall. Raises the defense of its own hex and all six neighbours, so an enemy needs a stronger unit to break in. In day–night games it can carry a beacon: lit ground admits no monster.</string>
+    <string name="guide_how_castle">A stronger wall than the tower — defends its hex and all six neighbours. Use it to lock down a border or shield your capital. In day–night games it can carry a beacon: lit ground admits no monster.</string>
     <string name="guide_how_mine">Turns a gold vein into steady income. Scout for veins near your capital early and claim them.</string>
     <string name="guide_req_mine">Must be built on a gold vein</string>
     <string name="guide_how_market">Earns more the more developed land surrounds it — one coin per producing neighbour, up to five. Place it in the middle of a cluster of your hexes, not on the frontier.</string>
     <string name="guide_how_lumber">Build it beside a forest to earn from the trees around it (up to four). Bonus: trees next to a lumber camp stop spreading, so it also tames a growing forest.</string>
     <string name="guide_req_lumber">Next to your own trees</string>
-    <string name="guide_how_watchtower">A pure scout — no defense, but sees far through the fog. Only useful when Fog of War is switched on.</string>
+    <string name="guide_how_watchtower">A pure scout — no defense, but sees far through the fog. Only useful when Fog of War is switched on. In day–night games it can carry a beacon: lit ground admits no monster.</string>
     <string name="guide_req_watchtower">Fog of War games only</string>
     <string name="guide_how_port">Build it on your coast. It opens the shipyard (boats are bought on adjacent sea), pays a little trade income, and — built overseas — feeds a whole colony that has no path to your capital. Lose the port and the colony starves.</string>
     <string name="guide_req_port_coast">On your own coast, next to the sea</string>
@@ -526,7 +530,7 @@
     <string name="guide_how_university">Build one on any clear hex you own. Each standing University adds one point of progress to your active research at the start of your turn — a second one makes every discovery come faster. Guard it: a captured or cut-off University stops working.</string>
     <string name="guide_how_bank">Unlocked by the Banking research. Place it anywhere you own for a steady flow of coin — no vein, coast or neighbors required.</string>
     <string name="guide_req_bank">Requires the Banking research</string>
-    <string name="guide_how_fortress">Unlocked by the Engineering research. The strongest wall in the game — but catapults and warships ignore building defense entirely, so garrison it. Also the muster hall for Knights: without a standing Fortress you cannot create tier-4 soldiers.</string>
+    <string name="guide_how_fortress">Unlocked by the Engineering research. The strongest wall in the game — but catapults and warships ignore building defense entirely, so garrison it. Also the muster hall for Knights: without a standing Fortress you cannot create tier-4 soldiers. In day–night games its beacon lights the widest ground of all.</string>
     <string name="guide_how_barracks">Build one anywhere in your realm to muster Spearmen and Barons — buying and merging both need it. A cut-off or captured Barracks stops training until another stands fed. Knights additionally need a Fortress.</string>
     <string name="guide_how_archery_range">Build one anywhere in your realm to field Archers. It only counts while fed — a cut-off range trains nobody.</string>
     <string name="guide_how_siege_workshop">Build one anywhere in your realm to construct Catapults. It only counts while fed — a cut-off workshop builds nothing.</string>
@@ -1025,7 +1029,7 @@
     <string name="reject_beacon_already_lit">This beacon is already lit</string>
     <string name="guide_night_title">Day–night cycle</string>
     <string name="guide_night_body">Every few rounds night falls and monsters spawn across the land. They strike anything a tower, castle or garrison does not cover, and a squatted hex earns nothing until it is cleared. At dawn the survivors vanish.</string>
-    <string name="guide_night_how">Watch the countdown by the sun in the top bar; spend the last day rounds stepping units under cover and merging weak ones.</string>
+    <string name="guide_night_how">Watch the countdown by the sun in the top bar; spend the last day rounds stepping units under cover and merging weak ones. A beacon lit on a tower, castle, fortress or watchtower keeps its surroundings monster-free: no spawns, no prowling, no strikes on lit ground.</string>
     <string name="guide_monster_title">Night monsters</string>
     <string name="guide_monster_body">Wolves and spiders lead the early nights; ogres, trolls and finally the wyrm follow as the game grows older. Each defends its hex like a garrison and strikes harder than it defends.</string>
         <string name="objective_slay_monsters">Slay %1$d night monsters</string>
