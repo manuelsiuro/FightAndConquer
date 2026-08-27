@@ -331,8 +331,8 @@ Unchanged from the current implementation unless noted:
 
 - Tap a hex to select, tap again to deselect. The purchase tray opens on a friendly capital.
   Undo reverts the last action. Banners dismiss on tap.
-- **One glanceable sheet at a time**: Economy, Diplomacy, Research, War report (action-bar
-  circles), Objectives (overflow menu). Opening one closes the rest — see the 2026-08-26
+- **One glanceable sheet at a time**: Economy, Diplomacy, Research, War report, Objectives
+  (campaign only) — all action-bar circles. Opening one closes the rest — see the 2026-08-26
   addendum: the 264 dp side panel became a bottom sheet.
 - **Every unhandled touch falls through to the board.** HUD surfaces are opaque and therefore
   consume touches; an open bottom sheet is the one modal exception — its scrim consumes
@@ -438,7 +438,8 @@ sheet. All within the chrome above; deltas only:
   BUSY (slot occupied) dim to `inactiveGlyph` — no alert-red while unreachable. In-progress
   wears a faction border + 3 dp bar; lane headers count n/3. Pinned footer = the active
   research card.
-- **Objectives** are on-demand from the overflow menu now, no longer default-visible.
+- **Objectives** are on-demand now, no longer default-visible — first from the overflow
+  menu, since 2026-08-27 from a campaign-only action-bar circle (`ic_target`).
 - **War report** (new, 5th action-bar circle, `ic_chart`): the viewer's own recorder series
   as a lens-switchable timeline (Territory / Economy / Treasury / Army), a NOW strip of
   live numbers, record totals, and the viewer's own turning points (suffered ones on a 12 %

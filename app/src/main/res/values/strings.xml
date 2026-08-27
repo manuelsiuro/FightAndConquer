@@ -113,13 +113,13 @@
     <string name="hud_resign_confirm">Tap again to resign</string>
     <string name="hud_exit">Exit</string>
     <string name="hud_identity_line">%1$s · %2$s</string>
-    <string name="hud_objectives">Objectives</string>
     <string name="cd_faction_color">Faction color of player %d</string>
     <string name="cd_open_economy">Show economy breakdown</string>
     <string name="cd_fresh_units">%d units still able to act. Jump to the next one</string>
     <string name="cd_open_menu">Open game menu</string>
     <string name="cd_open_research">Open the research panel</string>
     <string name="cd_open_stats">Open the war report</string>
+    <string name="cd_open_objectives">Open the mission objectives</string>
     <string name="cd_sheet_dismiss">Dismiss panel</string>
 
     <!-- Bottom bar -->

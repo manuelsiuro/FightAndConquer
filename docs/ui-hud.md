@@ -37,7 +37,7 @@ Unit/building names come from `unitNameRes(tier)`.
 | `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex (never on a fishing dory: a hull that cannot attack has nothing to compare, and the badge would occlude the parked-catch coin chip on its own hex). The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
 | `economy` | `EconomyBreakdown?` | Economy bottom sheet (null = closed; recomputed on every refresh while open) |
 | `research` | `ResearchPanelState?` | Research bottom sheet (null = closed; recomputed on every refresh while open). Built by the pure `buildResearchPanel(state, seat)` — branch lanes of tech nodes (done / in-progress / available / busy / locked; BUSY = prerequisite met but the single slot is occupied, LOCKED = the tier below is missing), the working-University count and rate. `HudState` adds `researchAvailable` / `diplomacyAvailable` (rules flags — levels without a system must not grow a dead action-bar button) and `researchBadge` (a working University with no active research) |
-| `objectivesOpen` | `StateFlow<Boolean>` | Mission objectives bottom sheet (campaign only, on-demand from the ⋮ menu — objectives left the always-on side slot when the panels became sheets) |
+| `objectivesOpen` | `StateFlow<Boolean>` | Mission objectives bottom sheet (campaign only, on-demand from its action-bar circle — objectives left the always-on side slot when the panels became sheets) |
 | `stats` | `GameStatsState?` | War-report bottom sheet (null = closed; recomputed on every refresh while open). Built by the pure `buildGameStats(record, state, viewer)` over the live match recorder — the viewer's own series/totals/moments only, never an enemy's (fog- and hot-seat-safe by construction) |
 | `toasts` | `List<HudToast>` (max 3, 2.5 s TTL) | Top-center notifications |
 | `popups` | `List<CoinPopup>` (1.2 s TTL) | World-anchored floating "+N" coin pills |
@@ -116,13 +116,14 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    (tinted vectors `ic_coin/ic_flag/ic_shield/ic_sword/ic_pact` only).
    `TopBar` (full-width, content-sized: faction disc, seat label over "Civ · Turn N",
    display-only coin block, and one 48 dp controlFill circle — the ⋮ menu with Field
-   Guide / Objectives (campaign) / two-tap-armed Resign / Exit; the circle flips to
+   Guide / two-tap-armed Resign / Exit; the circle flips to
    filled-ink while the menu is open; second row shows "thinking…" during AI turns)
-   + `ActionBar` (`ui/game/ActionBar.kt` — five standalone floating 48 dp circles at
-   the left gutter, 8 dp apart, each full `hudSurface` chrome: Diplomacy (coin-gold
+   + `ActionBar` (`ui/game/ActionBar.kt` — up to six standalone floating 48 dp circles
+   at the left gutter, 8 dp apart, each full `hudSurface` chrome: Diplomacy (coin-gold
    pending-proposal dot, hidden when the rules disable diplomacy —
    `HudState.diplomacyAvailable`) · Research (idle-research dot, hidden when
-   `!researchAvailable`) · Economy · War report (`ic_chart`) · jump-to-fresh-unit
+   `!researchAvailable`) · Economy · War report (`ic_chart`) · Objectives
+   (`ic_target`, campaign only) · jump-to-fresh-unit
    (filled-ink count badge; 38 % disabled treatment at zero — slot-stable). Panel
    buttons flip to filled-ink while their sheet is open; the whole bar hides for AI
    turns, the privacy banner, and after a winner. It lives inside the measured top-chrome column, so panels and
@@ -178,8 +179,8 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    controlFill sent — with 40 dp outlined Propose/Tribute inline on the same
    line; controlFill tribute chips 10/25/50 disabled at 38 % when unaffordable,
    and a footer stating pact duration + break penalty).
-   `ObjectivesSheetContent` (campaign only, on-demand from the ⋮ menu's
-   Objectives entry — `toggleObjectivesPanel()`; mission name, turn counter that
+   `ObjectivesSheetContent` (campaign only, on-demand from its action-bar
+   circle — `toggleObjectivesPanel()`; mission name, turn counter that
    turns alert-coloured in the last three rounds, 18 dp check circles with
    struck-through done lines and `have / need` counters).
    `ResearchSheetBody` (one lane per branch — War/Coin/Stone/Sail, Sail absent

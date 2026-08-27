@@ -145,7 +145,6 @@ fun GameScreen(viewModel: GameViewModel) {
                 ) {
                     TopBar(
                         state,
-                        isCampaign = campaignRun != null,
                         viewModel = viewModel,
                         onOpenGuide = { openGuide(null) },
                     )
@@ -157,6 +156,8 @@ fun GameScreen(viewModel: GameViewModel) {
                             diplomacyOpen = diplomacy != null,
                             researchOpen = research != null,
                             statsOpen = stats != null,
+                            isCampaign = campaignRun != null,
+                            objectivesOpen = objectivesOpen,
                             viewModel = viewModel,
                         )
                     }

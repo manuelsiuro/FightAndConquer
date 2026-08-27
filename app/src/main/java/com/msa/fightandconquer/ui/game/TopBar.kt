@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
@@ -57,7 +56,6 @@ private val MinTouchTarget = 48.dp
 @Composable
 internal fun TopBar(
     state: HudState,
-    isCampaign: Boolean,
     viewModel: GameViewModel,
     onOpenGuide: () -> Unit,
 ) {
@@ -144,7 +142,6 @@ internal fun TopBar(
                 )
                 OverflowMenu(
                     expanded = menuOpen,
-                    isCampaign = isCampaign,
                     onDismiss = { menuOpen = false },
                     onOpenGuide = onOpenGuide,
                     viewModel = viewModel,
@@ -211,7 +208,6 @@ private fun TopBarCircle(
 @Composable
 private fun OverflowMenu(
     expanded: Boolean,
-    isCampaign: Boolean,
     onDismiss: () -> Unit,
     onOpenGuide: () -> Unit,
     viewModel: GameViewModel,
@@ -248,21 +244,6 @@ private fun OverflowMenu(
                 onOpenGuide()
             },
         )
-        if (isCampaign) {
-            DropdownMenuItem(
-                modifier = itemHeight,
-                text = { Text(stringResource(R.string.hud_objectives), fontSize = 14.sp) },
-                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
-                colors = MenuDefaults.itemColors(
-                    textColor = UiColors.ink,
-                    leadingIconColor = UiColors.inkMuted,
-                ),
-                onClick = {
-                    onDismiss()
-                    viewModel.toggleObjectivesPanel()
-                },
-            )
-        }
         DropdownMenuItem(
             modifier = itemHeight,
             text = {
