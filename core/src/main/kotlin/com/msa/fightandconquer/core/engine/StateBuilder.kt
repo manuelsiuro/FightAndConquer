@@ -129,6 +129,7 @@ internal class StateBuilder(private val base: GameState) {
                 starving = if (bridge) false else it.starving,
                 graceTurns = if (bridge) 0 else it.graceTurns,
                 bridgeOrientation = null,
+                beacon = false,
             )
         }
         events.add(GameEvent.BuildingDestroyed(hex, building))
@@ -193,6 +194,8 @@ internal class StateBuilder(private val base: GameState) {
                 // Landing stores never change hands — the caller re-stamps them
                 // for a fresh beachhead (disembark / grace-region expansion).
                 graceTurns = 0,
+                // The beacon dies with its building (bridges never carry one).
+                beacon = false,
             )
         }
         events.add(GameEvent.HexCaptured(hex, attacker, victim))

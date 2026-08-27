@@ -78,6 +78,50 @@ object Rules {
     fun monsterDefenseOf(monster: com.msa.fightandconquer.core.model.Monster): Int = monster.tier
 
     /**
+     * Lit radius of a beacon on [building], or null when the building cannot
+     * carry one (the null doubles as Legality's "supported" predicate). A
+     * behavior table in code, not rule keys (the MonsterKind.forTier precedent):
+     * radius 1 denies spawn-adjacency and blocks a one-hex chokepoint; radius 2
+     * (19 hexes, = monsterCapitalStandoff) out-ranges a full round of
+     * monsterMoveRange — reserved for the Fortress so the cheap Watchtower
+     * never strictly dominates the night game.
+     */
+    fun beaconRadiusOf(building: Building): Int? = when (building) {
+        Building.TOWER, Building.STRONG_TOWER, Building.WATCHTOWER -> 1
+        Building.FORTRESS -> 2
+        Building.CAPITAL, Building.FARM, Building.MINE, Building.MARKET,
+        Building.LUMBER_CAMP, Building.PORT, Building.FISHERY, Building.BRIDGE,
+        Building.UNIVERSITY, Building.BANK,
+        Building.BARRACKS, Building.ARCHERY_RANGE, Building.SIEGE_WORKSHOP,
+        -> null
+    }
+
+    /** Effective one-time cost to light a beacon for [player] (civ deltas apply). */
+    fun beaconCost(state: GameState, player: PlayerId): Int =
+        effectiveRules(state, player).beaconCost
+
+    /**
+     * Every hex lit by a standing beacon, any owner — monsters shun light no
+     * matter whose it is. Lit hexes are monster-proof at night: excluded from
+     * the spawn wave, impassable to monsters, and never struck. Always derived,
+     * never stored (the [visibleHexes]/[isNight] doctrine — a replayed save can
+     * never desync from it).
+     */
+    fun litHexes(state: GameState): Set<Hex> = litHexesFrom(state.tiles)
+
+    /** Map-shape-agnostic core of [litHexes], shared with the engine's NightPipeline. */
+    internal fun litHexesFrom(tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>): Set<Hex> {
+        var lit: HashSet<Hex>? = null
+        for ((hex, tile) in tiles) {
+            if (!tile.beacon) continue
+            val radius = tile.building?.let { beaconRadiusOf(it) } ?: continue
+            val set = lit ?: HashSet<Hex>().also { lit = it }
+            for (h in HexMath.range(hex, radius)) if (h in tiles) set.add(h)
+        }
+        return lit ?: emptySet()
+    }
+
+    /**
      * FISH_SHOAL sea hexes within [radius] of [hex] (center included — moot for
      * the land-hex callers). The single shoal query shared by Legality's fishery
      * placement, [incomeFrom]'s fishery arm, the AI's fishery valuation, and the

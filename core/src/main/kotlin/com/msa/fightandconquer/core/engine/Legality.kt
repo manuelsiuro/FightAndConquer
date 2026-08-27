@@ -25,6 +25,7 @@ object Legality {
             is GameAction.BuyUnit -> checkBuyUnit(state, action)
             is GameAction.BuyBuilding -> checkBuyBuilding(state, action)
             is GameAction.MergeUnits -> checkMerge(state, action)
+            is GameAction.UpgradeBuilding -> checkUpgradeBuilding(state, action)
             is GameAction.RotateBuilding -> checkRotateBuilding(state, action)
             is GameAction.DemolishBuilding -> checkDemolishBuilding(state, action)
             is GameAction.DisbandUnit -> checkDisbandUnit(state, action)
@@ -383,6 +384,26 @@ object Legality {
             return reject(RejectionReason.NO_UNIVERSITY)
         }
         val cost = Rules.techCost(state, state.currentPlayer, action.tech)
+        if (state.player(state.currentPlayer).treasury < cost) {
+            return reject(RejectionReason.CANNOT_AFFORD, cost)
+        }
+        return LegalityResult.Ok
+    }
+
+    /**
+     * Lighting a beacon: an own standing defense building, in a day-night game,
+     * not already lit, and affordable. Works on a starving tile (a flame needs
+     * no supply) and while a monster prowls nearby — the point of the thing.
+     */
+    private fun checkUpgradeBuilding(state: GameState, action: GameAction.UpgradeBuilding): LegalityResult {
+        val tile = state.tiles[action.at] ?: return reject(RejectionReason.NO_SUCH_HEX)
+        if (tile.owner != state.currentPlayer) return reject(RejectionReason.NOT_YOUR_HEX)
+        val building = tile.building ?: return reject(RejectionReason.NO_BUILDING_THERE)
+        if (Rules.beaconRadiusOf(building) == null || !state.config.rules.dayNightEnabled) {
+            return reject(RejectionReason.BEACON_NOT_SUPPORTED)
+        }
+        if (tile.beacon) return reject(RejectionReason.BEACON_ALREADY_LIT)
+        val cost = Rules.beaconCost(state, state.currentPlayer)
         if (state.player(state.currentPlayer).treasury < cost) {
             return reject(RejectionReason.CANNOT_AFFORD, cost)
         }

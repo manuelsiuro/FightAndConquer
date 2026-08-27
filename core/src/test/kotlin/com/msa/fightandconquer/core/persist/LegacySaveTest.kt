@@ -91,6 +91,8 @@ class LegacySaveTest {
         "monsterBaseTier", "monsterMaxTier", "monsterTierRampNights",
         "monsterMoveRange", "monsterCapitalStandoff",
         "monsterCachePerTier", "monsterDawnCachePercent", "monsterHoardPercent",
+        // Tile / RuleConstants (beacon upgrade)
+        "beacon", "beaconCost",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {
@@ -114,6 +116,7 @@ class LegacySaveTest {
                     hex(1),
                 ),
                 GameAction.BuyUnit(1, hex(2), com.msa.fightandconquer.core.model.UnitType.ARCHER),
+                GameAction.UpgradeBuilding(hex(3)),
                 GameAction.RotateBuilding(hex(3), 2),
                 GameAction.DemolishBuilding(hex(4)),
                 GameAction.DisbandUnit(com.msa.fightandconquer.core.model.UnitId(7)),

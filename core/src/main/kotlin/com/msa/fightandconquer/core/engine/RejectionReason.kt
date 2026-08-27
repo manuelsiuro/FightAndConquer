@@ -122,4 +122,8 @@ enum class RejectionReason {
     UNIT_NEEDS_BUILDING,
     /** A night monster squats the hex — slay it (move a strong-enough unit onto it) first. */
     MONSTER_ON_HEX,
+    /** Beacons only mount on defense buildings, and only in day-night games. */
+    BEACON_NOT_SUPPORTED,
+    /** This building's beacon is already lit. */
+    BEACON_ALREADY_LIT,
 }

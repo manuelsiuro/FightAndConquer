@@ -128,6 +128,10 @@ object TestStates {
     fun GameState.withCache(at: Hex, gold: Int): GameState =
         copy(tiles = tiles + (at to tiles.getValue(at).copy(cache = gold)))
 
+    /** Lights the beacon on the building already standing at [at]. */
+    fun GameState.withBeacon(at: Hex): GameState =
+        copy(tiles = tiles + (at to tiles.getValue(at).copy(beacon = true)))
+
     /** Adds (or converts) the given hexes as neutral open-sea tiles. */
     fun GameState.withSea(at: List<Hex>): GameState =
         copy(
@@ -207,6 +211,13 @@ object TestStates {
             tile.cache?.let { gold ->
                 assertTrue("cache always positive: $hex", gold > 0)
                 assertEquals("no unit standing on an uncollected cache: $hex", null, tile.unit)
+            }
+            if (tile.beacon) {
+                assertTrue(
+                    "beacon only on a standing defense building: $hex",
+                    tile.building != null &&
+                        com.msa.fightandconquer.core.engine.Rules.beaconRadiusOf(tile.building) != null,
+                )
             }
             if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
                 // Open sea stays neutral and bare; only a bridge makes a sea hex

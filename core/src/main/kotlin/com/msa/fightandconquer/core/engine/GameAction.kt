@@ -46,6 +46,17 @@ sealed interface GameAction {
     ) : GameAction
 
     /**
+     * Light a beacon on the own defense building at [at] for
+     * [com.msa.fightandconquer.core.model.RuleConstants.beaconCost] gold — the
+     * building's first and only upgrade. Day-night games only; the lit area
+     * ([Rules.litHexes]) keeps monsters out at night. One-way: the beacon
+     * stands until the building falls, and is never refunded.
+     */
+    @Serializable
+    @SerialName("upgradeBuilding")
+    data class UpgradeBuilding(val at: Hex) : GameAction
+
+    /**
      * Set an own BRIDGE's deck axis to [orientation] (0..2, see
      * [com.msa.fightandconquer.core.model.Tile.bridgeOrientation]). Cosmetic and
      * free — no cost, nothing spent — but engine state so saves and replays agree.
