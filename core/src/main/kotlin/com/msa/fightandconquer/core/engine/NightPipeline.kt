@@ -41,9 +41,10 @@ internal object NightPipeline {
         val rules = b.rules
         if (rules.monsterSpawnPer100Hexes <= 0) return
         val capitals = b.players.filter { !it.eliminated }.mapNotNull { it.capital }
+        val lit = Rules.litHexesFrom(b.tiles)
         val candidates = b.tiles.entries
             .filter { (hex, tile) ->
-                tile.terrain == Terrain.LAND &&
+                tile.terrain == Terrain.LAND && hex !in lit &&
                     tile.unit == null && tile.building == null && tile.monster == null &&
                     capitals.all { HexMath.distance(hex, it) >= rules.monsterCapitalStandoff }
             }
@@ -81,20 +82,25 @@ internal object NightPipeline {
      * ownership, elimination and starvation stay untouched by the whole phase.
      */
     private fun monsterPhase(b: StateBuilder) {
+        // One lit set for the whole phase: beacons never change mid-phase
+        // (monsters don't build or raze), and deriving it per monster would
+        // only re-walk the tiles for the identical answer.
+        val lit = Rules.litHexesFrom(b.tiles)
         for (origin in monsterHexes(b)) {
             val monster = b.tiles[origin]?.monster ?: continue
             val attack = Rules.monsterAttackOf(monster)
-            val reach = passableBfs(b, origin, b.rules.monsterMoveRange)
+            val reach = passableBfs(b, origin, b.rules.monsterMoveRange, lit)
 
             // Strike: the nearest beatable unit hex bordering the reachable
             // path (the capture-as-final-step rule), ties broken by packed.
+            // A strike enters the target hex, so lit ground is untouchable.
             val target = reach.entries.asSequence()
                 .flatMap { (hex, depth) ->
                     HexMath.neighbors(hex).mapNotNull { n ->
                         val t = b.tiles[n]
                         val defender = t?.unit?.let { b.units[it] }
                         if (t != null && defender != null && !Rules.isNaval(defender.type) &&
-                            t.terrain == Terrain.LAND && t.building == null &&
+                            t.terrain == Terrain.LAND && t.building == null && n !in lit &&
                             attack > defenseAt(b, n)
                         ) {
                             Triple(depth + 1, n.packed, n)
@@ -116,7 +122,7 @@ internal object NightPipeline {
             // Prowl: one step along a shortest passable path toward the nearest
             // hex bordering someone's territory or army. No RNG — (depth, packed)
             // ordering decides every tie.
-            val step = prowlStep(b, origin)
+            val step = prowlStep(b, origin, lit)
             if (step != null) moveMonster(b, monster, origin, step)
         }
     }
@@ -127,14 +133,20 @@ internal object NightPipeline {
         b.events.add(GameEvent.MonsterMoved(from, to))
     }
 
-    /** Hexes a monster can walk: LAND, no building, no unit, no other monster. */
-    private fun passable(b: StateBuilder, hex: Hex): Boolean {
+    /**
+     * Hexes a monster can walk: LAND, no building, no unit, no other monster,
+     * and unlit ([lit] — beacons repel). The BFS origin is seeded at depth 0
+     * without this test, so a monster standing where light just reached can
+     * still walk out — it just can never re-enter.
+     */
+    private fun passable(b: StateBuilder, hex: Hex, lit: Set<Hex>): Boolean {
         val t = b.tiles[hex] ?: return false
-        return t.terrain == Terrain.LAND && t.building == null && t.unit == null && t.monster == null
+        return t.terrain == Terrain.LAND && hex !in lit &&
+            t.building == null && t.unit == null && t.monster == null
     }
 
     /** BFS through passable hexes up to [range]: reachable hex -> depth (origin at 0). */
-    private fun passableBfs(b: StateBuilder, origin: Hex, range: Int): Map<Hex, Int> {
+    private fun passableBfs(b: StateBuilder, origin: Hex, range: Int, lit: Set<Hex>): Map<Hex, Int> {
         val depths = LinkedHashMap<Hex, Int>()
         depths[origin] = 0
         var frontier = listOf(origin)
@@ -143,7 +155,7 @@ internal object NightPipeline {
             val next = ArrayList<Hex>()
             for (hex in frontier) {
                 HexMath.forEachNeighbor(hex) { n ->
-                    if (n !in depths && passable(b, n)) {
+                    if (n !in depths && passable(b, n, lit)) {
                         depths[n] = depth + 1
                         next.add(n)
                     }
@@ -162,14 +174,16 @@ internal object NightPipeline {
      * The first step of a shortest passable path toward the nearest lure — a
      * passable hex adjacent to an owned or garrisoned tile — within
      * [PROWL_RADIUS]. Null when nothing lures (the wilds stay still).
+     * Lit tiles ([lit]) don't bait the prowl: what the light guards, the
+     * dark does not covet.
      */
-    private fun prowlStep(b: StateBuilder, origin: Hex): Hex? {
+    private fun prowlStep(b: StateBuilder, origin: Hex, lit: Set<Hex>): Hex? {
         fun lures(hex: Hex): Boolean = HexMath.neighbors(hex).any { n ->
             val t = b.tiles[n]
-            t != null && (t.owner != null || t.unit != null)
+            t != null && n !in lit && (t.owner != null || t.unit != null)
         }
         if (lures(origin)) return null // already stalking the fence line
-        val depths = passableBfs(b, origin, PROWL_RADIUS)
+        val depths = passableBfs(b, origin, PROWL_RADIUS, lit)
         val goal = depths.entries.asSequence()
             .filter { it.value > 0 && lures(it.key) }
             .minWithOrNull(compareBy({ it.value }, { it.key.packed }))

@@ -3,6 +3,7 @@ package com.msa.fightandconquer.render.scene
 import android.content.Context
 import android.util.Log
 import com.google.android.filament.EntityManager
+import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
 import com.msa.fightandconquer.core.engine.DeathCause
@@ -215,9 +216,13 @@ class BoardScene(
         1f + (mult.z - 1f) * nightFactor,
     )
 
-    /** The night multiplier applied to a LAND tile color (composes onto the fog band). */
-    private fun nightTile(c: Float3): Float3 {
-        val m = nightMix(Palette.NIGHT_TILE_MULT)
+    /**
+     * The night multiplier applied to a LAND tile color (composes onto the fog
+     * band). Ground inside a visible beacon's radius ([litTint]) warms toward
+     * [Palette.BEACON_TILE_MULT] instead — the hex-accurate safe zone.
+     */
+    private fun nightTile(c: Float3, lit: Boolean = false): Float3 {
+        val m = nightMix(if (lit) Palette.BEACON_TILE_MULT else Palette.NIGHT_TILE_MULT)
         return Float3(c.x * m.x, c.y * m.y, c.z * m.z)
     }
 
@@ -245,6 +250,13 @@ class BoardScene(
         depositPieces.values.forEach { it.refreshTint() }
         monsterPieces.values.forEach { it.refreshTint() }
         lootPieces.values.forEach { it.refreshTint() }
+        // Beacon glow rides the same factor: dark by day, warm through the
+        // NightFell/DawnBroke tweens, static (zero per-frame cost) between.
+        val lm = filament.lightManager
+        for (entity in beaconLights.values) {
+            val li = lm.getInstance(entity)
+            if (li != 0) lm.setIntensity(li, BEACON_LIGHT_LUMENS * nightFactor)
+        }
     }
 
     /** Re-bakes the two shared water instances' colors for the current night factor. */
@@ -294,6 +306,27 @@ class BoardScene(
     private val auraPool = ArrayList<AuraEntity>()
     private var aurasShown = 0
 
+    // ----- beacon point lights (view-only, driven by nightFactor) -----
+
+    /**
+     * One shadowless warm point light per visible lit beacon ([Tile.beacon]),
+     * keyed by hex. Created/removed by [refreshBeaconLights] (reconcile, fog
+     * swaps, the BeaconLit beat); intensity rides [applyNightFactor], so the
+     * glow fades in with the existing NightFell/DawnBroke tweens and costs
+     * nothing per frame afterwards (nothing here touches isBusy). Shadows stay
+     * OFF — a cube shadow map per light would wreck the heat budget the whole
+     * frame-pacing system protects.
+     */
+    private val beaconLights = HashMap<Hex, Int>()
+
+    /**
+     * Every hex inside a VISIBLE beacon's lit radius — the ground the warm
+     * night tint paints ([nightTile]). Derived beside the light pool in
+     * [refreshBeaconLights] from the same fog-checked sources, so tint and
+     * light can never disagree; fog-hidden sources tint nothing.
+     */
+    private var litTint: Set<Hex> = emptySet()
+
     // ----- fog of war (view-only, synced silently — never a reconcile correction) -----
 
     /** Hexes in the viewer's live vision; null = fog off (everything visible). */
@@ -336,6 +369,8 @@ class BoardScene(
         // Auras were possibly drawn before fog arrived (init reconcile) or the fog
         // edge moved — re-derive them so no ring survives inside the fog.
         refreshAuras(latestState)
+        // Same rule for beacon glow: no light may leak a fogged building.
+        refreshBeaconLights(latestState)
     }
 
     /** Fog state of a piece: while animating, both segment ends must be visible. */
@@ -386,12 +421,16 @@ class BoardScene(
         }
         // Night multiplies the FINAL fog-banded color (factors compose; the
         // hidden band going near-black at night is correct night reading).
+        // The warm lit-ground tint applies to the visible band only — fogged
+        // bands keep their cool colors, so the tint reveals nothing extra.
+        val visibleHex = visible == null || hex in visible
         val c = nightTile(
             when {
-                visible == null || hex in visible -> te.color
+                visibleHex -> te.color
                 hex in fogExplored -> Palette.NEUTRAL * FOG_EXPLORED_FACTOR
                 else -> Palette.NEUTRAL * FOG_HIDDEN_FACTOR
             },
+            lit = visibleHex && hex in litTint,
         )
         te.instance.setParameter("colorFrom", c.x, c.y, c.z)
         te.instance.setParameter("colorTo", c.x, c.y, c.z)
@@ -944,7 +983,8 @@ class BoardScene(
                 // The capture wave writes uniforms directly (bypassing
                 // applyTileColor), so the night tint must ride along here;
                 // te.color stays the LOGICAL day color for reconcile's diff.
-                val shown = nightTile(color)
+                // (This branch only runs unfogged, so the lit check is plain.)
+                val shown = nightTile(color, lit = event.hex in litTint)
                 te.instance.setParameter("colorTo", shown.x, shown.y, shown.z)
                 val startY = te.y
                 animator.tween(0.3f, Easings::easeOutCubic, onEnd = {
@@ -1023,8 +1063,23 @@ class BoardScene(
             }
 
             is GameEvent.BuildingDestroyed -> {
+                // A lit building takes its point light down with it (the piece
+                // itself sinks; the glow must not linger over the ruin).
+                refreshBeaconLights(latestState)
                 val piece = buildingPieces.remove(event.hex) ?: return
                 sinkAway(piece)
+            }
+
+            is GameEvent.BeaconLit -> {
+                // The same piece swap reconcile would derive from Tile.beacon —
+                // done here as a beat so the swap never counts as a correction.
+                buildingPieces.remove(event.hex)?.let { destroyPiece(it) }
+                val tile = latestState.tiles[event.hex] ?: return
+                val building = tile.building ?: return
+                val piece = createPiece(buildingKind(building, lit = true), event.hex, tile.owner?.value)
+                buildingPieces[event.hex] = piece
+                spawnBounce(piece)
+                refreshBeaconLights(latestState)
             }
 
             is GameEvent.BuildingRotated -> {
@@ -1433,21 +1488,22 @@ class BoardScene(
     private fun isBoatKind(kind: PieceKind): Boolean =
         kind == PieceKind.BOAT || kind == PieceKind.WARSHIP || kind == PieceKind.FISHING_BOAT
 
-    private fun buildingKind(building: Building): PieceKind = when (building) {
+    /** [lit] swaps a defense building for its beacon-lit variant ([Tile.beacon]). */
+    private fun buildingKind(building: Building, lit: Boolean = false): PieceKind = when (building) {
         Building.CAPITAL -> PieceKind.CAPITAL
         Building.FARM -> PieceKind.FARM
-        Building.TOWER -> PieceKind.TOWER
-        Building.STRONG_TOWER -> PieceKind.STRONG_TOWER
+        Building.TOWER -> if (lit) PieceKind.TOWER_LIT else PieceKind.TOWER
+        Building.STRONG_TOWER -> if (lit) PieceKind.STRONG_TOWER_LIT else PieceKind.STRONG_TOWER
         Building.MINE -> PieceKind.MINE
         Building.MARKET -> PieceKind.MARKET
         Building.LUMBER_CAMP -> PieceKind.LUMBER_CAMP
-        Building.WATCHTOWER -> PieceKind.WATCHTOWER
+        Building.WATCHTOWER -> if (lit) PieceKind.WATCHTOWER_LIT else PieceKind.WATCHTOWER
         Building.PORT -> PieceKind.PORT
         Building.FISHERY -> PieceKind.FISHERY
         Building.BRIDGE -> PieceKind.BRIDGE
         Building.UNIVERSITY -> PieceKind.UNIVERSITY
         Building.BANK -> PieceKind.BANK
-        Building.FORTRESS -> PieceKind.FORTRESS
+        Building.FORTRESS -> if (lit) PieceKind.FORTRESS_LIT else PieceKind.FORTRESS
         Building.BARRACKS -> PieceKind.BARRACKS
         Building.ARCHERY_RANGE -> PieceKind.ARCHERY_RANGE
         Building.SIEGE_WORKSHOP -> PieceKind.SIEGE_WORKSHOP
@@ -1665,9 +1721,11 @@ class BoardScene(
             unitPieces.getValue(unit.id).setHidden(isFogged(unit.hex))
         }
 
-        // Buildings + flora, per tile.
-        reconcileProps(state, buildingPieces, corrections) { tile -> tile.building?.let { buildingKind(it) } }
-            .also { corrections = it }
+        // Buildings + flora, per tile. The beacon flag is part of the piece
+        // identity: undo/load resyncs derive the lit variant from state.
+        reconcileProps(state, buildingPieces, corrections) { tile ->
+            tile.building?.let { buildingKind(it, tile.beacon) }
+        }.also { corrections = it }
         reconcileProps(state, floraPieces, corrections) { tile ->
             when (tile.flora) {
                 is Flora.Tree -> PieceKind.TREE
@@ -1699,9 +1757,64 @@ class BoardScene(
         for (piece in lootPieces.values) piece.updateTransform()
 
         refreshAuras(state)
+        refreshBeaconLights(state)
 
         if (log && corrections > 0) {
             Log.w(TAG, "reconcile corrected $corrections discrepancies (events should have covered these)")
+        }
+    }
+
+    /**
+     * Diffs [beaconLights] against the state's visible lit beacons: stale
+     * lights are destroyed, fresh ones created at the flame's height with the
+     * current [nightFactor] intensity. A source hidden by fog contributes no
+     * light — the warm spill at the rim would betray the hidden building
+     * (the [refreshAuras] rule).
+     */
+    private fun refreshBeaconLights(state: GameState) {
+        val wanted = HashSet<Hex>()
+        val tint = HashSet<Hex>()
+        for ((hex, tile) in state.tiles) {
+            if (!tile.beacon) continue
+            val radius = tile.building
+                ?.let { com.msa.fightandconquer.core.engine.Rules.beaconRadiusOf(it) }
+                ?: continue
+            if (FogRules.auraSourceHidden(fogVisible, hex)) continue
+            wanted.add(hex)
+            for (h in com.msa.fightandconquer.core.hex.HexMath.range(hex, radius)) {
+                if (h in tiles) tint.add(h)
+            }
+        }
+        if (tint != litTint) {
+            // Repaint exactly the hexes whose lit state flipped (a mid-night
+            // lighting warms its ground on the spot; a fallen beacon cools).
+            val changed = (litTint - tint) + (tint - litTint)
+            litTint = tint
+            for (h in changed) tiles[h]?.let { applyTileColor(h, it) }
+        }
+        val stale = beaconLights.keys.filter { it !in wanted }
+        for (hex in stale) {
+            val entity = beaconLights.remove(hex) ?: continue
+            engine.scene.removeEntity(entity)
+            filament.lightManager.destroy(entity)
+            EntityManager.get().destroy(entity)
+        }
+        for (hex in wanted) {
+            if (hex in beaconLights) continue
+            val entity = EntityManager.get().create()
+            LightManager.Builder(LightManager.Type.POINT)
+                .color(BEACON_LIGHT_R, BEACON_LIGHT_G, BEACON_LIGHT_B)
+                .intensity(BEACON_LIGHT_LUMENS * nightFactor)
+                .falloff(BEACON_LIGHT_FALLOFF)
+                .position(
+                    HexWorld.centerX(hex),
+                    tileTopY(hex) + BEACON_LIGHT_HEIGHT,
+                    HexWorld.centerZ(hex),
+                )
+                .castShadows(false)
+                .build(filament, entity)
+            engine.scene.addEntity(entity)
+            beaconLights[hex] = entity
         }
     }
 
@@ -1828,6 +1941,12 @@ class BoardScene(
         }
         auraPool.clear()
         auraMesh.destroy(filament)
+        for (entity in beaconLights.values) {
+            engine.scene.removeEntity(entity)
+            filament.lightManager.destroy(entity)
+            EntityManager.get().destroy(entity)
+        }
+        beaconLights.clear()
         for (te in tiles.values) {
             filament.destroyEntity(te.entity)
             EntityManager.get().destroy(te.entity)
@@ -1863,5 +1982,17 @@ class BoardScene(
         private const val GHOST_ALPHA = 0.12f
         /** The nightfall/dawn light tween — long enough to read as dusk, short enough to not stall the queue. */
         private const val NIGHT_TWEEN_SECONDS = 1.2f
+
+        // Beacon point lights: a warm ember glow. Lumens read against the
+        // 12k-lux night sun at sub-hex distances (E = lm / 4πd²); the falloff
+        // spills onto the 6 neighbors (hex pitch ~0.87) and dies before the
+        // second ring — the LIGHT is presentation, Rules.litHexes is truth.
+        private const val BEACON_LIGHT_R = 1.0f
+        private const val BEACON_LIGHT_G = 0.62f
+        private const val BEACON_LIGHT_B = 0.30f
+        private const val BEACON_LIGHT_LUMENS = 50_000f
+        private const val BEACON_LIGHT_FALLOFF = 1.8f
+        /** Above the tile top, roughly the braziers' flame height. */
+        private const val BEACON_LIGHT_HEIGHT = 0.5f
     }
 }

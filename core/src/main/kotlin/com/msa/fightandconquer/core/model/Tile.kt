@@ -33,6 +33,12 @@ import kotlinx.serialization.Serializable
  *
  * [cache]: gold dropped by a slain (or dawn-vanished) monster, waiting to be
  * collected by the first unit to stand here (any owner). Always > 0 when set.
+ *
+ * [beacon]: the defense building here carries a lit beacon (day-night cycle
+ * games only; bought via [com.msa.fightandconquer.core.engine.GameAction.UpgradeBuilding]).
+ * Only meaningful while [building] is a defense building — cleared whenever the
+ * building falls (capture, demolition, bombardment), never orphaned on bare
+ * ground. The protected area is always derived (`Rules.litHexes`), never stored.
  */
 @Serializable
 data class Tile(
@@ -47,4 +53,5 @@ data class Tile(
     val bridgeOrientation: Int? = null,
     val monster: Monster? = null,
     val cache: Int? = null,
+    val beacon: Boolean = false,
 )

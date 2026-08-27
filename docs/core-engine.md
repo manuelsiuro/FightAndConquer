@@ -64,7 +64,10 @@ capture, one action), `BuyUnit(tier, at, type)` (place / buy-merge / buy-capture
 `type` defaults to SOLDIER so old logs replay unchanged), `BuyBuilding(type, at)`,
 `MergeUnits(a, b)` (a is the fresh mover), `RotateBuilding(at, orientation)`
 (sets an own bridge's deck axis 0..2 on `Tile.bridgeOrientation` — cosmetic,
-free, but engine state so saves and replays agree), `DemolishBuilding(at)` /
+free, but engine state so saves and replays agree), `UpgradeBuilding(at)` (the
+only building upgrade: lights `Tile.beacon` on an own standing defense building
+for `beaconCost` in day-night games — `Rules.litHexes` ground is monster-proof,
+see game-rules.md "Day-night cycle"), `DemolishBuilding(at)` /
 `DisbandUnit(unit)` (raze an own non-capital building / dismiss an own unit for
 a `demolishRefundPercent` refund; a demolished bridge reverts to neutral sea,
 and both recompute starvation where relevant), `Disembark(boat, to)`,

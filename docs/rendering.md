@@ -131,6 +131,35 @@ which is what restores a mid-night save with no events. Monsters idle with a
 boat-bob-style breathing ripple (`yOffset` sine on the ambience clock — never
 `isBusy`), so an idle night still renders at ~20 fps.
 
+### Beacon point lights (`BoardScene.refreshBeaconLights`)
+
+The app's only punctual lights: one **shadowless** warm POINT light per
+visible lit beacon (`Tile.beacon`), pooled in `beaconLights` (hex → entity)
+beside the aura pool. `refreshBeaconLights(state)` diffs the pool — called
+from reconcile (after `refreshAuras`), `setFog`, and the `BeaconLit`/
+`BuildingDestroyed` beats; a source hidden by fog contributes **no** light
+(the aura-source rule — spill at the rim would betray the hidden building).
+Intensity is `BEACON_LIGHT_LUMENS × nightFactor`, written inside
+`applyNightFactor`: the glow fades in with the existing dusk tweens, is zero
+by day, and costs nothing per frame between (never `isBusy`). Shadows stay
+OFF — a cube shadow map per light would wreck the heat budget the pacing
+system protects. The falloff (~1.8) spills onto the six neighbors only; the
+LIGHT is presentation — `Rules.litHexes` is the protection truth. The lit
+building itself swaps to a `*_LIT` PieceKind (`buildingKind(building, lit)`),
+so the brazier flame is baked geometry, and the `BeaconLit` beat performs the
+swap so reconcile never counts it as a correction.
+
+The READABLE safe zone is the **lit-ground tint**: `litTint` (derived beside
+the light pool from the same fog-checked sources, expanded by
+`Rules.beaconRadiusOf`) switches those hexes' night multiplier from the cool
+`NIGHT_TILE_MULT` to the warm `Palette.BEACON_TILE_MULT` inside `nightTile` —
+hex-accurate against the protection rules, fading in/out with the dusk tweens
+for free (`applyNightFactor` already repaints every tile), invisible by day
+(`nightMix` is identity at factor 0), and applied to the visible fog band only
+so it reveals nothing the fog hides. This tints the GROUND, not an overlay —
+the "highlights, auras and HUD chips stay untinted" rule is untouched. A
+mid-night lighting (or a fallen beacon) repaints exactly the flipped hexes.
+
 ## Camera & picking (`render/CameraRig.kt`, `HexPicker.kt`, `HexWorld.kt`)
 
 Orbit rig (target on the ground plane, min distance 5, fixed 55° pitch — no

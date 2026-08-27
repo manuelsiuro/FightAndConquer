@@ -346,6 +346,21 @@ the wrapping player's EndTurn reduction.
   a deposit).
 - **Dawn**: `DawnBroke`; survivors despawn, each with a `monsterDawnCachePercent`
   chance to abandon a half-value cache.
+- **Beacons** (`Tile.beacon`, `GameAction.UpgradeBuilding` — the game's only
+  building upgrade): an own standing defense building (Tower, Strong Tower,
+  Fortress, Watchtower) takes a one-time `beaconCost` (12) to light; the
+  investment is sunk (demolition refunds the building alone) and the flag dies
+  with its building on capture/demolition/bombardment. Lit hexes —
+  `Rules.litHexes`, always derived, never stored: the building's hex plus
+  `Rules.beaconRadiusOf` (1; Fortress 2 = `monsterCapitalStandoff`, a
+  capital-grade sanctuary reserved for the 55-gold keep) — are **monster-proof**:
+  excluded from the spawn wave, impassable to monsters (one caught in fresh
+  light may walk out but never re-enter), never struck (a strike enters its
+  target hex), and never a prowl lure. Any owner's light repels — monsters
+  shun it all. Rejections: `BEACON_NOT_SUPPORTED` (wrong building, or the
+  day-night rule is off), `BEACON_ALREADY_LIT`. The AI (Normal/Hard) lights
+  beacons via `BeaconPolicy` with night ≤ 2 rounds out, on the building
+  sheltering the most assets.
 
 ## Turn-start pipeline (exact order — `TurnPipeline.kt`)
 

@@ -105,4 +105,7 @@ sealed interface GameEvent {
 
     /** A slain monster's hoard turned the tile FERTILE. */
     @Serializable data class HoardUncovered(val hex: Hex) : GameEvent
+
+    /** A beacon was lit on the defense building at [hex] ([cost] already debited). */
+    @Serializable data class BeaconLit(val hex: Hex, val cost: Int) : GameEvent
 }

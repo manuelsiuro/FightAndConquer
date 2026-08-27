@@ -298,12 +298,14 @@ data class InfoStat(
 /** A button on an [InfoCard] — the card describes, the action acts. */
 sealed interface InfoCardAction {
     data class RotateBridge(val hex: Hex) : InfoCardAction
+    data class LightBeacon(val hex: Hex, val cost: Int) : InfoCardAction
     data class Demolish(val hex: Hex, val refund: Int) : InfoCardAction
     data class Disband(val unit: com.msa.fightandconquer.core.model.UnitId, val refund: Int) : InfoCardAction
 }
 
 fun InfoCardAction.label(): UiText = when (this) {
     is InfoCardAction.RotateBridge -> UiText.of(R.string.info_action_rotate)
+    is InfoCardAction.LightBeacon -> UiText.of(R.string.info_action_light_beacon, cost)
     is InfoCardAction.Demolish -> UiText.of(R.string.info_action_destroy, refund)
     is InfoCardAction.Disband -> UiText.of(R.string.hud_disband, refund)
 }
@@ -1186,6 +1188,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 // Keep the card open so repeated taps keep cycling.
                 val after = engine.state.value
                 _infoCard.value = after.tiles[action.hex]?.let { infoCardFor(after, action.hex, it) }
+            }
+            is InfoCardAction.LightBeacon -> {
+                submit(GameAction.UpgradeBuilding(action.hex))
+                // Keep the card open so the "Beacon lit" state is seen landing.
+                val after = engine.state.value
+                _infoCard.value = after.tiles[action.hex]?.let { infoCardFor(after, action.hex, it) }
+                refreshHud()
             }
             is InfoCardAction.Demolish -> {
                 submit(GameAction.DemolishBuilding(action.hex))
@@ -2181,21 +2190,34 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 Building.SIEGE_WORKSHOP ->
                     Triple(R.string.building_siege_workshop, UiText.of(R.string.info_siege_workshop), null)
             }
+            // A lit beacon states its promise; the stat line doubles as the
+            // "already upgraded" signal (the base icon stays — no lit icon set).
+            val beaconStat = if (tile.beacon) {
+                stat(R.string.info_stat_beacon, UiText.of(R.string.info_value_beacon_lit))
+            } else {
+                null
+            }
             val card = InfoCard(
                 UiText.of(titleRes),
                 subtitle,
-                listOfNotNull(buildingStat),
+                listOfNotNull(buildingStat, beaconStat),
                 ownerIndex,
                 iconRes = PieceIcons.building(ownerCiv, building),
             )
-            // Owner's buildings act from their card: bridges rotate, and anything
-            // but the capital can be razed for a partial refund. (A bridge carrying
+            // Owner's buildings act from their card: bridges rotate, defense
+            // buildings light a beacon in day-night games, and anything but the
+            // capital can be razed for a partial refund. (A bridge carrying
             // a unit shows the unit's card instead, so no stranding case arises.)
             val actions = buildList {
                 if (tile.owner == me && state.player(me).kind is PlayerKind.Human &&
                     building != Building.CAPITAL
                 ) {
                     if (building == Building.BRIDGE) add(InfoCardAction.RotateBridge(hex))
+                    if (!tile.beacon && state.config.rules.dayNightEnabled &&
+                        Rules.beaconRadiusOf(building) != null
+                    ) {
+                        add(InfoCardAction.LightBeacon(hex, Rules.beaconCost(state, me)))
+                    }
                     add(InfoCardAction.Demolish(hex, Rules.demolishRefund(state, me, building)))
                 }
             }

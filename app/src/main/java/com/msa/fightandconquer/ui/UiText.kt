@@ -238,4 +238,6 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.BUILDING_NEEDS_RESEARCH -> UiText.of(R.string.reject_building_needs_research)
     RejectionReason.UNIT_NEEDS_BUILDING -> UiText.of(R.string.reject_unit_needs_building)
     RejectionReason.MONSTER_ON_HEX -> UiText.of(R.string.reject_monster_on_hex)
+    RejectionReason.BEACON_NOT_SUPPORTED -> UiText.of(R.string.reject_beacon_not_supported)
+    RejectionReason.BEACON_ALREADY_LIT -> UiText.of(R.string.reject_beacon_already_lit)
 }

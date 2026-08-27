@@ -95,6 +95,25 @@ class NightAiTest {
     }
 
     @Test
+    fun `the beacon policy lights the sheltering tower with night on the doorstep`() {
+        val s = com.msa.fightandconquer.core.TestStates.strip(9, 0..3, 6..8, rules = nightRules)
+        val ready = with(com.msa.fightandconquer.core.TestStates) {
+            s.withBuilding(com.msa.fightandconquer.core.model.Building.TOWER, hex(2))
+                .withUnit(owner = 0, tier = 1, at = hex(1))
+                .withUnit(owner = 0, tier = 1, at = hex(3))
+        }.copy(turnNumber = 6) // 2 rounds to nightfall (day 8 / night 3)
+        assertEquals(
+            GameAction.UpgradeBuilding(com.msa.fightandconquer.core.TestStates.hex(2)),
+            BeaconPolicy.action(ready, Difficulty.NORMAL),
+        )
+        // Deep daylight, a rookie, or an empty purse: no beacon.
+        assertEquals(null, BeaconPolicy.action(ready.copy(turnNumber = 0), Difficulty.NORMAL))
+        assertEquals(null, BeaconPolicy.action(ready, Difficulty.EASY))
+        val poor = with(com.msa.fightandconquer.core.TestStates) { ready.withTreasury(0, 20) }
+        assertEquals(null, BeaconPolicy.action(poor, Difficulty.NORMAL))
+    }
+
+    @Test
     fun `night games are fully deterministic`() {
         val json = Json
         fun run(): String {

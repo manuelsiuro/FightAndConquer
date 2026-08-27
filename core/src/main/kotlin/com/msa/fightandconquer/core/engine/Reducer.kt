@@ -23,6 +23,7 @@ object Reducer {
             is GameAction.BuyUnit -> applyBuyUnit(state, b, action)
             is GameAction.BuyBuilding -> applyBuyBuilding(state, b, action)
             is GameAction.MergeUnits -> applyMerge(state, b, action)
+            is GameAction.UpgradeBuilding -> applyUpgradeBuilding(state, b, action)
             is GameAction.RotateBuilding -> applyRotateBuilding(b, action)
             is GameAction.DemolishBuilding -> applyDemolishBuilding(state, b, action)
             is GameAction.DisbandUnit -> applyDisbandUnit(state, b, action)
@@ -214,6 +215,14 @@ object Reducer {
         if (action.type == com.msa.fightandconquer.core.model.BuildingType.PORT) {
             b.recomputeStarving()
         }
+    }
+
+    private fun applyUpgradeBuilding(state: GameState, b: StateBuilder, action: GameAction.UpgradeBuilding) {
+        val buyer = state.currentPlayer
+        val cost = Rules.beaconCost(state, buyer)
+        b.updatePlayer(buyer) { it.copy(treasury = it.treasury - cost) }
+        b.updateTile(action.at) { it.copy(beacon = true) }
+        b.events.add(GameEvent.BeaconLit(action.at, cost))
     }
 
     private fun applyRotateBuilding(b: StateBuilder, action: GameAction.RotateBuilding) {

@@ -209,6 +209,23 @@ through verbatim, so authoring one needs no tool change). Deferred follow-ups:
 per-kind stat flavor (kind is already serialized — purely additive) and a
 night-showcase campaign mission.
 
+**Beacon upgrade — SHIPPED** (feature/beacon-lights): the game's first
+building upgrade. `GameAction.UpgradeBuilding` lights a `Tile.beacon` flag on
+an own standing defense building for `beaconCost` (12); `Rules.litHexes`
+(radius via `beaconRadiusOf` — 1, Fortress 2) is derived, never stored, and
+`NightPipeline` shuns it at all four points (spawn wave, passability, strikes,
+prowl lures). The Tile-flag design deliberately avoided new `Building` values:
+zero campaign-glyph/tray/editor churn, one save key (`beacon`, plus the
+`beaconCost` rule key). Renderer: four `*_LIT` PieceKinds (16 Blender bakes,
+per-civ brazier idioms) + the app's first point lights — shadowless, pooled,
+intensity riding `nightFactor` — and the **lit-radius ground tint**: hexes in
+a visible beacon's radius warm to `Palette.BEACON_TILE_MULT` at night, the
+hex-accurate readable safe zone (rendering.md "Beacon point lights"). AI:
+`BeaconPolicy` threshold policy + the Evaluator's night-threat term skipping
+lit units. Deferred follow-ups: an `EMBER` ColorRole so flames brighten with
+`nightFactor` (needs the three synced role lists + a full re-bake), lit-variant
+UI icons, editor-authored pre-lit beacons, flame flicker on the ambience clock.
+
 ## Designed-for, not yet built
 
 ### Map editor — SHIPPED

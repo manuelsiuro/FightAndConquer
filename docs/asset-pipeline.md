@@ -113,7 +113,7 @@ identical to procedural meshes. `PieceMeshes` tries
 `assets/pieces/<kind_lowercase>.pmesh` first and falls back to the procedural
 token set per kind, so a missing/broken asset can never crash the game.
 
-Shipped model set (31 — every `PieceKind` has a bake, no procedural fallback
+Shipped model set (41 — every `PieceKind` has a bake, no procedural fallback
 ships): `unit_t1..t4`, `archer`, `catapult`, the naval `boat` (longboat, faction
 sail), `warship` (ram + faction shields) and `fishing_boat` (stub dory, stern
 net boom, gold catch — a visible class below the longboat), `capital`, `farm`, `tower`,
@@ -127,7 +127,12 @@ silhouette), the muster line `barracks` (~0.42, drill hall + spear rack +
 training pell), `archery_range` (~0.33, the target butt IS the read) and
 `siege_workshop` (~0.35, open shed + half-built siege arm + wheel) — military
 support sits at 0.26–0.42, deliberately BELOW the defense band (0.465–0.61) so
-a zero-defense hall never reads as a garrison — `tree`, `gravestone`, plus the
+a zero-defense hall never reads as a garrison — the beacon-lit defense variants
+`tower_lit`, `strong_tower_lit`, `fortress_lit`, `watchtower_lit` (each its
+base plus a brazier in the set's own idiom — crown bowl, wall-walk fire,
+keep-top blaze; the base watchtower keeps its small ember, the lit variant
+must read as clearly MORE fire), `tree`, `gravestone`, the night bestiary
+`monster_wolf/spider/ogre/troll/wyrm` + `reward_cache`, plus the
 terrain deposits `gold_vein`,
 `fertile` and the sea `fish_shoal` (low edge-scatter rings — the hex center
 stays clear so units never clip them).
@@ -153,7 +158,7 @@ level down, same pipeline end to end (full feature spec:
   `python3 tools/render_piece_icons.py vikings/capital`), producing
   `piece_<civ>_<kind>.png` in `art/icons/` + `drawable-nodpi/`; mapped by the
   (civ, kind) tables in `ui/PieceIcons.kt`.
-- **Scope**: only the 23 player-owned kinds fork (`PieceMeshes.CIV_FORKED_KINDS`);
+- **Scope**: only the 30 player-owned kinds fork (`PieceMeshes.CIV_FORKED_KINDS`);
   neutral markers (tree, gravestone, deposits) never fork — don't author them.
 - **Fallback**: `PieceMeshes` resolves (civilization, kind) lazily per civ present
   in the game; a forked kind without a baked asset shares the Kingdom `Part`s

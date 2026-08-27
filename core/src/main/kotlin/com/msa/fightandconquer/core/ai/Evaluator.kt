@@ -246,9 +246,14 @@ object Evaluator {
                 }
             }
             if (monsters.isNotEmpty()) {
+                // Lit ground is monster-proof (no entry, no strikes): a unit
+                // standing in a beacon's light is never a threatened unit —
+                // without this the argmax over-garrisons protected interiors.
+                val lit = Rules.litHexes(state)
                 var threatened = 0
                 for (u in state.units.values) {
                     if (u.owner != me || Rules.isNaval(u.type)) continue
+                    if (u.hex in lit) continue
                     val defense = Rules.defenseOf(state, u.hex)
                     if (monsters.any { (hex, attack) ->
                             attack > defense &&

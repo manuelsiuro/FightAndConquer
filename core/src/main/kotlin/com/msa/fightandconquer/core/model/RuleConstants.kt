@@ -282,6 +282,13 @@ data class RuleConstants(
     val monsterDawnCachePercent: Int = 15,
     /** Percent chance a slain monster's hoard leaves the tile FERTILE. */
     val monsterHoardPercent: Int = 15,
+    /**
+     * One-time gold cost to light a beacon on a standing defense building
+     * ([Tile.beacon]). Lit hexes (`Rules.litHexes`) are monster-proof at night:
+     * no spawns, no entry, no strikes onto them. Flat across the four defense
+     * buildings; the radius table lives in code (`Rules.beaconRadiusOf`).
+     */
+    val beaconCost: Int = 12,
 
     // --- Campaign ---
     /**
@@ -386,5 +393,6 @@ data class RuleConstants(
         require(monsterHoardPercent in 0..100) {
             "monsterHoardPercent must stay in 0..100: $monsterHoardPercent"
         }
+        require(beaconCost >= 0) { "beaconCost must stay >= 0: $beaconCost" }
     }
 }
