@@ -201,10 +201,13 @@ Note: the 13 new rule keys pushed SMALL share codes past the 2000-byte QR
 ceiling — the FCM1 envelope moved to **format version 2** with a re-baked
 frozen dictionary (v1 codes still decode; pinned by test).
 
-Deferred follow-ups: the Blender bestiary + chest bakes (procedural placeholder
-tokens render meanwhile; icons stand in as gravestone/gold-vein), a
-`slayMonsters` campaign objective (`CampaignTracker` counter + `Objective`
-variant), per-kind stat flavor, and a night-showcase mission.
+The Blender bestiary + chest landed in the same branch (five monster minis +
+the reward chest, all `NEUTRAL_KINDS`, 216–328 tris, icons baked), as did the
+`Objective.MonstersSlain` campaign objective (`CampaignTracker.monstersSlain`
+counting `MonsterSlain` by seat; the baker passes `{"type": "slayMonsters"}`
+through verbatim, so authoring one needs no tool change). Deferred follow-ups:
+per-kind stat flavor (kind is already serialized — purely additive) and a
+night-showcase campaign mission.
 
 ## Designed-for, not yet built
 

@@ -1026,5 +1026,6 @@
     <string name="guide_night_how">Watch the countdown by the sun in the top bar; spend the last day rounds stepping units under cover and merging weak ones.</string>
     <string name="guide_monster_title">Night monsters</string>
     <string name="guide_monster_body">Wolves and spiders lead the early nights; ogres, trolls and finally the wyrm follow as the game grows older. Each defends its hex like a garrison and strikes harder than it defends.</string>
-    <string name="guide_monster_how">Attack with a stronger unit to slay one — it drops a gold cache where it stood, and rarely churns the ground fertile. Warships can shell one on the coast.</string>
+        <string name="objective_slay_monsters">Slay %1$d night monsters</string>
+<string name="guide_monster_how">Attack with a stronger unit to slay one — it drops a gold cache where it stood, and rarely churns the ground fertile. Warships can shell one on the coast.</string>
 </resources>

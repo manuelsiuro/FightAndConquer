@@ -170,6 +170,8 @@ object Objectives {
 
         is Objective.ResearchCount ->
             ObjectiveRow(objective, state.player(seat).research.completed.size, objective.count)
+
+        is Objective.MonstersSlain -> ObjectiveRow(objective, tracker.monstersSlain, objective.count)
     }
 
     /**

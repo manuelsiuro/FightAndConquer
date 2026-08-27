@@ -35,6 +35,8 @@ data class CampaignTracker(
     val unitsLost: Int = 0,
     /** Trees the campaign seat has cleared. */
     val treesCleared: Int = 0,
+    /** Night monsters the campaign seat has slain (day-night levels). */
+    val monstersSlain: Int = 0,
     /**
      * How far the coach script has advanced. Monotonic. Steps gated on a
      * [HintCondition.UiSignal] are bumped by the UI rather than by [step], so a save
@@ -69,6 +71,7 @@ data class CampaignTracker(
             var boatsSunk = prev.boatsSunk
             var unitsLost = prev.unitsLost
             var treesCleared = prev.treesCleared
+            var monstersSlain = prev.monstersSlain
             for (event in events) {
                 when (event) {
                     is GameEvent.UnitDied -> {
@@ -83,6 +86,8 @@ data class CampaignTracker(
                     // The bonus is paid to whoever moved onto the tree, which is the
                     // acting seat at the time of the action.
                     is GameEvent.TreeCleared -> if (before.currentPlayer == seat) treesCleared++
+                    // The slay event names its credited player directly.
+                    is GameEvent.MonsterSlain -> if (event.by == seat) monstersSlain++
                     else -> Unit
                 }
             }
@@ -101,6 +106,7 @@ data class CampaignTracker(
                 boatsSunk = boatsSunk,
                 unitsLost = unitsLost,
                 treesCleared = treesCleared,
+                monstersSlain = monstersSlain,
             )
         }
     }

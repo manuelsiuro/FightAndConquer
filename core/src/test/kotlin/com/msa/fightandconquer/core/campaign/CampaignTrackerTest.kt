@@ -3,6 +3,7 @@ package com.msa.fightandconquer.core.campaign
 import com.msa.fightandconquer.core.TestStates
 import com.msa.fightandconquer.core.TestStates.hex
 import com.msa.fightandconquer.core.TestStates.unitIdAt
+import com.msa.fightandconquer.core.TestStates.withMonster
 import com.msa.fightandconquer.core.TestStates.withSea
 import com.msa.fightandconquer.core.TestStates.withUnit
 import com.msa.fightandconquer.core.engine.GameAction
@@ -139,5 +140,34 @@ class CampaignTrackerTest {
         val roundTripped = SaveCodec.decode(SaveCodec.encode(save))
 
         assertEquals(live, CampaignSave.restoreTracker(roundTripped, level))
+    }
+
+    @Test
+    fun `slaying a monster counts for the slayer only`() {
+        val rules = RuleConstants(
+            dayNightEnabled = true, dayLengthRounds = 50, nightLengthRounds = 3,
+            monsterHoardPercent = 0, monsterDawnCachePercent = 0,
+        )
+        val state = TestStates.strip(9, 0..3, 6..8, rules = rules)
+            .withMonster(hex(4), tier = 1)
+            .withUnit(owner = 0, tier = 2, at = hex(3))
+        val slayObjectives = listOf(Objective.MonstersSlain(2))
+        val result = Reducer.reduce(state, GameAction.MoveUnit(state.unitIdAt(hex(3)), hex(4)))
+        val mine = CampaignTracker.step(
+            CampaignTracker(), state, result.state, result.events, PlayerId(0), slayObjectives,
+        )
+        assertEquals(1, mine.monstersSlain)
+        assertEquals(
+            1,
+            Objectives.evaluate(
+                result.state, mine,
+                TestLevels.strip().copy(objectives = slayObjectives),
+            ).rows.single().progress,
+        )
+        // The same transition scored for the OTHER seat credits nothing.
+        val theirs = CampaignTracker.step(
+            CampaignTracker(), state, result.state, result.events, PlayerId(1), slayObjectives,
+        )
+        assertEquals(0, theirs.monstersSlain)
     }
 }
