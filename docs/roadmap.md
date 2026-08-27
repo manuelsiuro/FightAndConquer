@@ -218,7 +218,9 @@ prowl lures). The Tile-flag design deliberately avoided new `Building` values:
 zero campaign-glyph/tray/editor churn, one save key (`beacon`, plus the
 `beaconCost` rule key). Renderer: four `*_LIT` PieceKinds (16 Blender bakes,
 per-civ brazier idioms) + the app's first point lights — shadowless, pooled,
-intensity riding `nightFactor` (rendering.md "Beacon point lights"). AI:
+intensity riding `nightFactor` — and the **lit-radius ground tint**: hexes in
+a visible beacon's radius warm to `Palette.BEACON_TILE_MULT` at night, the
+hex-accurate readable safe zone (rendering.md "Beacon point lights"). AI:
 `BeaconPolicy` threshold policy + the Evaluator's night-threat term skipping
 lit units. Deferred follow-ups: an `EMBER` ColorRole so flames brighten with
 `nightFactor` (needs the three synced role lists + a full re-bake), lit-variant
