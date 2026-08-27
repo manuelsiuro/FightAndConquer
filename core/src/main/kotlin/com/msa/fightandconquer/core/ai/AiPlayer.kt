@@ -57,6 +57,14 @@ class AiPlayer(private val difficulty: Difficulty) {
             }
         }
 
+        // Beacons are a threshold policy for the same structural reason: lit
+        // ground pays nothing until the monsters walk (see BeaconPolicy).
+        if (state.config.rules.dayNightEnabled) {
+            BeaconPolicy.action(state, difficulty)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
+            }
+        }
+
         // Naval invasion is a threshold policy too: a single-action greedy search
         // can never justify the intermediate ferry steps (see NavalPolicy).
         // Fishing follows for the same structural reason, and AFTER invasion —
