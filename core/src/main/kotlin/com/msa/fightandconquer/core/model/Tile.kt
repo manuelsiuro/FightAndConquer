@@ -25,6 +25,14 @@ import kotlinx.serialization.Serializable
  * [com.msa.fightandconquer.core.hex.HexMath.DIRECTIONS] (the deck is 180°-symmetric,
  * so direction k and k+3 are the same axis). null = the renderer auto-orients.
  * Only meaningful while [building] is BRIDGE; cleared when the span is destroyed.
+ *
+ * [monster]: a night creature squatting the hex (day-night cycle games only).
+ * Never coexists with [unit] or [building]; LAND only; [flora] may coexist
+ * (monsters lurk in forests). Ownership is untouched — an owned hex keeps its
+ * owner but yields no income while squatted.
+ *
+ * [cache]: gold dropped by a slain (or dawn-vanished) monster, waiting to be
+ * collected by the first unit to stand here (any owner). Always > 0 when set.
  */
 @Serializable
 data class Tile(
@@ -37,4 +45,6 @@ data class Tile(
     val deposit: Deposit? = null,
     val terrain: Terrain = Terrain.LAND,
     val bridgeOrientation: Int? = null,
+    val monster: Monster? = null,
+    val cache: Int? = null,
 )

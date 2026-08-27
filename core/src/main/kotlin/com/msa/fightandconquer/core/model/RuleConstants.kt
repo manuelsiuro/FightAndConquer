@@ -248,6 +248,41 @@ data class RuleConstants(
     val archeryRangeCost: Int = 16,
     val siegeWorkshopCost: Int = 25,
 
+    // --- Day-night cycle (expansion) ---
+    /**
+     * Master gate for the day-night cycle: every [dayLengthRounds] rounds of
+     * daylight, night falls for [nightLengthRounds] rounds — neutral monsters
+     * spawn ([Monster]), act each night round, and vanish at dawn. **Off by
+     * default**: skirmish opt-in via Setup; every shipped campaign mission
+     * bakes it off explicitly (the researchEnabled precedent). The phase is a
+     * pure function of the round counter (`Rules.isNight`) — nothing extra is
+     * serialized, so a replayed save can never desync from its phase.
+     */
+    val dayNightEnabled: Boolean = false,
+    /** Rounds of daylight before each night. */
+    val dayLengthRounds: Int = 8,
+    /** Rounds each night lasts (survivors despawn at the dawn wrap). */
+    val nightLengthRounds: Int = 3,
+    /** Monsters spawned per night per 100 land hexes (at least 1 when > 0). */
+    val monsterSpawnPer100Hexes: Int = 2,
+    /** Hard cap on one night's spawn wave regardless of map size. */
+    val monsterSpawnCap: Int = 10,
+    /** Tier of the first night's monsters (attack = tier + 1, defense = tier). */
+    val monsterBaseTier: Int = 1,
+    val monsterMaxTier: Int = 3,
+    /** Nights per +1 monster tier: tier = min(base + nightIndex / ramp, max). */
+    val monsterTierRampNights: Int = 2,
+    /** Monster movement BFS steps per night round. */
+    val monsterMoveRange: Int = 2,
+    /** Minimum hex distance from every living capital for spawn placement. */
+    val monsterCapitalStandoff: Int = 2,
+    /** Gold cache dropped by a slain monster = tier × this ([Tile.cache]). */
+    val monsterCachePerTier: Int = 12,
+    /** Percent chance a dawn-vanishing survivor leaves a half-value cache. */
+    val monsterDawnCachePercent: Int = 15,
+    /** Percent chance a slain monster's hoard leaves the tile FERTILE. */
+    val monsterHoardPercent: Int = 15,
+
     // --- Campaign ---
     /**
      * Buildings this game does not offer at all. Empty in skirmish; a campaign level
@@ -329,6 +364,27 @@ data class RuleConstants(
         require(barracksCost >= 0 && archeryRangeCost >= 0 && siegeWorkshopCost >= 0) {
             "muster building costs must stay >= 0: " +
                 "barracks $barracksCost, range $archeryRangeCost, workshop $siegeWorkshopCost"
+        }
+        // Day-night cycle: the phase formula divides by the cycle length, and a
+        // zero-round day or night would degenerate it.
+        require(dayLengthRounds >= 1 && nightLengthRounds >= 1) {
+            "day/night lengths must stay >= 1: day $dayLengthRounds, night $nightLengthRounds"
+        }
+        require(monsterBaseTier in 1..monsterMaxTier) {
+            "monsterBaseTier must stay in 1..monsterMaxTier: $monsterBaseTier..$monsterMaxTier"
+        }
+        require(monsterTierRampNights >= 1) { "monsterTierRampNights must stay >= 1: $monsterTierRampNights" }
+        require(monsterMoveRange >= 1) { "monsterMoveRange must stay >= 1: $monsterMoveRange" }
+        require(monsterSpawnPer100Hexes >= 0 && monsterSpawnCap >= 0 && monsterCapitalStandoff >= 0) {
+            "monster spawn tuning must stay >= 0: per100 $monsterSpawnPer100Hexes, " +
+                "cap $monsterSpawnCap, standoff $monsterCapitalStandoff"
+        }
+        require(monsterCachePerTier >= 0) { "monsterCachePerTier must stay >= 0: $monsterCachePerTier" }
+        require(monsterDawnCachePercent in 0..100) {
+            "monsterDawnCachePercent must stay in 0..100: $monsterDawnCachePercent"
+        }
+        require(monsterHoardPercent in 0..100) {
+            "monsterHoardPercent must stay in 0..100: $monsterHoardPercent"
         }
     }
 }

@@ -56,7 +56,7 @@ sealed interface ShareDecodeResult {
  */
 object ShareCodec {
 
-    const val FORMAT_VERSION: Int = 1
+    const val FORMAT_VERSION: Int = 2
     const val TEXT_PREFIX: String = "FCM1:"
     val MAGIC: ByteArray = byteArrayOf(0x46, 0x43, 0x4D, 0x31) // "FCM1"
 
@@ -107,6 +107,7 @@ object ShareCodec {
         if (version > FORMAT_VERSION) {
             return ShareDecodeResult.Failed(ShareError.UNSUPPORTED_VERSION)
         }
+        val dictionary = if (version >= 2) DICTIONARY_V2 else DICTIONARY_V1
         val stored = ((body[1].toLong() and 0xFF) shl 24) or
             ((body[2].toLong() and 0xFF) shl 16) or
             ((body[3].toLong() and 0xFF) shl 8) or
@@ -116,7 +117,7 @@ object ShareCodec {
             return ShareDecodeResult.Failed(ShareError.CORRUPTED)
         }
         val json = try {
-            inflate(deflated)
+            inflate(deflated, dictionary)
         } catch (_: DataFormatException) {
             return ShareDecodeResult.Failed(ShareError.MALFORMED)
         } catch (_: IllegalStateException) {
@@ -137,7 +138,7 @@ object ShareCodec {
     private fun deflate(bytes: ByteArray): ByteArray {
         val deflater = Deflater(Deflater.BEST_COMPRESSION)
         try {
-            deflater.setDictionary(DICTIONARY)
+            deflater.setDictionary(DICTIONARY_V2)
             deflater.setInput(bytes)
             deflater.finish()
             val out = ByteArrayOutputStream(bytes.size / 4 + 64)
@@ -151,7 +152,7 @@ object ShareCodec {
         }
     }
 
-    private fun inflate(bytes: ByteArray): ByteArray {
+    private fun inflate(bytes: ByteArray, dictionary: ByteArray): ByteArray {
         val inflater = Inflater()
         try {
             inflater.setInput(bytes)
@@ -160,7 +161,7 @@ object ShareCodec {
             while (!inflater.finished()) {
                 val n = inflater.inflate(buffer)
                 if (n == 0 && inflater.needsDictionary()) {
-                    inflater.setDictionary(DICTIONARY)
+                    inflater.setDictionary(dictionary)
                     continue
                 }
                 if (n == 0 && inflater.needsInput()) error("truncated deflate stream")
@@ -174,16 +175,28 @@ object ShareCodec {
     }
 
     /**
-     * Preset deflate dictionary: the JSON of a canonical scenario touching every common
-     * vocabulary item, so the ~1.3 KB of self-describing boilerplate (the full
-     * `RuleConstants` snapshot above all) compresses to back-references instead of
-     * riding along in every code. Measured effect: a 9-tile scenario's text code drops
-     * from ~1 375 to a few hundred chars, and a SMALL generated map fits a QR.
+     * Preset deflate dictionaries: the JSON of a canonical scenario touching every
+     * common vocabulary item, so the ~KBs of self-describing boilerplate (the full
+     * `RuleConstants` snapshot above all) compress to back-references instead of
+     * riding along in every code. Measured effect: a 9-tile scenario's text code
+     * drops from ~1 375 to a few hundred chars, and a SMALL generated map fits a QR.
      *
-     * **FROZEN.** Format version 1 codes are compressed against exactly these bytes;
-     * regenerating this string from a newer build would silently break every code in
-     * the wild. Envelope changes go through [FORMAT_VERSION], never through this text.
+     * **FROZEN, one per format version.** A version's codes are compressed against
+     * exactly its bytes; regenerating a published dictionary would silently break
+     * every code in the wild. When the schema grows enough that codes balloon past
+     * the QR ceiling (the day-night keys crossed it after research and muster had
+     * eaten the slack), the fix is a NEW dictionary under a bumped [FORMAT_VERSION]
+     * with decode support for every older version — exactly how v2 landed.
      */
-    private val DICTIONARY: ByteArray =
+    internal val DICTIONARY_V1: ByteArray =
         """{"version":1,"id":"00000000-0000-0000-0000-000000000000","name":"name","author":"author","createdAt":0,"modifiedAt":0,"level":{"id":"00000000-0000-0000-0000-000000000000","seed":0,"map":{"version":1,"name":"name","generatorParams":null,"tiles":[{"hex":0,"owner":0,"building":"CAPITAL","flora":null,"deposit":null,"terrain":"LAND"},{"hex":65536,"owner":1,"building":"CAPITAL","flora":null,"deposit":null,"terrain":"LAND"},{"hex":131072,"owner":null,"building":null,"flora":{"type":"tree"},"deposit":null,"terrain":"LAND"},{"hex":196608,"owner":null,"building":null,"flora":{"type":"grave","createdRound":0},"deposit":null,"terrain":"LAND"},{"hex":262144,"owner":null,"building":null,"flora":null,"deposit":"GOLD_VEIN","terrain":"LAND"},{"hex":327680,"owner":null,"building":null,"flora":null,"deposit":"FERTILE","terrain":"LAND"},{"hex":393216,"owner":null,"building":null,"flora":null,"deposit":"FISH_SHOAL","terrain":"SEA"},{"hex":458752,"owner":null,"building":null,"flora":null,"deposit":null,"terrain":"SEA"},{"hex":524288,"owner":2,"building":"FARM","flora":null,"deposit":null,"terrain":"LAND"},{"hex":589824,"owner":3,"building":"TOWER","flora":null,"deposit":null,"terrain":"LAND"}],"capitals":[0,65536]},"seats":[{"type":"player"},{"type":"ai","difficulty":"EASY"},{"type":"ai","difficulty":"NORMAL"},{"type":"ai","difficulty":"HARD"},{"type":"ai","difficulty":"PASSIVE"}],"rules":{"unitCost":[10,20,30,40],"unitUpkeep":[2,6,18,54],"maxTier":4,"soldierMoveRanges":[3,4,5,6],"archerMoveRange":3,"hexIncome":1,"farmCostBase":12,"farmCostStep":2,"farmIncome":4,"towerCost":15,"towerDefense":2,"strongTowerCost":35,"strongTowerDefense":3,"capitalDefense":1,"capitalLootPercent":50,"startingTreasury":12,"startRegionSize":7,"treeClearBonus":3,"treeSpreadPercent":10,"initialTreePercent":8,"fogOfWar":false,"visionRadiusOwned":2,"visionRadiusUnit":3,"visionRadiusBuilding":4,"fertileHexBonus":1,"fertileFarmBonus":2,"goldVeinsPerPlayer":1,"goldVeinBandMin":3,"goldVeinBandMax":6,"goldVeinsNeutralPer150Hexes":1,"fertilePerPlayer":2,"fertileNeutralPercent":3,"mineCost":20,"mineIncome":6,"marketCost":25,"marketNeighborIncome":1,"marketNeighborCap":5,"lumberCampCost":15,"lumberCampTreeIncome":2,"lumberCampTreeCap":4,"watchtowerCost":8,"watchtowerVisionRadius":6,"specialUnitsEnabled":true,"archerCost":14,"archerUpkeep":4,"archerStrength":1,"archerAuraDefense":2,"catapultCost":30,"catapultUpkeep":10,"catapultStrength":2,"catapultMoveRange":2,"navalEnabled":true,"transportCost":15,"transportUpkeep":4,"transportMoveRange":3,"warshipCost":25,"warshipUpkeep":8,"warshipStrength":2,"warshipMoveRange":3,"portCost":20,"portIncome":2,"beachheadGraceTurns":3,"fisheryCost":18,"fisheryShoalIncome":3,"fisheryShoalCap":3,"bridgeCost":15,"fishShoalsPerPlayer":1,"fishShoalBandMin":2,"fishShoalBandMax":6,"fishShoalsNeutralPer150Hexes":1,"diplomacyEnabled":true,"pactMinDurationRounds":2,"pactMaxDurationRounds":10,"pactProposalTtlRounds":1,"pactProposalCooldownRounds":6,"pactBreakPenaltyPercent":25,"disabledBuildings":[],"scriptedEventsEnabled":false},"startingTreasury":[0,0,0,0,0],"startingUnits":[{"seat":0,"hex":0,"unitType":"SOLDIER","tier":1},{"seat":1,"hex":65536,"unitType":"WARSHIP","tier":1}],"objectives":[{"type":"conquerAll"},{"type":"captureHexes","hexes":[0]},{"type":"survive","rounds":0}],"failures":[{"type":"turnLimit","rounds":0}],"parRounds":null,"hints":[],"scripts":[],"aiSolvable":true}}""".toByteArray(UTF_8)
+
+    /**
+     * The format-version-2 dictionary: the same canonical scenario re-baked on
+     * 2026-08-27 with the full current vocabulary — the fishing-overhaul key
+     * order, civilizations (`civs`, `civBonusesEnabled`), research, muster
+     * buildings, the day-night cycle rules, and `startingTech`. FROZEN like V1.
+     */
+    internal val DICTIONARY_V2: ByteArray =
+        """{"version":1,"id":"00000000-0000-0000-0000-000000000000","name":"name","author":"author","createdAt":0,"modifiedAt":0,"level":{"id":"00000000-0000-0000-0000-000000000000","seed":0,"map":{"version":1,"name":"name","generatorParams":null,"tiles":[{"hex":0,"owner":0,"building":"CAPITAL","flora":null,"deposit":null,"terrain":"LAND"},{"hex":65536,"owner":1,"building":"CAPITAL","flora":null,"deposit":null,"terrain":"LAND"},{"hex":131072,"owner":null,"building":null,"flora":{"type":"tree"},"deposit":null,"terrain":"LAND"},{"hex":196608,"owner":null,"building":null,"flora":{"type":"grave","createdRound":0},"deposit":null,"terrain":"LAND"},{"hex":262144,"owner":null,"building":null,"flora":null,"deposit":"GOLD_VEIN","terrain":"LAND"},{"hex":327680,"owner":null,"building":null,"flora":null,"deposit":"FERTILE","terrain":"LAND"},{"hex":393216,"owner":null,"building":null,"flora":null,"deposit":"FISH_SHOAL","terrain":"SEA"},{"hex":458752,"owner":null,"building":null,"flora":null,"deposit":null,"terrain":"SEA"},{"hex":524288,"owner":2,"building":"FARM","flora":null,"deposit":null,"terrain":"LAND"},{"hex":589824,"owner":3,"building":"TOWER","flora":null,"deposit":null,"terrain":"LAND"}],"capitals":[0,65536]},"seats":[{"type":"player"},{"type":"ai","difficulty":"EASY"},{"type":"ai","difficulty":"NORMAL"},{"type":"ai","difficulty":"HARD"},{"type":"ai","difficulty":"PASSIVE"}],"rules":{"unitCost":[10,20,30,40],"unitUpkeep":[2,6,18,54],"maxTier":4,"soldierMoveRanges":[3,4,5,6],"archerMoveRange":3,"hexIncome":1,"farmCostBase":12,"farmCostStep":2,"farmIncome":4,"towerCost":15,"towerDefense":2,"strongTowerCost":35,"strongTowerDefense":3,"capitalDefense":1,"capitalLootPercent":50,"startingTreasury":12,"startRegionSize":7,"treeClearBonus":3,"treeSpreadPercent":10,"initialTreePercent":8,"fogOfWar":false,"visionRadiusOwned":2,"visionRadiusUnit":3,"visionRadiusBuilding":4,"fertileHexBonus":1,"fertileFarmBonus":2,"goldVeinsPerPlayer":1,"goldVeinBandMin":3,"goldVeinBandMax":6,"goldVeinsNeutralPer150Hexes":1,"fertilePerPlayer":2,"fertileNeutralPercent":3,"mineCost":20,"mineIncome":6,"marketCost":25,"marketNeighborIncome":1,"marketNeighborCap":5,"lumberCampCost":15,"lumberCampTreeIncome":2,"lumberCampTreeCap":4,"watchtowerCost":8,"watchtowerVisionRadius":6,"specialUnitsEnabled":true,"archerCost":14,"archerUpkeep":4,"archerStrength":1,"archerAuraDefense":2,"catapultCost":30,"catapultUpkeep":10,"catapultStrength":2,"catapultMoveRange":2,"navalEnabled":true,"transportCost":15,"transportUpkeep":4,"transportMoveRange":3,"warshipCost":25,"warshipUpkeep":8,"warshipStrength":2,"warshipMoveRange":3,"fishingBoatCost":14,"fishingBoatUpkeep":3,"fishingBoatIncome":6,"fishingBoatMoveRange":3,"portCost":20,"portIncome":2,"beachheadGraceTurns":3,"fisheryCost":18,"fisheryShoalIncome":3,"fisheryShoalCap":3,"fisheryRange":2,"bridgeCost":15,"demolishRefundPercent":50,"fishShoalsPerPlayer":1,"fishShoalBandMin":2,"fishShoalBandMax":6,"fishShoalsNeutralPer150Hexes":1,"diplomacyEnabled":true,"pactMinDurationRounds":2,"pactMaxDurationRounds":10,"pactProposalTtlRounds":1,"pactProposalCooldownRounds":6,"pactBreakPenaltyPercent":25,"civBonusesEnabled":true,"researchEnabled":true,"techCostByTier":[20,35,55],"techDurationByTier":[3,4,5],"universityCost":30,"bankCost":35,"bankIncome":7,"fortressCost":55,"fortressDefense":4,"incomePercent":100,"unitAttackBonus":0,"unitDefenseBonus":0,"militaryBuildingsRequired":true,"barracksCost":20,"archeryRangeCost":16,"siegeWorkshopCost":25,"dayNightEnabled":false,"dayLengthRounds":8,"nightLengthRounds":3,"monsterSpawnPer100Hexes":2,"monsterSpawnCap":10,"monsterBaseTier":1,"monsterMaxTier":3,"monsterTierRampNights":2,"monsterMoveRange":2,"monsterCapitalStandoff":2,"monsterCachePerTier":12,"monsterDawnCachePercent":15,"monsterHoardPercent":15,"disabledBuildings":[],"scriptedEventsEnabled":false},"startingTreasury":[0,0,0,0,0],"civs":["KINGDOM","VIKINGS","SULTANATE","SHOGUNATE"],"startingTech":null,"startingUnits":[{"seat":0,"hex":0,"unitType":"SOLDIER","tier":1},{"seat":1,"hex":65536,"unitType":"WARSHIP","tier":1}],"objectives":[{"type":"conquerAll"},{"type":"captureHexes","hexes":[0]},{"type":"survive","rounds":0}],"failures":[{"type":"turnLimit","rounds":0}],"parRounds":null,"hints":[],"scripts":[],"aiSolvable":true}}""".toByteArray(UTF_8)
 }

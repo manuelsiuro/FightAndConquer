@@ -66,7 +66,7 @@ object Legality {
             if (!naval && (tile.owner != spawn.owner || tile.flora != null)) {
                 return reject(RejectionReason.INVALID_SCRIPT_TARGET)
             }
-            if (tile.unit != null || !claimed.add(spawn.hex)) {
+            if (tile.unit != null || tile.monster != null || !claimed.add(spawn.hex)) {
                 return reject(RejectionReason.INVALID_SCRIPT_TARGET)
             }
         }
@@ -154,6 +154,10 @@ object Legality {
         if (tile.owner == state.currentPlayer) {
             if (tile.unit != null) return reject(RejectionReason.HEX_HAS_UNIT)
             if (tile.building != null) return reject(RejectionReason.HEX_HAS_BUILDING)
+            // No landing onto an own squatted beach — assault it as enemy ground
+            // is not an option either (own tiles never route through defenseOf),
+            // so the marine must land elsewhere and fight by land.
+            if (tile.monster != null) return reject(RejectionReason.MONSTER_ON_HEX)
             return LegalityResult.Ok
         }
         // Amphibious assault: the cargo captures the beach with its own strength.
@@ -232,6 +236,9 @@ object Legality {
         if (tile.owner == state.currentPlayer) {
             if (tile.starving) return reject(RejectionReason.HEX_CUT_OFF)
             if (tile.building != null) return reject(RejectionReason.HEX_HAS_BUILDING)
+            // A squatting monster blocks placement — attack it with a unit instead
+            // (buy-capture onto a NON-owned monster hex stays legal via defenseOf below).
+            if (tile.monster != null) return reject(RejectionReason.MONSTER_ON_HEX)
             val occupant = state.unitAt(action.at)
             return when {
                 occupant == null -> LegalityResult.Ok
@@ -317,6 +324,7 @@ object Legality {
         }
         if (tile.building != null) return reject(RejectionReason.HEX_HAS_BUILDING)
         if (tile.unit != null) return reject(RejectionReason.HEX_HAS_UNIT)
+        if (tile.monster != null) return reject(RejectionReason.MONSTER_ON_HEX)
         if (tile.flora != null) return reject(RejectionReason.HEX_NEEDS_CLEARING)
         if (action.type == BuildingType.PORT) {
             if (!state.config.rules.navalEnabled) return reject(RejectionReason.NAVAL_DISABLED)

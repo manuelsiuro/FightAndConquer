@@ -80,6 +80,17 @@ class LegacySaveTest {
         // SaveGame (debrief persistence) — nested record keys need no entries: they
         // only occur inside an object a legacy save cannot contain.
         "record",
+        // Tile (day-night cycle) — Monster's nested keys (kind/tier/spawnedRound)
+        // need no entries: they only occur inside monster objects a legacy save
+        // cannot contain. NOT "loot" for the cache: that key already lives on the
+        // record's CapitalLooted moments, hence the distinct name.
+        "monster", "cache",
+        // RuleConstants (day-night cycle)
+        "dayNightEnabled", "dayLengthRounds", "nightLengthRounds",
+        "monsterSpawnPer100Hexes", "monsterSpawnCap",
+        "monsterBaseTier", "monsterMaxTier", "monsterTierRampNights",
+        "monsterMoveRange", "monsterCapitalStandoff",
+        "monsterCachePerTier", "monsterDawnCachePercent", "monsterHoardPercent",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {
