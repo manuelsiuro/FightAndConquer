@@ -308,10 +308,51 @@ was retuned for it).
   Knight is unreachable — such content caps `maxTier` at 3 rather than showing
   a lock nothing opens (every shipped pre-research mission does).
 
+## Day-night cycle (`dayNightEnabled`, default off)
+
+An optional rule (Setup toggle / map-editor toggle; every shipped campaign
+mission bakes it off explicitly). Every `dayLengthRounds` (8) rounds of
+daylight, night falls for `nightLengthRounds` (3) rounds. **The phase is a pure
+function of the round counter** — `Rules.isNight(round, rules)` — never stored
+state, so a replayed save can never desync from its phase. The cycle ticks once
+per ROUND, at `TurnPipeline.endTurn`'s seat-wrap point (`NightPipeline`), inside
+the wrapping player's EndTurn reduction.
+
+- **Nightfall**: `NightFell` + a deterministic spawn wave (state RNG, candidates
+  sorted by packed, sampled without replacement). Eligible: LAND, empty of
+  unit/building/monster, ≥ `monsterCapitalStandoff` (2) from every living
+  capital — owned and neutral ground alike. Count:
+  `min(landHexes × monsterSpawnPer100Hexes / 100, monsterSpawnCap)`, at least 1.
+- **Monsters** (`Tile.monster`, never a `GameUnit`): a `MonsterKind` drawn from
+  the wave's tier band (WOLF/SPIDER at 1, OGRE/TROLL at 2, WYRM at 3) — tier
+  ramps `monsterBaseTier + nightIndex / monsterTierRampNights`, capped at
+  `monsterMaxTier`. Attack = tier + 1, defense = tier. A squatting monster
+  suppresses its hex's income (ownership is untouched); placement onto an own
+  squatted hex rejects with `MONSTER_ON_HEX`.
+- **Night-interior rounds**: each monster (packed order, RNG-free) strikes the
+  nearest unit hex within `monsterMoveRange` (2) it can out-attack — priced by
+  the FULL `defenseOf` model, so towers/garrisons/auras protect at night
+  exactly as by day — killing the unit and occupying the hex; else it prowls
+  one deterministic step toward the nearest territory; else it holds. Monsters
+  never capture and never raze.
+- **Slaying**: normal strictly-greater combat. `defenseOf` includes the
+  monster's tier (a creature — never zeroed by siege; no aura to neighbors);
+  `reachable` surfaces beatable monster hexes as capture targets (an own-tile
+  strike is an attack, not a capture). Warships can bombard a coastal monster.
+  A slain monster drops a **gold cache** on its tile
+  (`tier × monsterCachePerTier`, `Tile.cache`) collected by the first unit to
+  stand there — usually the slayer's own arrival — owner-agnostic; rarely
+  (`monsterHoardPercent`) the churned ground turns FERTILE (never overwriting
+  a deposit).
+- **Dawn**: `DawnBroke`; survivors despawn, each with a `monsterDawnCachePercent`
+  chance to abandon a half-value cache.
+
 ## Turn-start pipeline (exact order — `TurnPipeline.kt`)
 
 On `EndTurn`, the seat advances to the next living player (round counter increments
-on wrap), then for the new player, in order:
+on wrap — and, in day-night games, the cycle ticks: `NightPipeline.roundTick`
+runs nightfall / the monster action phase / dawn BEFORE the new player's
+turn-start steps below), then for the new player, in order:
 
 0. Diplomacy expiry: ended pacts and stale proposals lapse (sorted event order).
 1. Their gravestones ≥ 1 round old become trees.
