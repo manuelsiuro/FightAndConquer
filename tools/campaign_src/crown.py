@@ -45,6 +45,7 @@ GRANARY = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         specialUnitsEnabled=False,
         diplomacyEnabled=False,
@@ -86,6 +87,7 @@ SIEGE_OF_ASH = dict(
 """,
     seats=["player", ("ai", "EASY"), ("ai", "EASY")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MARKET", "LUMBER_CAMP", "BARRACKS"),
@@ -139,6 +141,7 @@ IRON_VEINS = dict(
 """,
     seats=["player", ("ai", "NORMAL")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "BARRACKS"),
@@ -180,6 +183,7 @@ LAST_WALL = dict(
 """,
     seats=["player", ("ai", "NORMAL"), ("ai", "NORMAL")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         disabledBuildings=buildings(
             "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP", "BARRACKS",
@@ -236,6 +240,7 @@ BREACH = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         diplomacyEnabled=False,
         disabledBuildings=buildings(
@@ -281,6 +286,7 @@ THREE_THRONES = dict(
     # everything the campaign taught. Tier 3: the Knight's Fortress lives
     # behind research, which is off. Each purse grows by a barracks.
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False, maxTier=3,
         disabledBuildings=["WATCHTOWER", "PORT", "FISHERY", "BRIDGE", "UNIVERSITY", "BANK", "FORTRESS"],
         **LANDLOCKED),

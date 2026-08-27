@@ -151,6 +151,16 @@ fun civNameRes(civ: com.msa.fightandconquer.core.model.Civilization): Int = when
     com.msa.fightandconquer.core.model.Civilization.SHOGUNATE -> R.string.civ_shogunate
 }
 
+/** Night monster kind -> display name resource. */
+@StringRes
+fun monsterNameRes(kind: com.msa.fightandconquer.core.model.MonsterKind): Int = when (kind) {
+    com.msa.fightandconquer.core.model.MonsterKind.WOLF -> R.string.monster_wolf
+    com.msa.fightandconquer.core.model.MonsterKind.SPIDER -> R.string.monster_spider
+    com.msa.fightandconquer.core.model.MonsterKind.OGRE -> R.string.monster_ogre
+    com.msa.fightandconquer.core.model.MonsterKind.TROLL -> R.string.monster_troll
+    com.msa.fightandconquer.core.model.MonsterKind.WYRM -> R.string.monster_wyrm
+}
+
 /** AI difficulty -> label resource. */
 @StringRes
 fun difficultyLabelRes(difficulty: com.msa.fightandconquer.core.model.Difficulty): Int =
@@ -227,4 +237,5 @@ fun RejectionReason.toUiText(amount: Int?): UiText = when (this) {
     RejectionReason.RESEARCH_NEEDS_PREREQUISITE -> UiText.of(R.string.reject_research_needs_prereq)
     RejectionReason.BUILDING_NEEDS_RESEARCH -> UiText.of(R.string.reject_building_needs_research)
     RejectionReason.UNIT_NEEDS_BUILDING -> UiText.of(R.string.reject_unit_needs_building)
+    RejectionReason.MONSTER_ON_HEX -> UiText.of(R.string.reject_monster_on_hex)
 }

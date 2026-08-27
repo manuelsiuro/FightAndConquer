@@ -140,6 +140,15 @@ object MoveGenerator {
                     out.add(GameAction.MoveUnit(unit.id, it))
                 }
             }
+            // Scoop a waiting monster cache on own ground (a bombarded or dawn-dropped
+            // chest nobody walked yet) — the sim credits the gold on arrival, so the
+            // treasury term prices the trip; walks within territory are otherwise
+            // never candidates. Caches on neutral ground ride captureTargets above.
+            reach.moveTargets.sortedBy { it.packed }.forEach {
+                if (state.tiles.getValue(it).cache != null) {
+                    out.add(GameAction.MoveUnit(unit.id, it))
+                }
+            }
             // Merge only when the merged tier would break a currently-unbreakable
             // frontier hex: my strength at this tier fails against D, the next
             // tier's succeeds. Identity without research: D == unit.tier. The

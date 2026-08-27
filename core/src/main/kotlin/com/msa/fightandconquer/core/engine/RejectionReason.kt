@@ -120,4 +120,6 @@ enum class RejectionReason {
      * Rules.missingUnitBuilding).
      */
     UNIT_NEEDS_BUILDING,
+    /** A night monster squats the hex — slay it (move a strong-enough unit onto it) first. */
+    MONSTER_ON_HEX,
 }

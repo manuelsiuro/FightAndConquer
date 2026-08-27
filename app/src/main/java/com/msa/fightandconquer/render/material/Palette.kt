@@ -29,6 +29,16 @@ object Palette {
     val SEA = linear(SEA_SRGB)
     val SEA_DEEP = linear(0x86A9B4)       // water shimmer deep tone
 
+    // --- Day-night cycle: the moonlit board ---
+    // Cool blue-shifted multipliers applied IN LINEAR SPACE to the day colors
+    // (the fog factors' pattern: pure Kotlin scaling at the uniform write sites,
+    // no matc recompile). Pieces stay a shade brighter than the ground so the
+    // board keeps its read; unlit chrome (highlights, auras) is never tinted.
+    val NIGHT_BACKGROUND = linear(0x2A2E3A) // deep slate sky
+    val NIGHT_TILE_MULT = Float3(0.30f, 0.36f, 0.55f)
+    val NIGHT_PIECE_MULT = Float3(0.45f, 0.50f, 0.70f)
+    val NIGHT_WATER_MULT = Float3(0.32f, 0.40f, 0.58f)
+
     /** Faction colors by player index (doc defines 4; extended in the same spirit). */
     val FACTIONS = FACTION_SRGB.map { linear(it) }
 

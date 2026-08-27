@@ -230,6 +230,38 @@ object Evaluator {
             }
         }
 
+        // Night threat (Normal/Hard, day-night games): a land unit some monster
+        // can reach and out-attack is a unit about to die at the round wrap —
+        // stepping under a tower, merging up, or slaying the beast all clear
+        // the penalty, so survival falls out of the ordinary argmax. Hex
+        // distance approximates the monsters' BFS at one ply (cheap and never
+        // under-warns). EASY stays a rookie and blunders through the dark.
+        if (difficulty != Difficulty.EASY && state.config.rules.dayNightEnabled) {
+            val monsterRange = state.config.rules.monsterMoveRange
+            val monsters = ArrayList<Pair<com.msa.fightandconquer.core.hex.Hex, Int>>()
+            for ((hex, tile) in state.tiles) {
+                val monster = tile.monster ?: continue
+                if (visible == null || hex in visible) {
+                    monsters.add(hex to Rules.monsterAttackOf(monster))
+                }
+            }
+            if (monsters.isNotEmpty()) {
+                var threatened = 0
+                for (u in state.units.values) {
+                    if (u.owner != me || Rules.isNaval(u.type)) continue
+                    val defense = Rules.defenseOf(state, u.hex)
+                    if (monsters.any { (hex, attack) ->
+                            attack > defense &&
+                                com.msa.fightandconquer.core.hex.HexMath.distance(hex, u.hex) <= monsterRange
+                        }
+                    ) {
+                        threatened++
+                    }
+                }
+                score -= 12.0 * threatened
+            }
+        }
+
         // Slicing pays: enemy tiles cut off from their capital are dying assets.
         // Not just Hard's trick — it is a core mechanic the Academy teaches in
         // mission 5, and under range-bound movement the cut is the main answer
@@ -315,6 +347,8 @@ object Evaluator {
                     if (enemy != null && enemy.owner != me) {
                         threat = maxOf(threat, Rules.strengthOf(state, enemy))
                     }
+                    // A monster at the fence counts like any raider (HARD garrisons at night).
+                    state.tiles[n]?.monster?.let { threat = maxOf(threat, Rules.monsterAttackOf(it)) }
                 }
             }
             if (threat > Rules.defenseOf(state, hex)) exposed++

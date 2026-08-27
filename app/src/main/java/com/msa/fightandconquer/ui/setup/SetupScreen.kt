@@ -90,6 +90,7 @@ fun SetupScreen(
     var diplomacy by rememberSaveable { mutableStateOf(true) }
     var research by rememberSaveable { mutableStateOf(true) }
     var musterBuildings by rememberSaveable { mutableStateOf(true) }
+    var dayNight by rememberSaveable { mutableStateOf(false) }
     // Always MAX_PLAYERS long: shrinking the seat count parks the hidden picks,
     // growing it re-reveals them.
     var civs by rememberSaveable(stateSaver = civListSaver()) {
@@ -153,7 +154,9 @@ fun SetupScreen(
                                 WorldRulesSection(
                                     expanded = advancedExpanded,
                                     onToggle = { advancedExpanded = !advancedExpanded },
-                                    summary = worldSummary(size, shape, fogOfWar, specialUnits, diplomacy, research),
+                                    summary = worldSummary(
+                                        size, shape, fogOfWar, specialUnits, diplomacy, research, dayNight,
+                                    ),
                                     size = size, onSize = { size = it },
                                     shape = shape, onShape = { shape = it },
                                     fogOfWar = fogOfWar, onFog = { fogOfWar = it },
@@ -161,6 +164,7 @@ fun SetupScreen(
                                     diplomacy = diplomacy, onDiplomacy = { diplomacy = it },
                                     research = research, onResearch = { research = it },
                                     musterBuildings = musterBuildings, onMuster = { musterBuildings = it },
+                                    dayNight = dayNight, onDayNight = { dayNight = it },
                                 )
                             }
                             // Room to scroll the last section clear of the sticky bar.
@@ -186,6 +190,7 @@ fun SetupScreen(
                                     diplomacy = diplomacy,
                                     research = research,
                                     musterBuildings = musterBuildings,
+                                    dayNight = dayNight,
                                     civs = civs.take(playerCount),
                                 ),
                             )
@@ -344,14 +349,17 @@ private fun worldSummary(
     specialUnits: Boolean,
     diplomacy: Boolean,
     research: Boolean,
+    dayNight: Boolean,
 ): String = joinDots(
-    listOf(
+    listOfNotNull(
         stringResource(mapSizeLabelRes(size)),
         stringResource(mapShapeLabelRes(shape)),
         stringResource(if (fogOfWar) R.string.setup_sum_fog_on else R.string.setup_sum_fog_off),
         stringResource(if (specialUnits) R.string.setup_sum_special_on else R.string.setup_sum_special_off),
         stringResource(if (diplomacy) R.string.setup_sum_diplo_on else R.string.setup_sum_diplo_off),
         stringResource(if (research) R.string.setup_sum_research_on else R.string.setup_sum_research_off),
+        // Off is the norm — the summary only mentions the cycle when it is on.
+        if (dayNight) stringResource(R.string.setup_sum_night_on) else null,
     ),
 )
 

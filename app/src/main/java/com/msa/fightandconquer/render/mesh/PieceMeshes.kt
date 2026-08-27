@@ -20,6 +20,8 @@ enum class PieceKind {
     BARRACKS, ARCHERY_RANGE, SIEGE_WORKSHOP,
     TREE, GRAVESTONE,
     GOLD_VEIN, FERTILE, FISH_SHOAL,
+    MONSTER_WOLF, MONSTER_SPIDER, MONSTER_OGRE, MONSTER_TROLL, MONSTER_WYRM,
+    REWARD_CACHE,
 }
 
 /**
@@ -149,7 +151,20 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
         val NEUTRAL_KINDS: Set<PieceKind> = setOf(
             PieceKind.TREE, PieceKind.GRAVESTONE,
             PieceKind.GOLD_VEIN, PieceKind.FERTILE, PieceKind.FISH_SHOAL,
+            PieceKind.MONSTER_WOLF, PieceKind.MONSTER_SPIDER, PieceKind.MONSTER_OGRE,
+            PieceKind.MONSTER_TROLL, PieceKind.MONSTER_WYRM,
+            PieceKind.REWARD_CACHE,
         )
+
+        /** The night bestiary's art mapping (stats stay tier-driven in :core). */
+        fun monsterKind(monster: com.msa.fightandconquer.core.model.Monster): PieceKind =
+            when (monster.kind) {
+                com.msa.fightandconquer.core.model.MonsterKind.WOLF -> PieceKind.MONSTER_WOLF
+                com.msa.fightandconquer.core.model.MonsterKind.SPIDER -> PieceKind.MONSTER_SPIDER
+                com.msa.fightandconquer.core.model.MonsterKind.OGRE -> PieceKind.MONSTER_OGRE
+                com.msa.fightandconquer.core.model.MonsterKind.TROLL -> PieceKind.MONSTER_TROLL
+                com.msa.fightandconquer.core.model.MonsterKind.WYRM -> PieceKind.MONSTER_WYRM
+            }
 
         /** Player-owned kinds whose art may fork per civilization. */
         val CIV_FORKED_KINDS: Set<PieceKind> = PieceKind.entries.toSet() - NEUTRAL_KINDS
@@ -656,6 +671,196 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
         )
         PieceKind.GRAVESTONE -> listOf(
             Part(up(Primitives.boxAt(0f, 0f, 0.11f, 0.24f, 0.05f)), ColorRole.STONE),
+        )
+
+        // Night bestiary (placeholder tokens until the .pmesh bakes land):
+        // organic, hunched, horizontal — deliberately unlike the vertical
+        // chess-piece garrison language. Front faces -Z like all pieces.
+        // Wolf: crouched quadruped, gold eyes catching the moonlight. H ~0.30.
+        PieceKind.MONSTER_WOLF -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, 0.02f, 0.09f, 0.13f, 0.16f, baseY = 0.08f) // body
+                        boxInto(0f, -0.17f, 0.065f, 0.10f, 0.07f, baseY = 0.12f) // head
+                        for (sx in intArrayOf(-1, 1)) for (cz in floatArrayOf(-0.10f, 0.12f)) {
+                            boxInto(sx * 0.055f, cz, 0.03f, 0.08f, 0.03f) // legs
+                        }
+                        boxInto(0f, 0.20f, 0.022f, 0.10f, 0.022f, baseY = 0.16f) // raised tail
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.035f, -0.205f, 0.018f, 0.045f, 0.018f, baseY = 0.19f) // ears
+                        boxInto(0.035f, -0.205f, 0.018f, 0.045f, 0.018f, baseY = 0.19f)
+                        boxInto(0f, -0.245f, 0.03f, 0.035f, 0.025f, baseY = 0.125f) // muzzle
+                    }
+                },
+                ColorRole.PIP,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.032f, -0.225f, 0.012f, 0.012f, 0.006f, baseY = 0.165f) // eyes
+                        boxInto(0.032f, -0.225f, 0.012f, 0.012f, 0.006f, baseY = 0.165f)
+                    }
+                },
+                ColorRole.GOLD,
+            ),
+        )
+        // Spider: low wide leg splay under a fat abdomen. H ~0.22.
+        PieceKind.MONSTER_SPIDER -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        // Eight legs: paired thin stilts splayed to the sides.
+                        for (sx in intArrayOf(-1, 1)) {
+                            for (cz in floatArrayOf(-0.17f, -0.06f, 0.06f, 0.17f)) {
+                                boxInto(sx * 0.17f, cz, 0.016f, 0.11f, 0.016f)
+                            }
+                        }
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(up(Primitives.sphere(0.095f, 3, 8, centerY = 0.13f)), ColorRole.PIP), // abdomen
+            Part(up(Primitives.boxAt(0f, -0.12f, 0.055f, 0.09f, 0.05f, baseY = 0.055f)), ColorRole.PIP), // head
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.025f, -0.155f, 0.014f, 0.014f, 0.008f, baseY = 0.10f) // eye cluster
+                        boxInto(0.025f, -0.155f, 0.014f, 0.014f, 0.008f, baseY = 0.10f)
+                        boxInto(0f, -0.16f, 0.01f, 0.01f, 0.006f, baseY = 0.13f)
+                    }
+                },
+                ColorRole.GOLD,
+            ),
+        )
+        // Ogre: hunched bulk with a club planted at its side. H ~0.48.
+        PieceKind.MONSTER_OGRE -> listOf(
+            Part(up(Primitives.frustum(0.15f, 0.10f, 0.30f, 8)), ColorRole.STONE), // hunched torso
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.13f, 0f, 0.045f, 0.22f, 0.05f) // knuckle-dragging arms
+                        boxInto(0.13f, 0.02f, 0.045f, 0.20f, 0.05f)
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(up(Primitives.sphere(0.085f, 3, 8, centerY = 0.36f)), ColorRole.STONE), // head
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.035f, 0.26f, 6, cx = 0.19f, cz = -0.06f) // club haft
+                        cylinderInto(0.055f, 0.09f, 6, baseY = 0.26f, cx = 0.19f, cz = -0.06f) // club head
+                    }
+                },
+                ColorRole.TRUNK,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.03f, -0.10f, 0.013f, 0.013f, 0.006f, baseY = 0.38f) // eyes
+                        boxInto(0.03f, -0.10f, 0.013f, 0.013f, 0.006f, baseY = 0.38f)
+                    }
+                },
+                ColorRole.PIP,
+            ),
+        )
+        // Troll: taller stoop, arms past the knees, mossy back. H ~0.54.
+        PieceKind.MONSTER_TROLL -> listOf(
+            Part(up(Primitives.frustum(0.13f, 0.08f, 0.40f, 8)), ColorRole.STONE), // long torso
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.12f, -0.01f, 0.04f, 0.30f, 0.045f) // long arms
+                        boxInto(0.12f, -0.01f, 0.04f, 0.30f, 0.045f)
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(up(Primitives.sphere(0.075f, 3, 8, centerY = 0.46f)), ColorRole.STONE), // head
+            Part(up(Primitives.boxAt(0f, 0.075f, 0.075f, 0.20f, 0.045f, baseY = 0.16f)), ColorRole.TREE_FOLIAGE), // moss
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.028f, -0.105f, 0.012f, 0.012f, 0.006f, baseY = 0.47f) // eyes
+                        boxInto(0.028f, -0.105f, 0.012f, 0.012f, 0.006f, baseY = 0.47f)
+                    }
+                },
+                ColorRole.PIP,
+            ),
+        )
+        // Wyrm: coiled serpent, head reared, ember glow at the chest. H ~0.58.
+        PieceKind.MONSTER_WYRM -> listOf(
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.16f, 0.09f, 8) // coil base
+                        cylinderInto(0.125f, 0.09f, 8, baseY = 0.09f, cx = 0.02f, cz = 0.02f)
+                        cylinderInto(0.09f, 0.09f, 8, baseY = 0.18f, cx = -0.01f, cz = -0.02f)
+                        cylinderInto(0.05f, 0.20f, 7, baseY = 0.27f, cz = -0.06f) // reared neck
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(0f, -0.075f, 0.05f, 0.09f, 0.06f, baseY = 0.45f) // head
+                        boxInto(0f, -0.15f, 0.028f, 0.045f, 0.035f, baseY = 0.46f) // snout
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        // Dorsal spines climbing the coil.
+                        boxInto(0.13f, 0.09f, 0.016f, 0.05f, 0.016f, baseY = 0.09f)
+                        boxInto(0.07f, 0.11f, 0.016f, 0.05f, 0.016f, baseY = 0.18f)
+                        boxInto(0f, 0.09f, 0.016f, 0.05f, 0.016f, baseY = 0.27f)
+                        boxInto(0f, -0.02f, 0.014f, 0.05f, 0.014f, baseY = 0.42f)
+                    }
+                },
+                ColorRole.PIP,
+            ),
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.032f, 0.05f, 6, baseY = 0.30f, cz = -0.075f) // chest glow
+                    }
+                },
+                ColorRole.GOLD,
+            ),
+        )
+        // Reward cache: banded chest with a coin spill over the front lip. H ~0.16.
+        PieceKind.REWARD_CACHE -> listOf(
+            Part(up(Primitives.boxAt(0f, 0.02f, 0.095f, 0.10f, 0.07f)), ColorRole.TRUNK),
+            Part(
+                build {
+                    with(Primitives) {
+                        boxInto(-0.05f, 0.02f, 0.012f, 0.105f, 0.075f) // bands
+                        boxInto(0.05f, 0.02f, 0.012f, 0.105f, 0.075f)
+                    }
+                },
+                ColorRole.STONE,
+            ),
+            Part(up(Primitives.boxAt(0f, 0.02f, 0.10f, 0.025f, 0.075f, baseY = 0.10f)), ColorRole.GOLD), // lid rim
+            Part(
+                build {
+                    with(Primitives) {
+                        cylinderInto(0.022f, 0.014f, 6, cx = -0.04f, cz = -0.10f) // coin spill
+                        cylinderInto(0.02f, 0.022f, 6, cx = 0.02f, cz = -0.12f)
+                        cylinderInto(0.018f, 0.012f, 6, cx = 0.08f, cz = -0.08f)
+                    }
+                },
+                ColorRole.GOLD,
+            ),
         )
 
         // Terrain deposits: low edge-scatter rings (hex center stays clear for units).

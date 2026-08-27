@@ -167,6 +167,48 @@ Follow-ups worth considering: per-civ muster deltas (a Shogunate range
 discount), a "musters at" line in the Chronicle, and an upgraded hall tier
 (drill yard → war academy) if a second production chain ever lands.
 
+## Shipped: the day-night cycle
+
+The `feature/day-night-cycle` work (an optional mode: night falls every few
+rounds, monsters spawn, act and vanish at dawn) landed in four save-compatible
+milestones, same discipline as above (defaulted fields, `LegacySaveTest`-guarded;
+full rules in [game-rules.md](game-rules.md) "Day-night cycle", the board look in
+[rendering.md](rendering.md) "Day-night look"):
+
+1. **Model + cycle** — `Tile.monster`/`Tile.cache` payloads (the flora
+   precedent: never a `GameUnit`, no seats, no ownership), the phase as a pure
+   function of the round counter (`Rules.isNight` — nothing serialized, replays
+   can never desync), `NightPipeline` ticking once per ROUND at `endTurn`'s
+   wrap, deterministic spawn waves, and combat through the two shared choke
+   points (`defenseOf` + `reachable`) so Legality, the AI and the UI chips all
+   price monsters for free. Slain monsters drop tier-scaled gold caches
+   (collected by arrival, owner-agnostic) and rarely turn ground FERTILE.
+2. **The action phase** — night-interior rounds: strike the nearest beatable
+   unit hex (the FULL defense model applies — towers protect at night exactly
+   as by day), else prowl one deterministic step, never capture or raze;
+   squatted hexes earn nothing; warships shell coastal monsters.
+3. **AI** — monster strikes ride `captureTargets` and the one-ply sim's
+   treasury term for free; a walk-to-cache candidate, an Evaluator night-threat
+   term (step under cover / merge before dusk fall out of the argmax), and
+   monsters as raiders in HARD's exposed-border max. `NightAiTest` gates
+   termination + determinism; existing balance gates untouched (flag off).
+4. **App surface** — the Kotlin-side night look (no matc recompile), monster/
+   cache rendering with the zero-corrections discipline, sun/moon countdown in
+   the top bar, Setup + editor toggles, info cards, Field Guide; all 21
+   missions bake the flag off explicitly.
+
+Note: the 13 new rule keys pushed SMALL share codes past the 2000-byte QR
+ceiling — the FCM1 envelope moved to **format version 2** with a re-baked
+frozen dictionary (v1 codes still decode; pinned by test).
+
+The Blender bestiary + chest landed in the same branch (five monster minis +
+the reward chest, all `NEUTRAL_KINDS`, 216–328 tris, icons baked), as did the
+`Objective.MonstersSlain` campaign objective (`CampaignTracker.monstersSlain`
+counting `MonsterSlain` by seat; the baker passes `{"type": "slayMonsters"}`
+through verbatim, so authoring one needs no tool change). Deferred follow-ups:
+per-kind stat flavor (kind is already serialized — purely additive) and a
+night-showcase campaign mission.
+
 ## Designed-for, not yet built
 
 ### Map editor — SHIPPED

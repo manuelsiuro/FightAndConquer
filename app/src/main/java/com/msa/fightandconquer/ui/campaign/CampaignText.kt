@@ -260,6 +260,7 @@ fun ObjectiveRow.label(): UiText = when (val o = objective) {
         UiText.of(R.string.objective_field, o.count, UiText.of(unitNameRes(o.type, tier = 1)))
     is Objective.SinkBoats -> UiText.of(R.string.objective_sink, o.count)
     is Objective.ResearchCount -> UiText.of(R.string.objective_research, o.count)
+    is Objective.MonstersSlain -> UiText.of(R.string.objective_slay_monsters, o.count)
 }
 
 /** The counter beside an objective; null when it is a plain yes/no. */

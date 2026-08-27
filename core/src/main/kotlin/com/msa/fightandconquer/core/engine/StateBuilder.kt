@@ -64,7 +64,41 @@ internal class StateBuilder(private val base: GameState) {
         val unit = GameUnit(UnitId(nextUnitId++), owner, tier, hex, spent, type)
         units[unit.id] = unit
         updateTile(hex) { it.copy(unit = unit.id) }
+        // A unit placed on a monster's dropped cache scoops it (buy, disembark, script).
+        collectCache(hex, owner)
         return unit
+    }
+
+    /**
+     * Removes the monster at [hex]: [by] takes the credit, the hoard drops as a
+     * gold cache on the tile ([com.msa.fightandconquer.core.model.Tile.cache],
+     * collected by the first unit to stand here — usually the slayer's own
+     * arrival this same action), and rarely the churned ground turns FERTILE.
+     * The [clearFloraAt] convention: effective rules for the payout size.
+     */
+    fun slayMonster(hex: Hex, by: PlayerId) {
+        val monster = tiles.getValue(hex).monster ?: return
+        val gold = monster.tier * effectiveRules(by).monsterCachePerTier
+        updateTile(hex) {
+            it.copy(monster = null, cache = if (gold > 0) (it.cache ?: 0) + gold else it.cache)
+        }
+        events.add(GameEvent.MonsterSlain(hex, by))
+        if (gold > 0) events.add(GameEvent.CacheDropped(hex, gold))
+        if (rollPercent() < rules.monsterHoardPercent) {
+            val tile = tiles.getValue(hex)
+            if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.LAND && tile.deposit == null) {
+                updateTile(hex) { it.copy(deposit = com.msa.fightandconquer.core.model.Deposit.FERTILE) }
+                events.add(GameEvent.HoardUncovered(hex))
+            }
+        }
+    }
+
+    /** Credits the cache at [hex] (if any) to [by] — first unit to stand there takes it. */
+    fun collectCache(hex: Hex, by: PlayerId) {
+        val gold = tiles.getValue(hex).cache ?: return
+        updateTile(hex) { it.copy(cache = null) }
+        updatePlayer(by) { it.copy(treasury = it.treasury + gold) }
+        events.add(GameEvent.CacheCollected(hex, gold, by))
     }
 
     /** Removes a unit; combat kills and disbands leave no gravestone, starvation/bankruptcy do. */
@@ -128,6 +162,9 @@ internal class StateBuilder(private val base: GameState) {
      * The arriving unit (if any) is placed by the caller AFTER this returns.
      */
     fun captureHex(attacker: PlayerId, hex: Hex) {
+        // Storming a monster's hex slays it first (its cache stays for the
+        // arriving unit) — this single site covers move- and buy-capture alike.
+        tiles.getValue(hex).monster?.let { slayMonster(hex, attacker) }
         val tile = tiles.getValue(hex)
         val victim = tile.owner
         // Aggression against a pact partner breaks the pact first (penalty transfer)

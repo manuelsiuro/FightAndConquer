@@ -102,6 +102,35 @@ match the filament-android runtime** — recompile on every Filament upgrade.
   `onFrame` (quantized to ¼ px, change-detected ⇒ zero traffic when idle) at
   `tileTop + 0.8` so labels clear the tallest piece.
 
+## Day-night look (`SceneEnvironment.setNight`, `BoardScene.applyNightFactor`)
+
+The optional day-night mode's board look is Kotlin-side end to end — **no matc
+recompile** (the fog factors' pattern: pure uniform scaling at the existing
+write sites). One `nightFactor` (0 = day, 1 = night) drives five knobs:
+
+- **Sun**: color lerps to moon-blue (0.62, 0.70, 1.0), intensity 100k → 12k lux
+  (`LightManager.setColor/-Intensity`; direction untouched so shadows stay
+  coherent through the transition).
+- **Ambient**: two PREBUILT `IndirectLight`s (an SH irradiance color is
+  immutable after build) — warm day / cool night — swapped at factor 0.5,
+  invisible under the moving sun lerp; intensity lerps 25k → 8k.
+- **Clear color**: `Palette.BACKGROUND` → `NIGHT_BACKGROUND` (deep slate) via
+  `RenderEngine.setClearColor`.
+- **Tiles/water/pieces**: linear-space multipliers (`Palette.NIGHT_*_MULT`)
+  composed onto the FINAL fog-banded colors — tiles in `applyTileColor`, the
+  two shared water instances re-baked, every piece through `Piece.refreshTint`
+  (the one tint write site: dim × night). Highlights, auras and HUD chips stay
+  untinted for readability.
+
+`NightFell`/`DawnBroke` play as one-shot ~1.2 s tweens on the **shared**
+animator: `isBusy` is true only for the beat, and the beat gates the event
+queue — darkness lands before the first `MonsterSpawned` plays; dawn sinks all
+surviving monster pieces as one beat, then brightens. Reconcile snaps the
+factor from `Rules.isNight(state)` **silently** (a view annotation like fog),
+which is what restores a mid-night save with no events. Monsters idle with a
+boat-bob-style breathing ripple (`yOffset` sine on the ambience clock — never
+`isBusy`), so an idle night still renders at ~20 fps.
+
 ## Camera & picking (`render/CameraRig.kt`, `HexPicker.kt`, `HexWorld.kt`)
 
 Orbit rig (target on the ground plane, min distance 5, fixed 55° pitch — no

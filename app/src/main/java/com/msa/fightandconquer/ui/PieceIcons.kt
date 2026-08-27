@@ -187,4 +187,14 @@ object PieceIcons {
     val goldVein = R.drawable.piece_gold_vein
     val fertile = R.drawable.piece_fertile
     val fishShoal = R.drawable.piece_fish_shoal
+
+    // Night bestiary + cache (baked renders, never civ-forked).
+    fun monster(kind: com.msa.fightandconquer.core.model.MonsterKind): Int = when (kind) {
+        com.msa.fightandconquer.core.model.MonsterKind.WOLF -> R.drawable.piece_monster_wolf
+        com.msa.fightandconquer.core.model.MonsterKind.SPIDER -> R.drawable.piece_monster_spider
+        com.msa.fightandconquer.core.model.MonsterKind.OGRE -> R.drawable.piece_monster_ogre
+        com.msa.fightandconquer.core.model.MonsterKind.TROLL -> R.drawable.piece_monster_troll
+        com.msa.fightandconquer.core.model.MonsterKind.WYRM -> R.drawable.piece_monster_wyrm
+    }
+    val rewardCache = R.drawable.piece_reward_cache
 }

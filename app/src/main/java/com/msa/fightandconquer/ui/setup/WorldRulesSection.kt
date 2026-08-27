@@ -85,6 +85,8 @@ internal fun WorldRulesSection(
     onResearch: (Boolean) -> Unit,
     musterBuildings: Boolean,
     onMuster: (Boolean) -> Unit,
+    dayNight: Boolean,
+    onDayNight: (Boolean) -> Unit,
 ) {
     val chevron by animateFloatAsState(if (expanded) 180f else 0f, tween(250), label = "chevron")
     Column(Modifier.fillMaxWidth().cardSurface(16.dp)) {
@@ -131,6 +133,8 @@ internal fun WorldRulesSection(
                     RuleSwitchRow(stringResource(R.string.menu_section_research), research, onResearch)
                     HorizontalDivider(color = UiColors.divider, thickness = 1.dp)
                     RuleSwitchRow(stringResource(R.string.menu_section_muster), musterBuildings, onMuster)
+                    HorizontalDivider(color = UiColors.divider, thickness = 1.dp)
+                    RuleSwitchRow(stringResource(R.string.menu_section_night), dayNight, onDayNight)
                 }
             }
         }

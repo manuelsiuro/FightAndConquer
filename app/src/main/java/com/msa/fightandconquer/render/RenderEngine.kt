@@ -125,15 +125,7 @@ class RenderEngine(private val surfaceView: SurfaceView) {
             // invisible while the full-screen pass runs every drawn frame.
             quality = View.QualityLevel.LOW
         }
-        renderer.clearOptions = Renderer.ClearOptions().apply {
-            clear = true
-            clearColor = doubleArrayOf(
-                Palette.BACKGROUND.x.toDouble(),
-                Palette.BACKGROUND.y.toDouble(),
-                Palette.BACKGROUND.z.toDouble(),
-                1.0,
-            )
-        }
+        setClearColor(Palette.BACKGROUND)
         // Manual exposure tuned for ~100k lux sun + linear tone mapping.
         camera.setExposure(16f, 1f / 125f, 100f)
 
@@ -169,6 +161,14 @@ class RenderEngine(private val surfaceView: SurfaceView) {
             }
         }
         uiHelper.attachTo(surfaceView)
+    }
+
+    /** The tabletop "sky" behind the board — the day-night tween shifts it. */
+    fun setClearColor(color: dev.romainguy.kotlin.math.Float3) {
+        renderer.clearOptions = Renderer.ClearOptions().apply {
+            clear = true
+            clearColor = doubleArrayOf(color.x.toDouble(), color.y.toDouble(), color.z.toDouble(), 1.0)
+        }
     }
 
     fun resume() {

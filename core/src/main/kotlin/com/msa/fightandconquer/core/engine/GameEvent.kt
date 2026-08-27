@@ -84,4 +84,25 @@ sealed interface GameEvent {
      * renderer needs no case for this one.
      */
     @Serializable data class ScriptFired(val tag: String) : GameEvent
+
+    // --- Day-night cycle ---
+    /** Night fell at the round wrap; the spawn wave's events follow. */
+    @Serializable data class NightFell(val round: Int) : GameEvent
+
+    /** Dawn broke; the per-monster despawn events follow (renderer may pre-empt them). */
+    @Serializable data class DawnBroke(val round: Int) : GameEvent
+    @Serializable data class MonsterSpawned(val hex: Hex, val monster: com.msa.fightandconquer.core.model.Monster) : GameEvent
+    @Serializable data class MonsterMoved(val from: Hex, val to: Hex) : GameEvent
+
+    /** A monster struck [target] (the kill arrives as its own [UnitDied]). */
+    @Serializable data class MonsterAttacked(val from: Hex, val target: Hex) : GameEvent
+    @Serializable data class MonsterSlain(val hex: Hex, val by: PlayerId) : GameEvent
+    @Serializable data class MonsterDespawned(val hex: Hex) : GameEvent
+
+    /** A gold cache landed on [hex] ([com.msa.fightandconquer.core.model.Tile.cache]). */
+    @Serializable data class CacheDropped(val hex: Hex, val gold: Int) : GameEvent
+    @Serializable data class CacheCollected(val hex: Hex, val gold: Int, val by: PlayerId) : GameEvent
+
+    /** A slain monster's hoard turned the tile FERTILE. */
+    @Serializable data class HoardUncovered(val hex: Hex) : GameEvent
 }

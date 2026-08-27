@@ -85,6 +85,11 @@ sealed interface Objective {
     @Serializable
     @SerialName("research")
     data class ResearchCount(val count: Int) : Objective
+
+    /** Slay at least [count] night monsters over the level (cumulative, tracked; day-night levels). */
+    @Serializable
+    @SerialName("slayMonsters")
+    data class MonstersSlain(val count: Int) : Objective
 }
 
 /**

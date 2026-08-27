@@ -34,6 +34,7 @@ class CampaignCodecTest {
         Objective.FieldUnits(UnitType.CATAPULT, 1),
         Objective.SinkBoats(3),
         Objective.ResearchCount(2),
+        Objective.MonstersSlain(4),
     )
 
     private val everyFailure = listOf(

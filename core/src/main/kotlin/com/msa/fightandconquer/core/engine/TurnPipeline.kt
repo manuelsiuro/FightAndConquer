@@ -25,7 +25,12 @@ internal object TurnPipeline {
         do {
             seat = (seat + 1) % b.players.size
         } while (b.players[seat].eliminated && seat != fromSeat)
-        if (seat <= fromSeat) b.turnNumber++ // wrapped: a full round completed
+        if (seat <= fromSeat) {
+            b.turnNumber++ // wrapped: a full round completed
+            // The one once-per-ROUND hook in the engine: the day-night cycle
+            // ticks here, never in the per-seat turn-start steps below.
+            if (b.rules.dayNightEnabled) NightPipeline.roundTick(b)
+        }
         b.currentPlayer = b.players[seat].id
         startTurn(b)
     }

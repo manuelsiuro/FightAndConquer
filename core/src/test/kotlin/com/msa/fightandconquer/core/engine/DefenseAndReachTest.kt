@@ -148,6 +148,7 @@ class DefenseSourceTest {
                     Building.CAPITAL -> rules.capitalDefense
                     else -> 0
                 }
+                is Rules.DefenseSource.Monster -> Rules.monsterDefenseOf(source.monster)
                 null -> 0
             }
             assertEquals("source value at $hex", Rules.defenseOf(s, hex), value)

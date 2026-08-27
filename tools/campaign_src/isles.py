@@ -58,6 +58,7 @@ LANDFALL = dict(
     # Both halls are pre-placed on the islands: the chapter is the crossing,
     # not a muster race. Tier 3: the Fortress lives behind research (off).
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         maxTier=3,
         diplomacyEnabled=False,
@@ -117,6 +118,7 @@ LIGHTHOUSE = dict(
     seats=["player", ("ai", "NORMAL")],
     # Halls pre-placed; tier 3 — the Fortress lives behind research (off).
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         maxTier=3,
         fogOfWar=True,
@@ -173,6 +175,7 @@ WOLVES = dict(
     # Halls pre-placed on both isles; tier 3 (the Fortress lives behind
     # research, which is off).
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         maxTier=3,
         diplomacyEnabled=False,
@@ -245,6 +248,7 @@ STRAIT = dict(
     # Tier 3 (the Fortress lives behind research, which is off); the rival's
     # hall is pre-placed, the player funds their own from the wider purse.
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         maxTier=3,
         diplomacyEnabled=False,
@@ -289,6 +293,7 @@ ADMIRALS_GRAVE = dict(
     # Tier 3 (the Fortress lives behind research, which is off); the rivals'
     # halls are pre-placed, the player's comes from the wider purse.
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False, maxTier=3, disabledBuildings=buildings(
         "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "PORT", "FISHERY", "BRIDGE", "BARRACKS",
     )),
@@ -327,6 +332,7 @@ CROWN_OF_SALT = dict(
     # everything the campaign taught. Tier 3: the Knight's Fortress lives
     # behind research, which is off. Each purse grows by a barracks.
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False, maxTier=3,
         disabledBuildings=["WATCHTOWER", "UNIVERSITY", "BANK", "FORTRESS"]),
     treasury=[95, 80, 80],

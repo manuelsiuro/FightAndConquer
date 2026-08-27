@@ -111,6 +111,23 @@ object TestStates {
     fun GameState.withDeposit(deposit: com.msa.fightandconquer.core.model.Deposit, at: Hex): GameState =
         copy(tiles = tiles + (at to tiles.getValue(at).copy(deposit = deposit)))
 
+    fun GameState.withMonster(
+        at: Hex,
+        tier: Int = 1,
+        kind: com.msa.fightandconquer.core.model.MonsterKind =
+            com.msa.fightandconquer.core.model.MonsterKind.forTier(tier).first(),
+        spawnedRound: Int = turnNumber,
+    ): GameState = copy(
+        tiles = tiles + (
+            at to tiles.getValue(at).copy(
+                monster = com.msa.fightandconquer.core.model.Monster(kind, tier, spawnedRound),
+            )
+            ),
+    )
+
+    fun GameState.withCache(at: Hex, gold: Int): GameState =
+        copy(tiles = tiles + (at to tiles.getValue(at).copy(cache = gold)))
+
     /** Adds (or converts) the given hexes as neutral open-sea tiles. */
     fun GameState.withSea(at: List<Hex>): GameState =
         copy(
@@ -173,6 +190,23 @@ object TestStates {
             tile.bridgeOrientation?.let { orientation ->
                 assertEquals("orientation only on bridges: $hex", Building.BRIDGE, tile.building)
                 assertTrue("orientation is an axis index: $hex", orientation in 0..2)
+            }
+            tile.monster?.let { monster ->
+                assertEquals("no unit under a monster: $hex", null, tile.unit)
+                assertEquals("no building under a monster: $hex", null, tile.building)
+                assertEquals(
+                    "monsters squat land only: $hex",
+                    com.msa.fightandconquer.core.model.Terrain.LAND,
+                    tile.terrain,
+                )
+                assertTrue(
+                    "monster tier in range: $hex $monster",
+                    monster.tier in 1..state.config.rules.monsterMaxTier,
+                )
+            }
+            tile.cache?.let { gold ->
+                assertTrue("cache always positive: $hex", gold > 0)
+                assertEquals("no unit standing on an uncollected cache: $hex", null, tile.unit)
             }
             if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) {
                 // Open sea stays neutral and bare; only a bridge makes a sea hex

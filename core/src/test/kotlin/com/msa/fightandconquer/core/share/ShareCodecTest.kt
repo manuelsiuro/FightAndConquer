@@ -4,6 +4,7 @@ import com.msa.fightandconquer.core.campaign.LevelDef
 import com.msa.fightandconquer.core.campaign.SeatDef
 import com.msa.fightandconquer.core.campaign.TestLevels
 import com.msa.fightandconquer.core.editor.CustomMapDef
+import com.msa.fightandconquer.core.editor.MapCodec
 import com.msa.fightandconquer.core.map.MapGenerator
 import com.msa.fightandconquer.core.map.MapParams
 import com.msa.fightandconquer.core.map.MapSize
@@ -68,19 +69,48 @@ class ShareCodecTest {
             sizes[size] = text.length
             assertEquals(scenario, ok(ShareCodec.decodeText(text)))
         }
-        // Measured with the frozen preset dictionary: SMALL 1537, MEDIUM 3821, LARGE 5612.
+        // Measured with the frozen v2 dictionary: SMALL 1565, MEDIUM 4247, LARGE 6065.
+        // (The day-night rule keys pushed SMALL past 2000 under the v1 dictionary,
+        // which forced the v2 bake — see ShareCodec.DICTIONARY_V2.)
         assertTrue("SMALL must fit a QR: ${sizes[MapSize.SMALL]}", sizes[MapSize.SMALL]!! <= 2000)
-        assertTrue("MEDIUM ballooned: ${sizes[MapSize.MEDIUM]}", sizes[MapSize.MEDIUM]!! <= 4500)
+        assertTrue("MEDIUM ballooned: ${sizes[MapSize.MEDIUM]}", sizes[MapSize.MEDIUM]!! <= 4700)
         assertTrue("LARGE ballooned: ${sizes[MapSize.LARGE]}", sizes[MapSize.LARGE]!! <= 6500)
     }
 
     @Test
     fun `a small authored scenario compresses to a short code`() {
-        // The preset dictionary absorbs the fixed boilerplate: measured 196 chars
-        // pre-research; the research rule keys (absent from the FROZEN dictionary,
-        // which must never be regenerated) lifted it to 408.
+        // The v2 dictionary carries the full current rules vocabulary again:
+        // measured 217 chars (the v1 dictionary had drifted to 619 as research,
+        // muster and day-night keys landed outside its frozen text).
         val length = ShareCodec.encodeText(def).length
-        assertTrue("small code ballooned: $length", length <= 550)
+        assertTrue("small code ballooned: $length", length <= 350)
+    }
+
+    @Test
+    fun `a v1 code from an older build still decodes`() {
+        // Hand-roll the v1 envelope: deflate against the frozen V1 dictionary,
+        // version byte 1 — exactly what every pre-day-night build published.
+        val json = MapCodec.encode(def).toByteArray(Charsets.UTF_8)
+        val deflater = Deflater(Deflater.BEST_COMPRESSION)
+        deflater.setDictionary(ShareCodec.DICTIONARY_V1)
+        deflater.setInput(json)
+        deflater.finish()
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(8 * 1024)
+        while (!deflater.finished()) out.write(buffer, 0, deflater.deflate(buffer))
+        deflater.end()
+        val deflated = out.toByteArray()
+        val crc = CRC32().apply { update(deflated) }.value
+        val body = ByteArray(5 + deflated.size)
+        body[0] = 1
+        body[1] = (crc ushr 24).toByte()
+        body[2] = (crc ushr 16).toByte()
+        body[3] = (crc ushr 8).toByte()
+        body[4] = crc.toByte()
+        deflated.copyInto(body, 5)
+        val text = ShareCodec.TEXT_PREFIX +
+            Base64.getUrlEncoder().withoutPadding().encodeToString(body)
+        assertEquals(def, ok(ShareCodec.decodeText(text)))
     }
 
     @Test

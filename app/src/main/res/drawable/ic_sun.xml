@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sun: disc + eight rays, tinted at the call site (the day-night indicator). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M12,7.5 C14.49,7.5 16.5,9.51 16.5,12 C16.5,14.49 14.49,16.5 12,16.5 C9.51,16.5 7.5,14.49 7.5,12 C7.5,9.51 9.51,7.5 12,7.5 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M11,1.5 L13,1.5 L13,5 L11,5 Z M11,19 L13,19 L13,22.5 L11,22.5 Z M1.5,11 L5,11 L5,13 L1.5,13 Z M19,11 L22.5,11 L22.5,13 L19,13 Z M4.57,3.16 L7.05,5.64 L5.64,7.05 L3.16,4.57 Z M16.95,18.36 L19.43,20.84 L18.36,19.43 L16.95,18.36 Z M16.95,5.64 L19.43,3.16 L20.84,4.57 L18.36,7.05 Z M5.64,16.95 L7.05,18.36 L4.57,20.84 L3.16,19.43 Z" />
+</vector>

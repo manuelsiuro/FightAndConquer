@@ -90,6 +90,8 @@ data class GameSetup(
     val diplomacy: Boolean = true,
     val research: Boolean = true,
     val musterBuildings: Boolean = true,
+    /** Day-night cycle with night monsters (see docs/game-rules.md "Day-night cycle"). */
+    val dayNight: Boolean = false,
     /** Per-seat civilizations; seats beyond the list's end play [Civilization.DEFAULT]. */
     val civs: List<Civilization> = emptyList(),
 )
@@ -379,6 +381,13 @@ data class HudState(
     val researchBadge: Boolean,
     /** Diplomacy is part of this game's rules — levels without it must not grow a dead button. */
     val diplomacyAvailable: Boolean,
+    /** The day-night cycle is part of this game's rules — legacy games must not grow a dead indicator. */
+    val dayNightAvailable: Boolean,
+    val nightActive: Boolean,
+    /** Rounds until nightfall; null when unavailable or it is already night. */
+    val roundsUntilNight: Int?,
+    /** Rounds until dawn; null when unavailable or daytime. */
+    val roundsUntilDawn: Int?,
 )
 
 sealed interface Screen {
@@ -617,6 +626,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     diplomacyEnabled = setup.diplomacy,
                     researchEnabled = setup.research,
                     militaryBuildingsRequired = setup.musterBuildings,
+                    dayNightEnabled = setup.dayNight,
                 ),
                 civs = List(setup.playerCount) { index ->
                     setup.civs.getOrElse(index) { Civilization.DEFAULT }
@@ -1824,6 +1834,30 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     aiCapturedFromHumans = 0
                     cutOffWarned = false
                     knownStarving = currentHumanStarving(state)
+                    // Dusk warning: one last daylight turn to garrison up.
+                    if (Rules.roundsUntilNight(state.turnNumber, state.config.rules) == 1) {
+                        pushToast(UiText.of(R.string.toast_night_approaching), ToastKind.WARNING)
+                    }
+                }
+            }
+
+            // The cycle beats concern every seat — announced whenever a human plays.
+            is GameEvent.NightFell -> {
+                if (state.players.any { it.kind is PlayerKind.Human }) {
+                    pushToast(UiText.of(R.string.toast_night_fell), ToastKind.WARNING)
+                }
+            }
+
+            is GameEvent.DawnBroke -> {
+                if (state.players.any { it.kind is PlayerKind.Human }) {
+                    pushToast(UiText.of(R.string.toast_dawn_broke), ToastKind.INFO)
+                }
+            }
+
+            is GameEvent.CacheCollected -> {
+                if (state.players[event.by.value].kind is PlayerKind.Human) {
+                    pushToast(UiText.of(R.string.toast_cache_collected, event.gold), ToastKind.INFO)
+                    pushPopup(event.hex, UiText.of(R.string.popup_coins, event.gold))
                 }
             }
 
@@ -1945,6 +1979,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 else UiText.of(unitNameRes(source.unit.type, source.unit.tier))
             is Rules.DefenseSource.Fortification ->
                 if (source.at == hex) null else UiText.of(buildingNameRes(source.building))
+            // The monster defends only its own hex — which the card names as its
+            // title — so "guarded by" would just repeat it.
+            is Rules.DefenseSource.Monster -> null
             null -> null
         }
         guardName?.let { add(InfoStat(UiText.of(R.string.info_stat_guarded_by), it)) }
@@ -2177,6 +2214,46 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             emptyList()
         }
         val enemyGroundFaction = tile.owner?.takeIf { it != me }?.value
+        tile.monster?.let { monster ->
+            return InfoCard(
+                title = UiText.of(monsterNameRes(monster.kind)),
+                subtitle = UiText.of(R.string.info_monster),
+                stats = listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_attack),
+                        UiText.of(R.string.info_value_plain, Rules.monsterAttackOf(monster)),
+                        iconRes = R.drawable.ic_sword,
+                    ),
+                    InfoStat(
+                        UiText.of(R.string.info_stat_cache_reward),
+                        UiText.of(
+                            R.string.info_value_coins,
+                            monster.tier * Rules.effectiveRules(state, me).monsterCachePerTier,
+                        ),
+                    ),
+                    InfoStat(
+                        UiText.of(R.string.info_stat_capture),
+                        UiText.of(R.string.info_value_attack_min, Rules.captureRequirement(state, hex)),
+                    ),
+                ),
+                factionIndex = null,
+                iconRes = PieceIcons.monster(monster.kind),
+            )
+        }
+        tile.cache?.let { gold ->
+            return InfoCard(
+                UiText.of(R.string.piece_cache),
+                UiText.of(R.string.info_cache),
+                listOf(
+                    InfoStat(
+                        UiText.of(R.string.info_stat_cache_reward),
+                        UiText.of(R.string.info_value_coins, gold),
+                    ),
+                ) + enemyGroundStats,
+                factionIndex = enemyGroundFaction,
+                iconRes = PieceIcons.rewardCache,
+            )
+        }
         when (tile.flora) {
             is Flora.Tree -> return InfoCard(
                 UiText.of(R.string.piece_tree),
@@ -2474,6 +2551,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 state.player(me).research.active == null &&
                 Rules.workingUniversities(state.tiles, me) > 0,
             diplomacyAvailable = rules.diplomacyEnabled,
+            dayNightAvailable = rules.dayNightEnabled,
+            nightActive = Rules.isNight(state),
+            roundsUntilNight = Rules.roundsUntilNight(state.turnNumber, rules),
+            roundsUntilDawn = Rules.roundsUntilDawn(state.turnNumber, rules),
         )
         // Live panels track every buy/move/undo.
         if (_economy.value != null) _economy.value = computeEconomy()

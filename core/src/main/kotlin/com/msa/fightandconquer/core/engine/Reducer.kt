@@ -66,11 +66,18 @@ object Reducer {
         val navalStrike = isCapture &&
             destTile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
             destTile.building != com.msa.fightandconquer.core.model.Building.BRIDGE
+        // A monster on the unit's OWN territory: an attack, not a capture — the
+        // hex already belongs to the mover, so captureHex's transfer semantics
+        // (HexCaptured, pact checks, starvation recompute) must not run.
+        val ownMonsterStrike = isCapture &&
+            destTile.owner == unit.owner && destTile.monster != null
 
         // Leave the origin hex.
         b.updateTile(unit.hex) { it.copy(unit = null) }
 
-        if (navalStrike) {
+        if (ownMonsterStrike) {
+            b.slayMonster(action.to, unit.owner)
+        } else if (navalStrike) {
             // Naval combat: sink the defender and take its water. Open sea has no
             // ownership, so nothing is captured — the loser just goes under.
             // Sinking a pact partner's boat is aggression like any other.
@@ -97,6 +104,8 @@ object Reducer {
         b.units[unit.id] = b.units.getValue(unit.id).copy(hex = action.to, spent = true)
         b.events.add(GameEvent.UnitMoved(unit.id, unit.hex, action.to))
         b.clearFloraAt(action.to, unit.owner)
+        // Scoop a waiting gold cache — including the one this move's own slay dropped.
+        b.collectCache(action.to, unit.owner)
     }
 
     private fun applyDisembark(state: GameState, b: StateBuilder, action: GameAction.Disembark) {
@@ -132,6 +141,8 @@ object Reducer {
             val sunk = Rules.isNaval(state.units.getValue(it).type)
             b.killUnit(it, if (sunk) DeathCause.SUNK else DeathCause.KILLED)
         }
+        // A shelled monster dies like any garrison; its cache waits ashore.
+        if (target.monster != null) b.slayMonster(action.target, ship.owner)
         val building = target.building
         if (building != null && building != com.msa.fightandconquer.core.model.Building.CAPITAL) {
             // A bombarded bridge collapses back into open neutral water.
