@@ -141,6 +141,8 @@ object Reducer {
             val sunk = Rules.isNaval(state.units.getValue(it).type)
             b.killUnit(it, if (sunk) DeathCause.SUNK else DeathCause.KILLED)
         }
+        // A shelled monster dies like any garrison; its cache waits ashore.
+        if (target.monster != null) b.slayMonster(action.target, ship.owner)
         val building = target.building
         if (building != null && building != com.msa.fightandconquer.core.model.Building.CAPITAL) {
             // A bombarded bridge collapses back into open neutral water.

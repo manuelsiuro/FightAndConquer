@@ -183,8 +183,9 @@ object Legality {
         if (state.unitAt(action.target)?.owner == state.currentPlayer) {
             return reject(RejectionReason.INVALID_BOMBARD_TARGET)
         }
-        // Something raid-able must be there: a unit, or a destroyable building.
-        val hasTarget = tile.unit != null ||
+        // Something raid-able must be there: a unit, a destroyable building, or
+        // a night monster (its cache persists ashore until someone walks it).
+        val hasTarget = tile.unit != null || tile.monster != null ||
             (tile.building != null && tile.building != Building.CAPITAL)
         if (!hasTarget) return reject(RejectionReason.INVALID_BOMBARD_TARGET)
         val defense = Rules.defenseOf(state, action.target)

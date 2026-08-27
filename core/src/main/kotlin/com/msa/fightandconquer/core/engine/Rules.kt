@@ -272,18 +272,38 @@ object Rules {
      * A CATAPULT [attackerType] ignores building contributions entirely
      * (units still defend at full value).
      */
-    fun defenseOf(state: GameState, hex: Hex, attackerType: UnitType? = null): Int {
-        val tile = state.tiles[hex] ?: return 0
+    fun defenseOf(state: GameState, hex: Hex, attackerType: UnitType? = null): Int =
+        defenseFrom(state.tiles, state.units, hex, attackerType) { effectiveRules(state, it) }
+
+    /**
+     * State-shape-agnostic core of [defenseOf], shared with the engine's
+     * StateBuilder (the [visibleHexesFrom] pattern): NightPipeline prices a
+     * monster's targets against the SAME defense model players face —
+     * towers, garrisons and auras protect at night exactly as by day.
+     */
+    internal fun defenseFrom(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        units: Map<UnitId, GameUnit>,
+        hex: Hex,
+        attackerType: UnitType? = null,
+        effectiveRulesOf: (PlayerId) -> RuleConstants,
+    ): Int {
+        val tile = tiles[hex] ?: return 0
+        fun unitAt(h: Hex): GameUnit? = tiles[h]?.unit?.let { units[it] }
+        fun unitDefense(unit: GameUnit): Int =
+            if (isNaval(unit.type)) 0 else defenseIn(effectiveRulesOf(unit.owner), unit.tier, unit.type)
         val monsterDefense = tile.monster?.let { monsterDefenseOf(it) } ?: 0
         val owner = tile.owner ?: return monsterDefense
         val siege = attackerType == UnitType.CATAPULT
-        var defense = maxOf(monsterDefense, if (siege) 0 else buildingDefense(state, owner, tile.building))
-        state.unitAt(hex)?.let { defense = maxOf(defense, defenseContribution(state, it)) }
+        fun fortification(building: Building?): Int =
+            if (siege || building == null) 0 else buildingDefenseIn(effectiveRulesOf(owner), building)
+        var defense = maxOf(monsterDefense, fortification(tile.building))
+        unitAt(hex)?.let { defense = maxOf(defense, unitDefense(it)) }
         HexMath.forEachNeighbor(hex) { n ->
-            val neighborTile = state.tiles[n]
+            val neighborTile = tiles[n]
             if (neighborTile?.owner == owner) {
-                state.unitAt(n)?.let { defense = maxOf(defense, defenseContribution(state, it)) }
-                if (!siege) defense = maxOf(defense, buildingDefense(state, owner, neighborTile.building))
+                unitAt(n)?.let { defense = maxOf(defense, unitDefense(it)) }
+                defense = maxOf(defense, fortification(neighborTile.building))
             }
         }
         return defense
@@ -353,18 +373,20 @@ object Rules {
     /** Defensive value of the DEFENDER's building, at the defender's effective rules. */
     private fun buildingDefense(state: GameState, owner: PlayerId, building: Building?): Int {
         if (building == null) return 0
-        val rules = effectiveRules(state, owner)
-        return when (building) {
-            Building.TOWER -> rules.towerDefense
-            Building.STRONG_TOWER -> rules.strongTowerDefense
-            Building.CAPITAL -> rules.capitalDefense
-            Building.FORTRESS -> rules.fortressDefense
-            Building.FARM, Building.MINE, Building.MARKET,
-            Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT,
-            Building.FISHERY, Building.BRIDGE, Building.UNIVERSITY, Building.BANK,
-            Building.BARRACKS, Building.ARCHERY_RANGE, Building.SIEGE_WORKSHOP,
-            -> 0
-        }
+        return buildingDefenseIn(effectiveRules(state, owner), building)
+    }
+
+    /** [buildingDefense] against pre-resolved effective rules (shared with [defenseFrom]). */
+    private fun buildingDefenseIn(rules: RuleConstants, building: Building): Int = when (building) {
+        Building.TOWER -> rules.towerDefense
+        Building.STRONG_TOWER -> rules.strongTowerDefense
+        Building.CAPITAL -> rules.capitalDefense
+        Building.FORTRESS -> rules.fortressDefense
+        Building.FARM, Building.MINE, Building.MARKET,
+        Building.LUMBER_CAMP, Building.WATCHTOWER, Building.PORT,
+        Building.FISHERY, Building.BRIDGE, Building.UNIVERSITY, Building.BANK,
+        Building.BARRACKS, Building.ARCHERY_RANGE, Building.SIEGE_WORKSHOP,
+        -> 0
     }
 
     /** Movement range of a unit per action, at its owner's effective rules. */
@@ -763,6 +785,9 @@ object Rules {
         var income = 0
         for ((hex, tile) in tiles) {
             if (tile.owner != player || tile.starving || tile.flora != null) continue
+            // A night monster pillages what it squats: the hex earns nothing
+            // until it is slain or dawn takes it.
+            if (tile.monster != null) continue
             // Sea produces nothing, owned or not (a bridge hex is owned but incomeless).
             if (tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA) continue
             income += rules.hexIncome
