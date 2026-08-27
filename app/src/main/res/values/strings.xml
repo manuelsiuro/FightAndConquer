@@ -1021,6 +1021,8 @@
     <string name="info_cache">Dropped by a monster. Move any unit here to collect it.</string>
     <string name="info_stat_cache_reward">Cache</string>
     <string name="reject_monster_on_hex">A monster squats this hex — slay it first</string>
+    <string name="reject_beacon_not_supported">Beacons mount on defense buildings, in day-night games only</string>
+    <string name="reject_beacon_already_lit">This beacon is already lit</string>
     <string name="guide_night_title">Day–night cycle</string>
     <string name="guide_night_body">Every few rounds night falls and monsters spawn across the land. They strike anything a tower, castle or garrison does not cover, and a squatted hex earns nothing until it is cleared. At dawn the survivors vanish.</string>
     <string name="guide_night_how">Watch the countdown by the sun in the top bar; spend the last day rounds stepping units under cover and merging weak ones.</string>

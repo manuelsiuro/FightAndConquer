@@ -18,6 +18,8 @@ enum class PieceKind {
     MINE, MARKET, LUMBER_CAMP, WATCHTOWER, PORT, FISHERY, BRIDGE,
     UNIVERSITY, BANK, FORTRESS,
     BARRACKS, ARCHERY_RANGE, SIEGE_WORKSHOP,
+    // Beacon-lit variants of the defense buildings (Tile.beacon).
+    TOWER_LIT, STRONG_TOWER_LIT, FORTRESS_LIT, WATCHTOWER_LIT,
     TREE, GRAVESTONE,
     GOLD_VEIN, FERTILE, FISH_SHOAL,
     MONSTER_WOLF, MONSTER_SPIDER, MONSTER_OGRE, MONSTER_TROLL, MONSTER_WYRM,
@@ -383,6 +385,28 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
             Part(up(Primitives.sphere(0.03f, 3, 8, centerY = 0.52f)), ColorRole.GOLD),
             Part(up(Primitives.boxAt(0f, 0f, 0.006f, 0.12f, 0.006f, baseY = 0.46f)), ColorRole.PIP),
             Part(up(Primitives.pennant(attachX = 0.006f, topY = 0.58f, drop = 0.05f, length = 0.10f)), ColorRole.FACTION),
+        )
+
+        // Beacon-lit defense variants: the base token plus a brazier (stone bowl
+        // + gold flame — every lantern in the set is GOLD, the house style).
+        // Silhouette-faithful stand-ins until the .pmesh bakes land.
+        PieceKind.TOWER_LIT -> proceduralFor(PieceKind.TOWER) + listOf(
+            Part(up(Primitives.cylinder(0.055f, 0.03f, 6, baseY = 0.44f)), ColorRole.STONE),
+            Part(up(Primitives.sphere(0.045f, 3, 8, centerY = 0.505f)), ColorRole.GOLD),
+        )
+        PieceKind.STRONG_TOWER_LIT -> proceduralFor(PieceKind.STRONG_TOWER) + listOf(
+            Part(up(Primitives.cylinder(0.05f, 0.03f, 6, baseY = 0.26f)), ColorRole.STONE),
+            Part(up(Primitives.sphere(0.042f, 3, 8, centerY = 0.325f)), ColorRole.GOLD),
+        )
+        PieceKind.FORTRESS_LIT -> proceduralFor(PieceKind.FORTRESS) + listOf(
+            Part(up(Primitives.cylinder(0.05f, 0.03f, 6, baseY = 0.47f)), ColorRole.STONE),
+            Part(up(Primitives.sphere(0.045f, 3, 8, centerY = 0.535f)), ColorRole.GOLD),
+        )
+        // The watchtower's brazier is always modeled; lit = a clearly larger
+        // flame (the base flame vanishes inside it — dropping the Part here
+        // would leak its already-uploaded mesh).
+        PieceKind.WATCHTOWER_LIT -> proceduralFor(PieceKind.WATCHTOWER) + listOf(
+            Part(up(Primitives.sphere(0.05f, 3, 8, centerY = 0.53f)), ColorRole.GOLD),
         )
 
         // Research line: silhouette-faithful tokens until the .pmesh bakes land.
