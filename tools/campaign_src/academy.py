@@ -50,6 +50,7 @@ FIRST_STEPS = dict(
 """,
     seats=["player", DORMANT],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         maxTier=1,
         hexIncome=0,
@@ -100,6 +101,7 @@ COIN_AND_CROWN = dict(
 """,
     seats=["player", DORMANT],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False, maxTier=1, disabledBuildings=buildings("FARM"), **LAND_ONLY),
     treasury=[14, DORMANT_PURSE],
     objectives=[
@@ -136,6 +138,7 @@ SHOULDER_TO_SHOULDER = dict(
 """,
     seats=["player", DORMANT],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False, maxTier=2, disabledBuildings=buildings("FARM", "BARRACKS"), **LAND_ONLY),
     treasury=[32, DORMANT_PURSE],
     units=[
@@ -176,6 +179,7 @@ STONE_AND_TIMBER = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         maxTier=3,
         disabledBuildings=buildings("FARM", "TOWER", "STRONG_TOWER", "LUMBER_CAMP", "BARRACKS"),
@@ -220,6 +224,7 @@ CUT_THE_LINE = dict(
 """,
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         # Tier 3 is the cap: the Knight's Fortress lives behind research, which
         # is off — a tier-4 card here would be a lock nothing ever opens.
@@ -262,6 +267,7 @@ RANGED_AND_SIEGE = dict(
     # not a strength problem, so the opponent turtles rather than out-fighting you.
     seats=["player", ("ai", "EASY")],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False,
         # Tier 3: the Knight's Fortress lives behind research, which is off.
         maxTier=3,
@@ -312,6 +318,7 @@ SALT_AND_SAIL = dict(
     # Both muster halls are pre-placed on the islands — the lesson stays purely
     # naval, the tray stays narrow. Tier 3: the Fortress lives behind research.
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False, maxTier=3, diplomacyEnabled=False, disabledBuildings=buildings(
         "FARM", "TOWER", "STRONG_TOWER", "MINE", "MARKET", "LUMBER_CAMP", "PORT", "FISHERY", "BRIDGE",
     )),
@@ -356,6 +363,7 @@ WORDS_BEFORE_SWORDS = dict(
     # behind research — a tier-4 card would be a lock nothing opens. Each purse
     # grows by a barracks: three seats, three halls to found.
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=False, maxTier=3),
     treasury=[45, 55, 55],
     objectives=[
@@ -394,6 +402,7 @@ INK_AND_IRON = dict(
 """,
     seats=["player", DORMANT],
     rules=dict(
+        dayNightEnabled=False,
         researchEnabled=True,
         maxTier=3,
         disabledBuildings=buildings("FARM", "TOWER", "MINE", "UNIVERSITY", "BANK", "FORTRESS"),

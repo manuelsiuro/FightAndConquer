@@ -107,6 +107,9 @@ class BoardScene(
     private var hasSea = false
     private var waterTime = 0f
 
+    /** Clock for the monster breathing ripple — advances even on dry maps. */
+    private var ambientTime = 0f
+
     // ----- pieces -----
 
     private inner class Piece(
@@ -138,10 +141,20 @@ class BoardScene(
         fun setDimmed(dim: Boolean) {
             if (dim == dimmed) return
             dimmed = dim
-            val f = if (dim) DIM_FACTOR else 1f
+            refreshTint()
+        }
+
+        /**
+         * Re-writes every part's baseColor from its role color × the dim factor ×
+         * the board's night multiplier. The one tint write site: dimming, the
+         * day-night tween and piece creation all resolve through here.
+         */
+        fun refreshTint() {
+            val f = if (dimmed) DIM_FACTOR else 1f
+            val m = nightMix(Palette.NIGHT_PIECE_MULT)
             for (i in instances.indices) {
                 val c = colorFor(roles[i], ownerIndex)
-                instances[i].setParameter("baseColor", c.x * f, c.y * f, c.z * f)
+                instances[i].setParameter("baseColor", c.x * f * m.x, c.y * f * m.y, c.z * f * m.z)
             }
         }
 
@@ -175,6 +188,78 @@ class BoardScene(
      * — unlike units/flora — stay visible (dimmed) on explored-but-fogged terrain.
      */
     private val depositPieces = HashMap<Hex, Piece>()
+
+    /**
+     * Night monsters, hex-keyed (the engine has no monster identity — a
+     * MonsterMoved re-keys the piece from → to). Event-animated like units.
+     */
+    private val monsterPieces = HashMap<Hex, Piece>()
+
+    /**
+     * Dropped gold caches. Evented (CacheDropped/Collected) but ALSO silently
+     * synced by [syncLoot] — belt and braces for load and skipped beats. Unlike
+     * deposits they get NO explored-memory display: a remembered chest that was
+     * meanwhile scooped would leak information.
+     */
+    private val lootPieces = HashMap<Hex, Piece>()
+
+    // ----- day-night look (view-only, synced silently — never a correction) -----
+
+    /** 0 = day, 1 = night. Driven by the NightFell/DawnBroke tweens; snapped by reconcile. */
+    private var nightFactor = 0f
+
+    /** Per-channel multiplier for the current [nightFactor] (1 at day). */
+    private fun nightMix(mult: Float3): Float3 = Float3(
+        1f + (mult.x - 1f) * nightFactor,
+        1f + (mult.y - 1f) * nightFactor,
+        1f + (mult.z - 1f) * nightFactor,
+    )
+
+    /** The night multiplier applied to a LAND tile color (composes onto the fog band). */
+    private fun nightTile(c: Float3): Float3 {
+        val m = nightMix(Palette.NIGHT_TILE_MULT)
+        return Float3(c.x * m.x, c.y * m.y, c.z * m.z)
+    }
+
+    /**
+     * Sets the whole board look to [factor] between day (0) and night (1):
+     * lighting rig, clear color, tile/water/piece tints. Called per-frame by
+     * the transition tween, once by reconcile after a load — a static factor
+     * costs nothing afterwards (nothing here touches isBusy).
+     */
+    private fun applyNightFactor(factor: Float) {
+        nightFactor = factor.coerceIn(0f, 1f)
+        environment.setNight(nightFactor)
+        engine.setClearColor(
+            Float3(
+                Palette.BACKGROUND.x + (Palette.NIGHT_BACKGROUND.x - Palette.BACKGROUND.x) * nightFactor,
+                Palette.BACKGROUND.y + (Palette.NIGHT_BACKGROUND.y - Palette.BACKGROUND.y) * nightFactor,
+                Palette.BACKGROUND.z + (Palette.NIGHT_BACKGROUND.z - Palette.BACKGROUND.z) * nightFactor,
+            ),
+        )
+        for ((hex, te) in tiles) applyTileColor(hex, te)
+        applyWaterColors()
+        unitPieces.values.forEach { it.refreshTint() }
+        buildingPieces.values.forEach { it.refreshTint() }
+        floraPieces.values.forEach { it.refreshTint() }
+        depositPieces.values.forEach { it.refreshTint() }
+        monsterPieces.values.forEach { it.refreshTint() }
+        lootPieces.values.forEach { it.refreshTint() }
+    }
+
+    /** Re-bakes the two shared water instances' colors for the current night factor. */
+    private fun applyWaterColors() {
+        if (!hasSea) return
+        val m = nightMix(Palette.NIGHT_WATER_MULT)
+        fun write(instance: MaterialInstance, fogFactor: Float) {
+            val s = Palette.SEA * fogFactor
+            val d = Palette.SEA_DEEP * fogFactor
+            instance.setParameter("shallowColor", s.x * m.x, s.y * m.y, s.z * m.z)
+            instance.setParameter("deepColor", d.x * m.x, d.y * m.y, d.z * m.z)
+        }
+        write(waterVisible, 1f)
+        write(waterExplored, FOG_EXPLORED_FACTOR)
+    }
 
     // ----- event queue -----
 
@@ -237,11 +322,17 @@ class BoardScene(
         for ((hex, piece) in buildingPieces) piece.setHidden(isFogged(hex))
         for ((hex, piece) in floraPieces) piece.setHidden(isFogged(hex))
         for ((hex, piece) in depositPieces) applyDepositFog(hex, piece)
+        // Monsters hide like units (segment-aware while lunging/hopping); loot
+        // hides like buildings — no explored-memory display (see [lootPieces]).
+        for (piece in monsterPieces.values) piece.setHidden(pieceFogged(piece))
+        for ((hex, piece) in lootPieces) piece.setHidden(isFogged(hex))
         // Tile tops may have visually moved with the fog edge — re-glue pieces.
         for (piece in buildingPieces.values) piece.updateTransform()
         for (piece in floraPieces.values) piece.updateTransform()
         for (piece in depositPieces.values) piece.updateTransform()
+        for (piece in lootPieces.values) piece.updateTransform()
         for (piece in unitPieces.values) if (piece.xz == null) piece.updateTransform()
+        for (piece in monsterPieces.values) if (piece.xz == null) piece.updateTransform()
         // Auras were possibly drawn before fog arrived (init reconcile) or the fog
         // edge moved — re-derive them so no ring survives inside the fog.
         refreshAuras(latestState)
@@ -293,11 +384,15 @@ class BoardScene(
             }
             return
         }
-        val c = when {
-            visible == null || hex in visible -> te.color
-            hex in fogExplored -> Palette.NEUTRAL * FOG_EXPLORED_FACTOR
-            else -> Palette.NEUTRAL * FOG_HIDDEN_FACTOR
-        }
+        // Night multiplies the FINAL fog-banded color (factors compose; the
+        // hidden band going near-black at night is correct night reading).
+        val c = nightTile(
+            when {
+                visible == null || hex in visible -> te.color
+                hex in fogExplored -> Palette.NEUTRAL * FOG_EXPLORED_FACTOR
+                else -> Palette.NEUTRAL * FOG_HIDDEN_FACTOR
+            },
+        )
         te.instance.setParameter("colorFrom", c.x, c.y, c.z)
         te.instance.setParameter("colorTo", c.x, c.y, c.z)
         te.instance.setParameter("waveRadius", 0f)
@@ -712,6 +807,20 @@ class BoardScene(
                     }
                 }
             }
+            // Monster breathing: the boat-bob discipline — a view-only yOffset
+            // ripple at the ambience rate (reconcile ignores yOffset; nothing
+            // here touches isBusy, so an idle night stays at ~20 fps).
+            ambientTime += deltaSeconds
+            if (ambientTime > WATER_PERIOD) ambientTime -= WATER_PERIOD
+            if (animator.isIdle && monsterPieces.isNotEmpty()) {
+                for ((hex, piece) in monsterPieces) {
+                    if (piece.xz == null && !piece.hidden) {
+                        piece.yOffset =
+                            0.006f * sin(ambientTime * 1.1f + (hex.packed % 7).toFloat() * 0.9f)
+                        piece.updateTransform()
+                    }
+                }
+            }
             // Capture-highlight pulse (a handful of uniform writes at most).
             highlightClock += deltaSeconds
             val pulseAlpha = 0.72f + 0.28f * sin(highlightClock * 7f)
@@ -832,10 +941,14 @@ class BoardScene(
                     return
                 }
                 te.raised = true
-                te.instance.setParameter("colorTo", color.x, color.y, color.z)
+                // The capture wave writes uniforms directly (bypassing
+                // applyTileColor), so the night tint must ride along here;
+                // te.color stays the LOGICAL day color for reconcile's diff.
+                val shown = nightTile(color)
+                te.instance.setParameter("colorTo", shown.x, shown.y, shown.z)
                 val startY = te.y
                 animator.tween(0.3f, Easings::easeOutCubic, onEnd = {
-                    te.instance.setParameter("colorFrom", color.x, color.y, color.z)
+                    te.instance.setParameter("colorFrom", shown.x, shown.y, shown.z)
                     te.instance.setParameter("waveRadius", 0f)
                     te.color = color
                 }) { t ->
@@ -995,9 +1108,102 @@ class BoardScene(
                 }
             }
 
+            // --- Day-night cycle ---
+            is GameEvent.NightFell -> {
+                // One-shot darkening on the shared animator: isBusy stays true
+                // only for the beat, and the beat GATES the queue — night falls
+                // before the first MonsterSpawned plays.
+                animator.tween(NIGHT_TWEEN_SECONDS, Easings::easeOutCubic) { t ->
+                    applyNightFactor(t)
+                }
+            }
+
+            is GameEvent.DawnBroke -> {
+                // One simultaneous sink for every survivor ("the night took
+                // them"), then the light comes back. The per-monster
+                // MonsterDespawned events that follow find nothing — by design.
+                val survivors = monsterPieces.values.toList()
+                monsterPieces.clear()
+                val dawnLight = {
+                    animator.tween(NIGHT_TWEEN_SECONDS, Easings::easeOutCubic) { t ->
+                        applyNightFactor(1f - t)
+                    }
+                }
+                if (survivors.isEmpty()) {
+                    dawnLight()
+                } else {
+                    animator.tween(0.35f, Easings::easeInCubic, onEnd = {
+                        survivors.forEach { destroyPiece(it) }
+                        dawnLight()
+                    }) { t ->
+                        for (piece in survivors) {
+                            piece.scale = 1f - t
+                            piece.yOffset = -0.1f * t
+                            piece.updateTransform()
+                        }
+                    }
+                }
+            }
+
+            is GameEvent.MonsterSpawned -> {
+                monsterPieces.remove(event.hex)?.let { destroyPiece(it) }
+                val piece = createPiece(PieceMeshes.monsterKind(event.monster), event.hex, null)
+                monsterPieces[event.hex] = piece
+                spawnBounce(piece)
+                if (!isFogged(event.hex)) rumbleTime = 0f // no juice for unseen spawns
+            }
+
+            is GameEvent.MonsterMoved -> {
+                val piece = monsterPieces.remove(event.from) ?: return
+                monsterPieces[event.to] = piece
+                hop(piece, event.from, event.to)
+            }
+
+            is GameEvent.MonsterAttacked -> {
+                // A lunge: 40% toward the victim and back; the kill arrives as
+                // its own UnitDied right after (the Bombarded convention).
+                val piece = monsterPieces[event.from] ?: return
+                val from = event.from
+                piece.animFrom = from
+                piece.setHidden(FogRules.segmentHidden(fogVisible, from, event.target))
+                animator.tween(0.22f, Easings::easeOutCubic, onEnd = {
+                    piece.xz = null
+                    piece.animFrom = null
+                    piece.updateTransform()
+                    piece.setHidden(isFogged(piece.hex))
+                }) { t ->
+                    val k = 0.4f * (1f - abs(2f * t - 1f))
+                    piece.xz = lerpHex(from, event.target, k)
+                    piece.updateTransform()
+                }
+                if (!isFogged(event.target)) rumbleTime = 0f
+            }
+
+            is GameEvent.MonsterSlain -> {
+                val piece = monsterPieces.remove(event.hex) ?: return
+                sinkAway(piece)
+            }
+
+            is GameEvent.MonsterDespawned -> {
+                // Usually pre-empted by the DawnBroke beat; covers stragglers.
+                monsterPieces.remove(event.hex)?.let { sinkAway(it, duration = 0.2f) }
+            }
+
+            is GameEvent.CacheDropped -> {
+                lootPieces.remove(event.hex)?.let { destroyPiece(it) }
+                val piece = createPiece(PieceKind.REWARD_CACHE, event.hex, null)
+                lootPieces[event.hex] = piece
+                spawnBounce(piece, duration = 0.25f)
+            }
+
+            is GameEvent.CacheCollected -> {
+                lootPieces.remove(event.hex)?.let { sinkAway(it, duration = 0.2f) }
+            }
+
             // HUD-level events: no board animation (diplomacy stays off the board, and a
             // campaign story beat announces itself in a toast — its spawns arrive as
             // ordinary UnitSpawned events that this same loop already animates).
+            // HoardUncovered's FERTILE marker arrives via syncDeposits (silent).
             is GameEvent.ActionRejected, is GameEvent.Bankruptcy,
             is GameEvent.PlayerEliminated, is GameEvent.GameOver,
             is GameEvent.PactProposed, is GameEvent.PactAccepted, is GameEvent.PactDeclined,
@@ -1005,6 +1211,7 @@ class BoardScene(
             is GameEvent.PactBroken, is GameEvent.TributeSent,
             is GameEvent.ScriptFired, is GameEvent.RefundPaid,
             is GameEvent.ResearchStarted, is GameEvent.ResearchCompleted,
+            is GameEvent.HoardUncovered,
             -> Unit
         }
     }
@@ -1208,6 +1415,8 @@ class BoardScene(
                 it.updateTransform()
                 // Fog: hide in the same pass so a fogged piece never flashes for a frame.
                 it.setHidden(isFogged(hex))
+                // Night: a piece born after dusk must not flash day-bright.
+                if (nightFactor > 0f) it.refreshTint()
             }
     }
 
@@ -1300,6 +1509,8 @@ class BoardScene(
         buildingPieces[hex]?.updateTransform()
         floraPieces[hex]?.updateTransform()
         depositPieces[hex]?.updateTransform()
+        monsterPieces[hex]?.let { if (it.xz == null) it.updateTransform() }
+        lootPieces[hex]?.updateTransform()
         for (piece in unitPieces.values) {
             if (piece.hex == hex && piece.xz == null) piece.updateTransform()
         }
@@ -1400,6 +1611,12 @@ class BoardScene(
     private fun reconcile(state: GameState, log: Boolean = true) {
         var corrections = 0
 
+        // Day-night is a pure function of the state's round counter: snap the
+        // look silently (view annotation, like fog) — covers a fresh scene
+        // built mid-night, skipAnimations across a NightFell, and undo/load.
+        val wantNight = if (com.msa.fightandconquer.core.engine.Rules.isNight(state)) 1f else 0f
+        if (nightFactor != wantNight) applyNightFactor(wantNight)
+
         for ((hex, tile) in state.tiles) {
             val te = tiles[hex] ?: continue
             if (te.sea) {
@@ -1459,15 +1676,27 @@ class BoardScene(
             }
         }.also { corrections = it }
 
+        // Monsters diff like flora — every monster mutation has an event, so a
+        // mismatch here counts as a correction (the zero-warning gate applies).
+        reconcileProps(state, monsterPieces, corrections) { tile ->
+            tile.monster?.let { PieceMeshes.monsterKind(it) }
+        }.also { corrections = it }
+
         // Deposits: static terrain with no events, so presence changes (a building
         // covering the marker, initial creation) are expected here — never corrections.
         syncDeposits(state)
+
+        // Loot caches: evented, but synced silently as well (belt and braces
+        // for skipped beats and loads — the syncDeposits discipline).
+        syncLoot(state)
 
         // Keep pieces glued to final tile heights.
         for (piece in unitPieces.values) piece.updateTransform()
         for (piece in buildingPieces.values) piece.updateTransform()
         for (piece in floraPieces.values) piece.updateTransform()
         for (piece in depositPieces.values) piece.updateTransform()
+        for (piece in monsterPieces.values) piece.updateTransform()
+        for (piece in lootPieces.values) piece.updateTransform()
 
         refreshAuras(state)
 
@@ -1501,6 +1730,22 @@ class BoardScene(
                 depositPieces[hex] = piece
             }
             applyDepositFog(hex, piece)
+        }
+    }
+
+    /** [syncDeposits]' twin for dropped caches (no explored-memory display). */
+    private fun syncLoot(state: GameState) {
+        val stale = lootPieces.keys.filter { hex -> state.tiles[hex]?.cache == null }
+        stale.forEach { hex -> lootPieces.remove(hex)?.let { destroyPiece(it) } }
+        for ((hex, tile) in state.tiles) {
+            if (tile.cache == null) continue
+            val piece = lootPieces.getOrPut(hex) { createPiece(PieceKind.REWARD_CACHE, hex, null) }
+            if (piece.scale != 1f) {
+                piece.scale = 1f
+                piece.yOffset = 0f
+                piece.updateTransform()
+            }
+            piece.setHidden(isFogged(hex))
         }
     }
 
@@ -1553,9 +1798,13 @@ class BoardScene(
     }
 
     override fun destroy() {
-        (unitPieces.values + buildingPieces.values + floraPieces.values + depositPieces.values)
+        (
+            unitPieces.values + buildingPieces.values + floraPieces.values +
+                depositPieces.values + monsterPieces.values + lootPieces.values
+            )
             .forEach { destroyPiece(it) }
         unitPieces.clear(); buildingPieces.clear(); floraPieces.clear(); depositPieces.clear()
+        monsterPieces.clear(); lootPieces.clear()
         for (h in highlightPool) {
             if (h.inScene) engine.scene.removeEntity(h.entity)
             filament.destroyEntity(h.entity)
@@ -1612,5 +1861,7 @@ class BoardScene(
         private const val WATER_PERIOD = (20.0 * Math.PI).toFloat()
         /** Editor ghost ring: barely-there, so the board's own colors stay dominant. */
         private const val GHOST_ALPHA = 0.12f
+        /** The nightfall/dawn light tween — long enough to read as dusk, short enough to not stall the queue. */
+        private const val NIGHT_TWEEN_SECONDS = 1.2f
     }
 }

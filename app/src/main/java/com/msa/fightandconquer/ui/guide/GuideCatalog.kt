@@ -399,6 +399,28 @@ object GuideCatalog {
                 descRes = R.string.info_cut_off,
                 howToRes = R.string.guide_how_cut_off,
             ),
+            // Day-night mode (optional rule): the cycle and its bestiary.
+            GuideEntry(
+                id = "world_night",
+                iconRes = null,
+                nameRes = R.string.guide_night_title,
+                descRes = R.string.guide_night_body,
+                howToRes = R.string.guide_night_how,
+            ),
+            GuideEntry(
+                id = "unit_monster",
+                iconRes = PieceIcons.monster(com.msa.fightandconquer.core.model.MonsterKind.WOLF),
+                nameRes = R.string.guide_monster_title,
+                descRes = R.string.guide_monster_body,
+                howToRes = R.string.guide_monster_how,
+                stats = listOf(
+                    GuideStat(
+                        R.string.info_stat_cache_reward,
+                        R.string.info_value_coins,
+                        defaults.monsterCachePerTier,
+                    ),
+                ),
+            ),
         ),
     )
 

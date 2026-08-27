@@ -155,6 +155,60 @@ internal fun TopBar(
                 color = UiColors.inkMuted,
                 fontSize = 13.sp,
             )
+        } else if (state.dayNightAvailable) {
+            Spacer(Modifier.height(8.dp))
+            DayNightRow(state)
+        }
+    }
+}
+
+/**
+ * The day-night status line: sun + countdown by day, moon + rounds-until-dawn
+ * inside a soft pill at night, so the phase reads at a glance. Sits in the "AI
+ * thinking" slot (that text takes precedence) — present whenever the mode is
+ * on, so the bar's height never shifts round to round.
+ */
+@Composable
+private fun DayNightRow(state: HudState) {
+    val night = state.nightActive
+    val description = stringResource(R.string.cd_night_indicator)
+    Row(
+        Modifier
+            .then(
+                if (night) {
+                    Modifier
+                        .background(UiColors.controlFill, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                } else {
+                    Modifier
+                },
+            )
+            .semantics(mergeDescendants = true) { contentDescription = description },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            painterResource(if (night) R.drawable.ic_moon else R.drawable.ic_sun),
+            contentDescription = null,
+            Modifier.size(14.dp),
+            tint = UiColors.inkMuted,
+        )
+        val label = when {
+            night -> state.roundsUntilDawn?.let {
+                androidx.compose.ui.res.pluralStringResource(R.plurals.hud_night_until_dawn, it, it)
+            }
+            else -> state.roundsUntilNight?.let {
+                androidx.compose.ui.res.pluralStringResource(R.plurals.hud_night_in, it, it)
+            }
+        }
+        label?.let {
+            Text(
+                it,
+                color = UiColors.inkMuted,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

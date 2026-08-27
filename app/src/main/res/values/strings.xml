@@ -995,4 +995,36 @@
     <string name="share_error_corrupted">The map code is damaged — ask for it to be sent again</string>
     <string name="share_error_malformed">The map code could not be read</string>
     <string name="share_error_invalid_map">The shared map is not playable</string>
+    <!-- Day-night cycle -->
+    <string name="menu_section_night">Day–night cycle</string>
+    <string name="setup_sum_night_on">day–night</string>
+    <string name="cd_night_indicator">Day and night cycle status</string>
+    <plurals name="hud_night_in">
+        <item quantity="one">Night next round</item>
+        <item quantity="other">Night in %1$d rounds</item>
+    </plurals>
+    <plurals name="hud_night_until_dawn">
+        <item quantity="one">Night — dawn next round</item>
+        <item quantity="other">Night — %1$d rounds until dawn</item>
+    </plurals>
+    <string name="toast_night_approaching">Night approaches — garrison your lands</string>
+    <string name="toast_night_fell">Night has fallen — monsters prowl the land</string>
+    <string name="toast_dawn_broke">Dawn breaks — the monsters are gone</string>
+    <string name="toast_cache_collected">Cache collected — +%1$d gold</string>
+    <string name="monster_wolf">Dire Wolf</string>
+    <string name="monster_spider">Giant Spider</string>
+    <string name="monster_ogre">Ogre</string>
+    <string name="monster_troll">Troll</string>
+    <string name="monster_wyrm">Wyrm</string>
+    <string name="info_monster">A night creature. It hunts until dawn takes it — slay it to claim its cache.</string>
+    <string name="piece_cache">Gold cache</string>
+    <string name="info_cache">Dropped by a monster. Move any unit here to collect it.</string>
+    <string name="info_stat_cache_reward">Cache</string>
+    <string name="reject_monster_on_hex">A monster squats this hex — slay it first</string>
+    <string name="guide_night_title">Day–night cycle</string>
+    <string name="guide_night_body">Every few rounds night falls and monsters spawn across the land. They strike anything a tower, castle or garrison does not cover, and a squatted hex earns nothing until it is cleared. At dawn the survivors vanish.</string>
+    <string name="guide_night_how">Watch the countdown by the sun in the top bar; spend the last day rounds stepping units under cover and merging weak ones.</string>
+    <string name="guide_monster_title">Night monsters</string>
+    <string name="guide_monster_body">Wolves and spiders lead the early nights; ogres, trolls and finally the wyrm follow as the game grows older. Each defends its hex like a garrison and strikes harder than it defends.</string>
+    <string name="guide_monster_how">Attack with a stronger unit to slay one — it drops a gold cache where it stood, and rarely churns the ground fertile. Warships can shell one on the coast.</string>
 </resources>

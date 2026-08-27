@@ -187,4 +187,16 @@ object PieceIcons {
     val goldVein = R.drawable.piece_gold_vein
     val fertile = R.drawable.piece_fertile
     val fishShoal = R.drawable.piece_fish_shoal
+
+    // Night bestiary + cache. TODO(art): baked renders pending — the gravestone
+    // and gold-vein stand-ins keep the cards functional until the Blender pass.
+    fun monster(kind: com.msa.fightandconquer.core.model.MonsterKind): Int = when (kind) {
+        com.msa.fightandconquer.core.model.MonsterKind.WOLF,
+        com.msa.fightandconquer.core.model.MonsterKind.SPIDER,
+        com.msa.fightandconquer.core.model.MonsterKind.OGRE,
+        com.msa.fightandconquer.core.model.MonsterKind.TROLL,
+        com.msa.fightandconquer.core.model.MonsterKind.WYRM,
+        -> R.drawable.piece_gravestone
+    }
+    val rewardCache = R.drawable.piece_gold_vein
 }
