@@ -36,6 +36,14 @@ object Palette {
     // board keeps its read; unlit chrome (highlights, auras) is never tinted.
     val NIGHT_BACKGROUND = linear(0x2A2E3A) // deep slate sky
     val NIGHT_TILE_MULT = Float3(0.30f, 0.36f, 0.55f)
+
+    /**
+     * Night multiplier for ground inside a beacon's lit radius: warm bright
+     * lamplight against [NIGHT_TILE_MULT]'s cool dark — the READABLE safe
+     * zone (`Rules.litHexes`), while the point light stays ambience. Clearly
+     * below 1 so lit ground never reads as daylight.
+     */
+    val BEACON_TILE_MULT = Float3(0.78f, 0.64f, 0.42f)
     val NIGHT_PIECE_MULT = Float3(0.45f, 0.50f, 0.70f)
     val NIGHT_WATER_MULT = Float3(0.32f, 0.40f, 0.58f)
 

@@ -216,9 +216,13 @@ class BoardScene(
         1f + (mult.z - 1f) * nightFactor,
     )
 
-    /** The night multiplier applied to a LAND tile color (composes onto the fog band). */
-    private fun nightTile(c: Float3): Float3 {
-        val m = nightMix(Palette.NIGHT_TILE_MULT)
+    /**
+     * The night multiplier applied to a LAND tile color (composes onto the fog
+     * band). Ground inside a visible beacon's radius ([litTint]) warms toward
+     * [Palette.BEACON_TILE_MULT] instead — the hex-accurate safe zone.
+     */
+    private fun nightTile(c: Float3, lit: Boolean = false): Float3 {
+        val m = nightMix(if (lit) Palette.BEACON_TILE_MULT else Palette.NIGHT_TILE_MULT)
         return Float3(c.x * m.x, c.y * m.y, c.z * m.z)
     }
 
@@ -315,6 +319,14 @@ class BoardScene(
      */
     private val beaconLights = HashMap<Hex, Int>()
 
+    /**
+     * Every hex inside a VISIBLE beacon's lit radius — the ground the warm
+     * night tint paints ([nightTile]). Derived beside the light pool in
+     * [refreshBeaconLights] from the same fog-checked sources, so tint and
+     * light can never disagree; fog-hidden sources tint nothing.
+     */
+    private var litTint: Set<Hex> = emptySet()
+
     // ----- fog of war (view-only, synced silently — never a reconcile correction) -----
 
     /** Hexes in the viewer's live vision; null = fog off (everything visible). */
@@ -409,12 +421,16 @@ class BoardScene(
         }
         // Night multiplies the FINAL fog-banded color (factors compose; the
         // hidden band going near-black at night is correct night reading).
+        // The warm lit-ground tint applies to the visible band only — fogged
+        // bands keep their cool colors, so the tint reveals nothing extra.
+        val visibleHex = visible == null || hex in visible
         val c = nightTile(
             when {
-                visible == null || hex in visible -> te.color
+                visibleHex -> te.color
                 hex in fogExplored -> Palette.NEUTRAL * FOG_EXPLORED_FACTOR
                 else -> Palette.NEUTRAL * FOG_HIDDEN_FACTOR
             },
+            lit = visibleHex && hex in litTint,
         )
         te.instance.setParameter("colorFrom", c.x, c.y, c.z)
         te.instance.setParameter("colorTo", c.x, c.y, c.z)
@@ -967,7 +983,8 @@ class BoardScene(
                 // The capture wave writes uniforms directly (bypassing
                 // applyTileColor), so the night tint must ride along here;
                 // te.color stays the LOGICAL day color for reconcile's diff.
-                val shown = nightTile(color)
+                // (This branch only runs unfogged, so the lit check is plain.)
+                val shown = nightTile(color, lit = event.hex in litTint)
                 te.instance.setParameter("colorTo", shown.x, shown.y, shown.z)
                 val startY = te.y
                 animator.tween(0.3f, Easings::easeOutCubic, onEnd = {
@@ -1756,10 +1773,24 @@ class BoardScene(
      */
     private fun refreshBeaconLights(state: GameState) {
         val wanted = HashSet<Hex>()
+        val tint = HashSet<Hex>()
         for ((hex, tile) in state.tiles) {
-            if (!tile.beacon || tile.building == null) continue
+            if (!tile.beacon) continue
+            val radius = tile.building
+                ?.let { com.msa.fightandconquer.core.engine.Rules.beaconRadiusOf(it) }
+                ?: continue
             if (FogRules.auraSourceHidden(fogVisible, hex)) continue
             wanted.add(hex)
+            for (h in com.msa.fightandconquer.core.hex.HexMath.range(hex, radius)) {
+                if (h in tiles) tint.add(h)
+            }
+        }
+        if (tint != litTint) {
+            // Repaint exactly the hexes whose lit state flipped (a mid-night
+            // lighting warms its ground on the spot; a fallen beacon cools).
+            val changed = (litTint - tint) + (tint - litTint)
+            litTint = tint
+            for (h in changed) tiles[h]?.let { applyTileColor(h, it) }
         }
         val stale = beaconLights.keys.filter { it !in wanted }
         for (hex in stale) {

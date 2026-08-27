@@ -149,6 +149,17 @@ building itself swaps to a `*_LIT` PieceKind (`buildingKind(building, lit)`),
 so the brazier flame is baked geometry, and the `BeaconLit` beat performs the
 swap so reconcile never counts it as a correction.
 
+The READABLE safe zone is the **lit-ground tint**: `litTint` (derived beside
+the light pool from the same fog-checked sources, expanded by
+`Rules.beaconRadiusOf`) switches those hexes' night multiplier from the cool
+`NIGHT_TILE_MULT` to the warm `Palette.BEACON_TILE_MULT` inside `nightTile` —
+hex-accurate against the protection rules, fading in/out with the dusk tweens
+for free (`applyNightFactor` already repaints every tile), invisible by day
+(`nightMix` is identity at factor 0), and applied to the visible fog band only
+so it reveals nothing the fog hides. This tints the GROUND, not an overlay —
+the "highlights, auras and HUD chips stay untinted" rule is untouched. A
+mid-night lighting (or a fallen beacon) repaints exactly the flipped hexes.
+
 ## Camera & picking (`render/CameraRig.kt`, `HexPicker.kt`, `HexWorld.kt`)
 
 Orbit rig (target on the ground plane, min distance 5, fixed 55° pitch — no
