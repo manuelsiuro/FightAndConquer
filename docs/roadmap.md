@@ -269,9 +269,13 @@ the determinism tests in `:core` are the tripwire.
     "outcome inevitable — auto-resolve?" offer, or the economic victory above;
     attacks the genre's mop-up tail. Rule change → one deliberate
     balance-gate rebalance pass.
-  - *AI personalities* — per-seat difficulty (above) plus named
-    `Evaluator`-weight presets (raider / turtle / admiral / schemer) so
-    skirmish opponents feel like someones. Same gate-reshuffle caveat.
+  - *AI personalities* — **SHIPPED (2026-08 AI overhaul)**: `AiProfile`
+    presets (raider / turtle / admiral / schemer) derived per seat from the
+    game seed (or authored on `SeatDef.Ai`), plus the strategic layer
+    (`Strategy.assess` cuts/threats/fronts), counter-attack and army-value
+    evaluator terms, coverage-ranked towers, ordinary bridges, rear-guard
+    disbands, `RepositionPolicy` marching, and seeded argmax jitter — see
+    core-engine.md §AI. Per-seat difficulty *UI plumbing* (above) remains.
   - *Seeded & daily challenges* — seed entry + "beat my map" share codes
     (the `FCM1` envelope machinery exists) and a daily fixed-seed map scored
     by rounds-to-win with local personal bests.

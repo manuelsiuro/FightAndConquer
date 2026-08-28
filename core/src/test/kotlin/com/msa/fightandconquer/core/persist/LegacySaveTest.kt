@@ -93,6 +93,8 @@ class LegacySaveTest {
         "monsterCachePerTier", "monsterDawnCachePercent", "monsterHoardPercent",
         // Tile / RuleConstants (beacon upgrade)
         "beacon", "beaconCost",
+        // PlayerKind.Ai / SeatDef.Ai (AI personalities)
+        "personality",
     )
 
     private fun strip(element: JsonElement): JsonElement = when (element) {

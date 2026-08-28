@@ -31,7 +31,11 @@ import com.msa.fightandconquer.core.model.Tile
  */
 internal object ResearchPolicy {
 
-    fun action(state: GameState, difficulty: Difficulty): GameAction? {
+    fun action(
+        state: GameState,
+        difficulty: Difficulty,
+        profile: AiProfile = AiProfile.NEUTRAL,
+    ): GameAction? {
         if (!state.config.rules.researchEnabled) return null
         val me = state.currentPlayer
 
@@ -60,13 +64,22 @@ internal object ResearchPolicy {
 
         val universities = Rules.workingUniversities(state.tiles, me)
         if (universities == 0) {
+            // The founding gate scales DOWN with the map: the historical fixed
+            // thresholds (12 hexes / 10 for HARD) were rarely met on small
+            // contested boards, so the whole tech tree went unused in practice.
+            // Large maps keep the historical bar; personalities nudge it.
+            val landHexes = state.tiles.values.count { it.terrain == Terrain.LAND }
+            val hexGate = minOf(
+                maxOf(6, landHexes / 14),
+                if (difficulty == Difficulty.HARD) 10 else 12,
+            ) + profile.universityGateOffset
             val wants = when {
                 seaLocked -> treasury >= eff.universityCost
                 difficulty == Difficulty.EASY -> false
                 difficulty == Difficulty.HARD ->
-                    state.ownedHexCount(me) >= 10 && net >= 6 && treasury >= eff.universityCost + reserve
+                    state.ownedHexCount(me) >= hexGate && net >= 6 && treasury >= eff.universityCost + reserve
                 else ->
-                    state.ownedHexCount(me) >= 12 && net >= 8 && treasury >= eff.universityCost + reserve
+                    state.ownedHexCount(me) >= hexGate && net >= 8 && treasury >= eff.universityCost + reserve
             }
             if (wants) {
                 universitySpot(state, me)?.let {
@@ -83,14 +96,14 @@ internal object ResearchPolicy {
 
         val research = state.player(me).research
         if (research.active == null) {
-            val next = priorityList(state, difficulty, seaLocked).firstOrNull { tech ->
+            val next = priorityList(state, difficulty, seaLocked, profile).firstOrNull { tech ->
                 tech !in research.completed &&
                     tech.prerequisite.let { it == null || it in research.completed }
             }
             if (next != null && treasury >= Rules.techCost(state, me, next) + reserve) {
                 return GameAction.StartResearch(next)
             }
-        } else if (difficulty == Difficulty.HARD && universities < 2) {
+        } else if ((difficulty == Difficulty.HARD || profile.secondUniversity) && universities < 2) {
             // Second University: plenty of research left and a healthy economy —
             // the extra point per turn pays for itself over the remaining tree.
             val remaining =
@@ -112,8 +125,21 @@ internal object ResearchPolicy {
      * dory economy pays for the tech — shoal positions are chart knowledge,
      * fog-legal by the FishingPolicy convention).
      */
-    private fun priorityList(state: GameState, difficulty: Difficulty, seaLocked: Boolean): List<Tech> {
+    private fun priorityList(
+        state: GameState,
+        difficulty: Difficulty,
+        seaLocked: Boolean,
+        profile: AiProfile = AiProfile.NEUTRAL,
+    ): List<Tech> {
         val naval = state.config.rules.navalEnabled
+        // Personality orderings replace the difficulty lists on open ground;
+        // survival situations (sea-locked, rookie) keep the fixed scripts.
+        if (!seaLocked && difficulty != Difficulty.EASY &&
+            profile.researchOrder != ResearchOrder.BALANCED
+        ) {
+            val flavored = orderedList(profile.researchOrder)
+            return if (naval) flavored else flavored.filterNot { it.branch == TechBranch.SAIL }
+        }
         val list = when {
             difficulty == Difficulty.EASY ->
                 if (seaLocked) listOf(Tech.NAVIGATION) else emptyList()
@@ -145,6 +171,36 @@ internal object ResearchPolicy {
             )
         }
         return if (naval) list else list.filterNot { it.branch == TechBranch.SAIL }
+    }
+
+    /** Fixed deterministic permutations per flavor — pacing, never new powers. */
+    private fun orderedList(order: ResearchOrder): List<Tech> = when (order) {
+        ResearchOrder.OFFENSE -> listOf(
+            Tech.SMITHING, Tech.COINAGE, Tech.ARMORY, Tech.BANKING, Tech.SIEGECRAFT,
+            Tech.NAVIGATION, Tech.TREASURY, Tech.SHIPWRIGHTS,
+            Tech.MASONRY, Tech.ENGINEERING, Tech.ADMIRALTY, Tech.BASTIONS,
+        )
+        ResearchOrder.ECONOMY -> listOf(
+            Tech.COINAGE, Tech.BANKING, Tech.SMITHING, Tech.TREASURY, Tech.NAVIGATION,
+            Tech.ARMORY, Tech.MASONRY, Tech.SHIPWRIGHTS,
+            Tech.SIEGECRAFT, Tech.ENGINEERING, Tech.ADMIRALTY, Tech.BASTIONS,
+        )
+        ResearchOrder.NAVAL -> listOf(
+            Tech.NAVIGATION, Tech.SMITHING, Tech.SHIPWRIGHTS, Tech.COINAGE, Tech.ADMIRALTY,
+            Tech.BANKING, Tech.ARMORY, Tech.TREASURY,
+            Tech.SIEGECRAFT, Tech.MASONRY, Tech.ENGINEERING, Tech.BASTIONS,
+        )
+        ResearchOrder.SCHOLARLY -> listOf(
+            Tech.COINAGE, Tech.BANKING, Tech.SMITHING, Tech.TREASURY, Tech.ARMORY,
+            Tech.MASONRY, Tech.NAVIGATION, Tech.SIEGECRAFT,
+            Tech.ENGINEERING, Tech.SHIPWRIGHTS, Tech.ADMIRALTY, Tech.BASTIONS,
+        )
+        ResearchOrder.BULWARK -> listOf(
+            Tech.COINAGE, Tech.MASONRY, Tech.SMITHING, Tech.BANKING, Tech.ARMORY,
+            Tech.ENGINEERING, Tech.NAVIGATION, Tech.TREASURY, Tech.BASTIONS,
+            Tech.SIEGECRAFT, Tech.SHIPWRIGHTS, Tech.ADMIRALTY,
+        )
+        ResearchOrder.BALANCED -> error("BALANCED keeps the difficulty lists")
     }
 
     private fun shoalsOnChart(state: GameState): Int =

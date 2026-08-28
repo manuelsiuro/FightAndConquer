@@ -45,7 +45,11 @@ object DiplomacyPolicy {
     }
 
     /** At most one ProposePact / SendTribute per call; Easy never initiates. */
-    fun initiative(state: GameState, difficulty: Difficulty): GameAction? {
+    fun initiative(
+        state: GameState,
+        difficulty: Difficulty,
+        profile: AiProfile = AiProfile.NEUTRAL,
+    ): GameAction? {
         if (difficulty == Difficulty.EASY) return null
         val me = state.currentPlayer
         val rules = state.config.rules
@@ -58,7 +62,7 @@ object DiplomacyPolicy {
         if (neighbors.size >= 2) {
             val target = neighbors
                 .filter { enemy ->
-                    neighborPower.getValue(enemy) * 10 >= myPower * 11 &&
+                    neighborPower.getValue(enemy) * 10 >= myPower * profile.pactProposalRatioTenths &&
                         d.pactBetween(me, enemy) == null &&
                         leavesAnEnemy(state, me, enemy) &&
                         d.proposalBetween(me, enemy) == null &&
@@ -94,10 +98,16 @@ object DiplomacyPolicy {
 
     /**
      * Hard only: partners worth betraying — crush a pacted rival once dominance is
-     * overwhelming, so a pacted duel endgame can't deadlock forever. The 2.0x band
-     * sits far above the 0.9x accept threshold: no accept/betray oscillation.
+     * overwhelming, so a pacted duel endgame can't deadlock forever. The dominance
+     * band (2.0x on the neutral profile; a schemer's is tighter, a turtle's
+     * unreachable) sits far above the 0.9x accept threshold: no accept/betray
+     * oscillation.
      */
-    fun betrayalTargets(state: GameState, me: PlayerId): Set<PlayerId> {
+    fun betrayalTargets(
+        state: GameState,
+        me: PlayerId,
+        profile: AiProfile = AiProfile.NEUTRAL,
+    ): Set<PlayerId> {
         val d = state.diplomacy
         if (d.pacts.isEmpty()) return emptySet()
         val myPower = powerOf(state, me, me)
@@ -110,7 +120,7 @@ object DiplomacyPolicy {
                 else -> continue
             }
             if (pact.expiresAtRound - state.turnNumber < 3) continue // just wait it out
-            val dominant = myPower >= 2 * powerOf(state, me, partner)
+            val dominant = myPower >= profile.betrayalDominance * powerOf(state, me, partner)
             val lastObstacle = aliveCount(state) == 2 ||
                 state.ownedHexCount(partner) * 2 >= enemyLand
             if (dominant && lastObstacle) out.add(partner)
