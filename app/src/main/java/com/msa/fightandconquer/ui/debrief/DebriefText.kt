@@ -9,8 +9,10 @@ import com.msa.fightandconquer.ui.techNameRes
 /**
  * One line of the chronicle's story feed. Exhaustive over the sealed [KeyMoment] —
  * a new moment type fails to compile until it has a narrative (the UiText.kt idiom).
+ * [seatName] is the naming strategy: colour names by default (the debrief's legend
+ * maps colours to seats); the war report passes its Player N / AI N scheme instead.
  */
-fun KeyMoment.label(): UiText = when (this) {
+fun KeyMoment.label(seatName: (Int) -> UiText = ::colourSeatName): UiText = when (this) {
     is KeyMoment.CapitalLooted ->
         UiText.of(R.string.moment_capital_looted, seatName(by), seatName(victim), loot)
     is KeyMoment.PactBetrayed ->
@@ -47,4 +49,4 @@ val KeyMoment.victimSeat: Int?
         is KeyMoment.Breakthrough -> null
     }
 
-private fun seatName(seat: Int): UiText = UiText.of(seatNameRes(seat))
+private fun colourSeatName(seat: Int): UiText = UiText.of(seatNameRes(seat))

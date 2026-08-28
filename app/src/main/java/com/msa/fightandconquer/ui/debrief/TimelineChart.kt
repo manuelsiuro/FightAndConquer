@@ -16,11 +16,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.msa.fightandconquer.R
 import com.msa.fightandconquer.ui.UiColors
 
 /** One seat's curve: parallel [rounds]/[values]; an eliminated seat's just ends early. */
@@ -30,15 +32,17 @@ data class ChartSeries(val color: Color, val rounds: List<Int>, val values: List
 data class ChartMarker(val round: Int, val value: Int, val color: Color)
 
 /**
- * Axis-light multi-series timeline: hairline gridlines, min/max labels, one 2 dp line
- * per seat in its faction pastel, and an animated left-to-right draw-in. [filled] adds
- * the 12 % tint-ladder area under each curve (the debrief's territory lens).
+ * Axis-light multi-series timeline: labeled integer gridlines, min/max labels, one 2 dp
+ * line per seat in its faction pastel, and an animated left-to-right draw-in. [filled]
+ * adds the 12 % tint-ladder area under each curve (the debrief's territory lens).
+ * [yUnit] names what the Y axis measures, appended to the max label.
  */
 @Composable
 fun TimelineChart(
     series: List<ChartSeries>,
     markers: List<ChartMarker> = emptyList(),
     filled: Boolean = false,
+    yUnit: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val maxRound = (series.maxOfOrNull { it.rounds.lastOrNull() ?: 0 } ?: 0).coerceAtLeast(1)
@@ -52,6 +56,10 @@ fun TimelineChart(
     val labelStyle = TextStyle(fontSize = 10.sp, color = UiColors.inkMuted)
     val gridColor = UiColors.hairline
     val baselineColor = UiColors.divider
+    val topLabel = yUnit?.let { stringResource(R.string.chart_axis_max, maxValue, it) }
+        ?: maxValue.toString()
+    val startTurnLabel = stringResource(R.string.hud_turn, 1)
+    val endTurnLabel = stringResource(R.string.hud_turn, maxRound + 1)
 
     // The war redraws itself on every lens switch — progress restarts with the data.
     val progress = remember { Animatable(0f) }
@@ -68,11 +76,13 @@ fun TimelineChart(
         fun x(round: Int): Float = round.toFloat() / maxRound * chartWidth
         fun y(value: Int): Float = chartHeight - value.toFloat() / maxValue * chartHeight
 
-        // Grid: baseline plus thirds, full width, never clipped by the draw-in.
+        // Grid: baseline plus labeled integer lines, full width, never clipped by the draw-in.
         drawLine(baselineColor, Offset(0f, chartHeight), Offset(chartWidth, chartHeight), 1.dp.toPx())
-        for (third in 1..3) {
-            val gy = chartHeight - chartHeight * third / 3f
+        for (value in chartGridValues(maxValue)) {
+            val gy = y(value)
             drawLine(gridColor, Offset(0f, gy), Offset(chartWidth, gy), 1.dp.toPx())
+            val label = textMeasurer.measure(value.toString(), labelStyle)
+            drawText(label, topLeft = Offset(2.dp.toPx(), gy - label.size.height - 1.dp.toPx()))
         }
 
         clipRect(right = chartWidth * progress.value) {
@@ -105,24 +115,39 @@ fun TimelineChart(
             }
         }
 
-        // Min/max labels inside the frame, round span under the baseline (1-based,
+        // Min/max labels inside the frame, turn span under the baseline (1-based,
         // matching the HUD's turn counter).
-        drawText(textMeasurer, maxValue.toString(), Offset(2.dp.toPx(), 2.dp.toPx()), labelStyle)
+        drawText(textMeasurer, topLabel, Offset(2.dp.toPx(), 2.dp.toPx()), labelStyle)
         drawText(textMeasurer, "0", Offset(2.dp.toPx(), chartHeight - 14.sp.toPx()), labelStyle)
-        val endText = (maxRound + 1).toString()
-        val endLabel = textMeasurer.measure(endText, labelStyle)
-        drawText(textMeasurer, "1", Offset(0f, chartHeight + 2.dp.toPx()), labelStyle)
+        val endLabel = textMeasurer.measure(endTurnLabel, labelStyle)
+        drawText(textMeasurer, startTurnLabel, Offset(0f, chartHeight + 2.dp.toPx()), labelStyle)
         drawText(
             textMeasurer,
-            endText,
+            endTurnLabel,
             Offset(chartWidth - endLabel.size.width, chartHeight + 2.dp.toPx()),
             labelStyle,
         )
     }
 }
 
+/**
+ * Interior gridline values for a [niceCeil] max — 1-4 lines whose step is itself a
+ * friendly 1/2/5 × 10^k, so every label reads as a round number.
+ */
+internal fun chartGridValues(max: Int): List<Int> {
+    val divisor = listOf(5, 4, 2).firstOrNull { max % it == 0 && isFriendlyStep(max / it) }
+        ?: return emptyList()
+    return (1 until divisor).map { max / divisor * it }
+}
+
+private fun isFriendlyStep(step: Int): Boolean {
+    var mantissa = step
+    while (mantissa % 10 == 0) mantissa /= 10
+    return mantissa in listOf(1, 2, 5)
+}
+
 /** The smallest 1/2/5 × 10^k at or above [value] — chart tops land on friendly numbers. */
-private fun niceCeil(value: Int): Int {
+internal fun niceCeil(value: Int): Int {
     if (value <= 1) return 1
     var magnitude = 1
     while (magnitude * 10 <= value) magnitude *= 10

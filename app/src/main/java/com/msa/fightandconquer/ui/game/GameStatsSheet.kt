@@ -25,12 +25,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
 import com.msa.fightandconquer.ui.GameStatsState
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.UiText
 import com.msa.fightandconquer.ui.civNameRes
 import com.msa.fightandconquer.ui.debrief.ChartMarker
 import com.msa.fightandconquer.ui.debrief.ChartSeries
@@ -40,12 +44,12 @@ import com.msa.fightandconquer.ui.debrief.victimSeat
 import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.setup.scaleClickable
 
-/** What the war report's chart is currently graphing. */
-private enum class StatsLens(val labelRes: Int) {
-    TERRITORY(R.string.debrief_lens_territory),
-    ECONOMY(R.string.stats_lens_economy),
-    TREASURY(R.string.debrief_lens_treasury),
-    ARMY(R.string.stats_lens_army),
+/** What the war report's chart is currently graphing, and what its Y axis measures. */
+private enum class StatsLens(val labelRes: Int, val unitRes: Int) {
+    TERRITORY(R.string.debrief_lens_territory, R.string.stats_unit_hexes),
+    ECONOMY(R.string.stats_lens_economy, R.string.stats_unit_gold_per_turn),
+    TREASURY(R.string.debrief_lens_treasury, R.string.stats_unit_gold),
+    ARMY(R.string.stats_lens_army, R.string.stats_unit_strength),
 }
 
 /**
@@ -124,7 +128,18 @@ internal fun GameStatsSheet(stats: GameStatsState) {
                     HudMicroLabel(stringResource(R.string.stats_moment_round, moment.round + 1))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        moment.label().resolve(),
+                        // Seats named the sheet's way (Player N / AI N), not the
+                        // debrief's colour names — one naming scheme per surface.
+                        moment.label { seat ->
+                            UiText.of(
+                                if (stats.seatIsHuman.getOrElse(seat) { false }) {
+                                    R.string.hud_player
+                                } else {
+                                    R.string.hud_ai_player
+                                },
+                                seat + 1,
+                            )
+                        }.resolve(),
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         color = UiColors.ink,
@@ -147,14 +162,25 @@ private fun NowStrip(stats: GameStatsState) {
     ) {
         HudMicroLabel(stringResource(R.string.stats_now_label))
         Spacer(Modifier.width(10.dp))
+        val separator = stringResource(R.string.hud_stat_separator)
+        val income = stringResource(R.string.stats_income_value, stats.now.income)
+        val upkeep = stringResource(R.string.stats_upkeep_value, stats.now.upkeep)
+        val netSeparator = stringResource(R.string.stats_net_separator)
+        val territory = stringResource(R.string.stats_territory_value, stats.now.hexes, stats.now.territoryPercent)
+        val treasury = stringResource(R.string.stats_treasury_value, stats.now.treasury)
+        val units = stringResource(R.string.stats_units_value, stats.now.units)
+        val strength = stringResource(R.string.stats_strength_value, stats.now.strength)
         Text(
-            listOf(
-                stringResource(R.string.stats_territory_value, stats.now.hexes, stats.now.territoryPercent),
-                stringResource(R.string.stats_net_value, stats.now.income, stats.now.upkeep),
-                stringResource(R.string.stats_treasury_value, stats.now.treasury),
-                stringResource(R.string.stats_units_value, stats.now.units),
-                stringResource(R.string.stats_strength_value, stats.now.strength),
-            ).joinToString(stringResource(R.string.hud_stat_separator)),
+            // Income and upkeep carry the economy chart's colours — same data, same ink.
+            buildAnnotatedString {
+                append(territory)
+                append(separator)
+                withStyle(SpanStyle(color = UiColors.positive)) { append(income) }
+                append(netSeparator)
+                withStyle(SpanStyle(color = UiColors.alert)) { append(upkeep) }
+                append(separator)
+                append(listOf(treasury, units, strength).joinToString(separator))
+            },
             fontSize = 12.sp,
             lineHeight = 17.sp,
             fontWeight = FontWeight.SemiBold,
@@ -190,7 +216,12 @@ private fun StatsChart(stats: GameStatsState, faction: androidx.compose.ui.graph
         )
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        TimelineChart(series, markers, filled = lens == StatsLens.TERRITORY)
+        TimelineChart(
+            series,
+            markers,
+            filled = lens == StatsLens.TERRITORY,
+            yUnit = stringResource(lens.unitRes),
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             lenses.forEach { candidate ->
                 StatsLensChip(
@@ -200,6 +231,25 @@ private fun StatsChart(stats: GameStatsState, faction: androidx.compose.ui.graph
                 )
             }
         }
+        if (lens == StatsLens.ECONOMY) EconomyLegend()
+    }
+}
+
+/** Names the economy lens' two lines — the one lens whose colours aren't the faction's. */
+@Composable
+private fun EconomyLegend() {
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        LegendEntry(UiColors.positive, stringResource(R.string.debrief_lens_income))
+        LegendEntry(UiColors.alert, stringResource(R.string.stats_legend_upkeep))
+    }
+}
+
+@Composable
+private fun LegendEntry(color: androidx.compose.ui.graphics.Color, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).background(color, CircleShape))
+        Spacer(Modifier.width(6.dp))
+        Text(text, fontSize = 12.sp, color = UiColors.inkSecondary)
     }
 }
 

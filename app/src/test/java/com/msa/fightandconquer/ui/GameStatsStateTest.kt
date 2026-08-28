@@ -56,11 +56,12 @@ class GameStatsStateTest {
             strength = listOf(0, 1, 1),
         ),
         moments: List<KeyMoment> = emptyList(),
+        secondSeatHuman: Boolean = true,
     ) = MatchRecorderState(
         meta = MatchMeta(kind = MatchKind.SKIRMISH_VS_AI, seed = 1L, landHexes = 20, fogOfWar = false),
         seats = listOf(
             SeatDescriptor(isHuman = true, civ = Civilization.KINGDOM),
-            SeatDescriptor(isHuman = true, civ = Civilization.VIKINGS),
+            SeatDescriptor(isHuman = secondSeatHuman, civ = Civilization.VIKINGS),
         ),
         series = listOf(series, SeatSeries(rounds = listOf(0), hexes = listOf(1))),
         moments = moments,
@@ -104,6 +105,12 @@ class GameStatsStateTest {
         assertEquals(listOf(2), stats.strengthRounds)
         assertEquals(listOf(7), stats.strength)
         assertEquals(listOf(0, 1, 2), stats.rounds)
+    }
+
+    @Test
+    fun `seat kinds ride along for the sheet's naming`() {
+        val stats = buildGameStats(record(secondSeatHuman = false), state(), me)
+        assertEquals(listOf(true, false), stats.seatIsHuman)
     }
 
     @Test
