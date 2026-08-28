@@ -3,9 +3,9 @@ package com.msa.fightandconquer.core.ai
 import com.msa.fightandconquer.core.engine.GameAction
 import com.msa.fightandconquer.core.engine.Rules
 import com.msa.fightandconquer.core.hex.HexMath
-import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.GameState
+import com.msa.fightandconquer.core.model.Terrain
 
 /**
  * Beacon lighting as a threshold policy — the single owner of "spend gold on
@@ -45,6 +45,7 @@ internal object BeaconPolicy {
         val lit = Rules.litHexes(state)
         var best: com.msa.fightandconquer.core.hex.Hex? = null
         var bestSheltered = MIN_SHELTERED - 1
+        var bestSquattable = 0
         val candidates = state.tiles.entries
             .filter { (_, tile) ->
                 tile.owner == me && !tile.beacon &&
@@ -53,25 +54,32 @@ internal object BeaconPolicy {
             .sortedBy { it.key.packed }
         for ((hex, tile) in candidates) {
             val radius = Rules.beaconRadiusOf(tile.building!!)!!
+            // Count only what monsters can actually touch (the NightPipeline
+            // gates, verbatim): strikes need a non-naval unit on unbuilt LAND,
+            // and only unbuilt LAND can be squatted (spawn/passable both
+            // require building == null; building income is never suppressed).
             var sheltered = 0
+            var squattable = 0
             for (h in HexMath.range(hex, radius)) {
                 if (h in lit) continue // already someone else's light
                 val t = state.tiles[h] ?: continue
-                if (t.unit != null && state.units[t.unit]?.owner == me) sheltered++
-                if (t.owner == me) {
-                    when (t.building) {
-                        Building.CAPITAL -> sheltered += 3
-                        Building.FARM, Building.MINE, Building.MARKET, Building.LUMBER_CAMP,
-                        Building.PORT, Building.FISHERY, Building.BANK,
-                        -> sheltered++
-                        else -> {}
-                    }
+                if (t.terrain != Terrain.LAND || t.building != null) continue
+                val defender = t.unit?.let { state.units[it] }
+                if (defender != null) {
+                    if (defender.owner == me && !Rules.isNaval(defender.type)) sheltered++
+                } else if (t.owner == me) {
+                    squattable++
                 }
             }
-            // Strictly-greater keeps the packed-smallest winner on ties.
-            if (sheltered > bestSheltered) {
+            // Strictly-greater keeps the packed-smallest winner on ties;
+            // squattable ground covered breaks unit ties only (it merely
+            // loses a night's income, never a unit).
+            if (sheltered > bestSheltered ||
+                (sheltered == bestSheltered && best != null && squattable > bestSquattable)
+            ) {
                 best = hex
                 bestSheltered = sheltered
+                bestSquattable = squattable
             }
         }
         return best?.let { GameAction.UpgradeBuilding(it) }

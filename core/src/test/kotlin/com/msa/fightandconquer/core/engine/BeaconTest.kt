@@ -1,5 +1,6 @@
 package com.msa.fightandconquer.core.engine
 
+import com.msa.fightandconquer.core.TestStates
 import com.msa.fightandconquer.core.TestStates.assertInvariants
 import com.msa.fightandconquer.core.TestStates.hex
 import com.msa.fightandconquer.core.TestStates.strip
@@ -179,6 +180,52 @@ class BeaconTest {
         assertInvariants(after)
     }
 
+    @Test
+    fun `surrender razes the quitter's buildings and their beacons`() {
+        val s = strip(9, 0..3, 6..8, rules = dayRules)
+            .withBuilding(Building.TOWER, hex(2)).withBeacon(hex(2))
+        val engine = GameEngine(s)
+        assertEquals(LegalityResult.Ok, engine.submit(GameAction.Surrender))
+        val tile = engine.state.value.tiles.getValue(hex(2))
+        assertEquals(null, tile.building)
+        assertEquals(false, tile.beacon)
+        assertInvariants(engine.state.value)
+    }
+
+    @Test
+    fun `capital relocation onto a lit tower razes the tower, its beacon and emits the destruction`() {
+        // P1's only remaining region is the single lit-tower hex — the
+        // relocation ladder's last-resort fallback must overwrite it cleanly.
+        val s = TestStates.custom(
+            owners = mapOf(
+                hex(0) to 0, hex(1) to 0, hex(2) to 0, hex(3) to 0,
+                hex(4) to 1, hex(5) to null, hex(6) to 1,
+            ),
+            capital0 = hex(0),
+            capital1 = hex(4),
+            rules = dayRules,
+        )
+            .withBuilding(Building.TOWER, hex(6)).withBeacon(hex(6))
+            .withUnit(owner = 0, tier = 4, at = hex(3))
+        val engine = GameEngine(s)
+        assertEquals(
+            LegalityResult.Ok,
+            engine.submit(GameAction.MoveUnit(s.tiles.getValue(hex(3)).unit!!, hex(4))),
+        )
+        val after = engine.state.value
+        assertEquals(hex(6), after.player(PlayerId(1)).capital)
+        val tile = after.tiles.getValue(hex(6))
+        assertEquals(Building.CAPITAL, tile.building)
+        assertEquals(false, tile.beacon)
+        assertTrue(
+            "the overwritten tower's destruction is announced",
+            engine.lastEvents.any {
+                it is GameEvent.BuildingDestroyed && it.hex == hex(6) && it.building == Building.TOWER
+            },
+        )
+        assertInvariants(after)
+    }
+
     // --- Lit-hex derivation ---
 
     @Test
@@ -265,6 +312,24 @@ class BeaconTest {
             .filterIsInstance<GameEvent.MonsterMoved>().single()
         assertEquals(hex(3), move.from)
         assertEquals("steps out of the light, away from it", hex(4), move.to)
+        assertInvariants(engine.state.value)
+    }
+
+    @Test
+    fun `a monster with every exit lit is driven out entirely`() {
+        // Fortress at hex(2) lights 0..4; the monster at 3 stands walled
+        // between the fortress hex and lit ground — no strike, no exit — so
+        // the light despawns it instead of freezing it on safe-painted ground.
+        val s = strip(9, 0..2, 6..8, rules = nightRules)
+            .withBuilding(Building.FORTRESS, hex(2)).withBeacon(hex(2))
+            .withMonster(hex(3), tier = 1)
+        val engine = GameEngine(s)
+        val events = playToFirstActionPhase(engine)
+        assertTrue(
+            "the enclosed monster despawns",
+            events.any { it is GameEvent.MonsterDespawned && it.hex == hex(3) },
+        )
+        assertEquals(null, engine.state.value.tiles.getValue(hex(3)).monster)
         assertInvariants(engine.state.value)
     }
 
