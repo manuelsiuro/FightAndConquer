@@ -261,13 +261,44 @@ Stateless greedy: `AiPlayer(difficulty).chooseAction(state)` = argmax over
 (`Evaluator.score` on the resulting state), or `EndTurn` when nothing beats the
 baseline. Driven by the ViewModel loop (≤ `MAX_ACTIONS_PER_TURN = 500`).
 
+Every decision reads an `AiProfile` (`ai/AiProfile.kt`) — the single tuning
+surface of evaluator multipliers, policy thresholds, and structure caps. A seat's
+profile folds its difficulty with its `AiPersonality` (raider / turtle / admiral
+/ schemer, `model/AiPersonality.kt`): explicit on `PlayerKind.Ai`/`SeatDef.Ai`
+when authored, otherwise derived from the immutable `GameConfig.seed` and the
+seat id — stable for the whole game (saves and replays included), distinct
+across seats, reshuffled by every new seed. EASY and PASSIVE always play the
+NEUTRAL profile (the beatable rookie keeps its identity and the campaign's
+teaching levels their tuning); HARD plays the full preset; NORMAL blends the
+preset's scalars halfway back to neutral and jitters harder. The argmax adds a
+seeded score jitter per candidate (a SplitMix64 hash of game seed × seat ×
+round × hand-rolled action fingerprint — never `rngState`, which advances
+mid-turn, and never enum/data hashCodes, which are not stable across JVM runs):
+±0.5–0.75 points reorder near-equal choices between games while the same save
+replays byte-identically.
+
+`Strategy.assess` (`ai/Strategy.kt`) computes one frozen strategic read per
+decision — front hexes, a BFS distance-to-front field, the strongest-opponent
+focus, per-hex **cut values** (how many enemy tiles lose their food line if a
+border hex falls, mirroring the reducer's feeding model; under fog an enemy
+whose capital is unseen is not analyzed), visible threat units, and defense
+gaps. Pure and uncached on purpose: the ViewModel builds a fresh `AiPlayer` per
+action while the simulation tests reuse one, and instance memory would make the
+two drive modes diverge. When the argmax settles on `EndTurn`,
+`RepositionPolicy` (Normal/Hard) marches one idle rear soldier a strictly-closer
+step down the distance field — Antiyoy's relocate phase, the piece a one-ply
+argmax structurally cannot provide — bounded by the spent flag.
+
 Candidates: unit captures (never onto active pact partners — except Hard's marked
 betrayal targets), tree-clear moves (camp-managed trees excluded), merges only when
 the merged tier breaks a current frontier defense, buy-capture with the cheapest
 sufficient tier, peasants onto own trees, towers on threatened borders (top 3),
 farms with spare cash, mines on every owned vein, markets on interior hexes
 (≤ 3 owned — uncapped market spam was an observed turtling stalemate mode),
-lumber camps at ≥ 2 adjacent own trees (top 2 each, Normal/Hard), catapults where
+lumber camps at ≥ 2 adjacent own trees (top 2 each, Normal/Hard), bridges over
+one-hex straits to non-partner land as ordinary candidates (top 2), rear-guard
+`DisbandUnit` offers when net income strains (the evaluator arbitrates — a
+useful reserve is never sold), catapults where
 building defense is the blocker (top 4), archers ranked by aura gain (top 3),
 Hard-only fog watchtowers scored by never-seen positions (pure geometry — probing
 `state.tiles` for unseen hexes would leak the coastline), ports on coastal spots,
@@ -277,7 +308,10 @@ fisheries ranked by capped shoals-in-range (`Rules.shoalsWithin`, radius
 banks interior-capped at 2, Hard-only threat-gated fortresses capped at 2; port
 candidates wait for NAVIGATION), warship raids (`Bombard` where defense < warship
 strength) and warship buys when enemy WAR boats are visible (a fishing dory is
-prey — evaluator −1 — never a purchase trigger). Easy skips structures
+prey — evaluator −1 — never a purchase trigger; admirals also buy against any
+beatable coastal target). Towers rank by PREDICTED COVERAGE — how many contested
+own hexes the aura actually hardens, threshold from the profile — not by the
+tower hex's own exposure. Easy skips structures
 until income > 15 and never touches diplomacy or specials.
 
 Evaluator: hexes dominate (`14/hex`, Easy `12`), income has diminishing returns
@@ -289,8 +323,15 @@ Deposits/buildings carry explicit ASSET terms (vein +10, vein-with-mine +18,
 fertile +6, market +4+adjacency, camp +3+trees, fog watchtower +6; Easy gets none)
 because past net +10 the income curve alone would stop all economy building.
 Normal/Hard add pact value (+10/+14 per pact with a ≥1.2× stronger partner, +4
-otherwise) so simulated betrayals lose the term and pay the penalty. Hard adds
-`+8/enemy starving tile` (slicing), `−1.5/exposed border hex` (retake awareness,
+otherwise) so simulated betrayals lose the term and pay the penalty. Normal/Hard
+price slicing at `12·cutWeight/enemy starving tile` plus `+3·cutWeight` per
+enemy unit standing on one (they die at their own turn start), carry a
+counter-attack term (−0.8·weight × Σ strength of visible enemy land units on or
+beside my territory — killing a raider finally outbids expanding politely), and
+an army-value term: a soldier sized to a wall or raider that actually exists
+scores +0.6·tier while peasants beyond the open frontier plus slack score −1
+each — the peasant-spam fix, and what lets a justified disband win the argmax.
+Hard adds `−1.5/exposed border hex` (retake awareness,
 strength-aware) and an idle-catapult upkeep nudge. Easy also considers only
 ~60 % of candidates (deterministic hash on `rngState + index`).
 
@@ -303,12 +344,18 @@ gets its own ladder, `ai/ResearchPolicy.kt`, consulted between diplomacy and
 the naval steps: research state only mutates at turn start, so it is constant
 inside any one-ply comparison and no evaluator term could steer it. The policy
 yields to capital threats (`Tiers.capitalThreat`), founds a University past a
-per-difficulty size/net threshold, holds a war reserve (zero when genuinely
+size/net threshold that now SCALES DOWN with the map (`min(max(6, land/14),`
+historical bar) — the fixed 12-hex gate was rarely met on small contested
+boards, so the whole tech tree went unused there; personalities nudge the gate
+and schemers fund second universities), holds a war reserve (zero when genuinely
 sea-locked — an island flood-fill, where research IS the war effort), and walks
-a fixed per-difficulty priority list (HARD offense-first with STONE last as the
-anti-turtle ordering; NORMAL a short economy list; EASY researches exactly
-NAVIGATION and only when sea-locked, keeping the beatable-rookie identity while
-the two-island invasion gate stays reachable). The naval ladder's port steps
+a priority list: the profile's `ResearchOrder` flavor on open ground (offense /
+economy / naval / scholarly / bulwark — fixed deterministic permutations of the
+same twelve techs), the per-difficulty scripts when sea-locked or rookie (HARD
+offense-first with STONE last as the anti-turtle ordering; NORMAL a short
+economy list; EASY researches exactly NAVIGATION and only when sea-locked,
+keeping the beatable-rookie identity while the two-island invasion gate stays
+reachable). The naval ladder's port steps
 stay dormant until this policy has funded NAVIGATION. Since Smithing/Armory
 retired the "soldier strength == tier" identity, every tier computation solves
 through `Rules.buyStrength`/`buyDefense` via `ai/Tiers.kt` — reductions that
@@ -368,8 +415,11 @@ Normal accepts ≥ 0.9× power or when fighting on two fronts; Hard also decline
 prey and 1-v-1 pacts), then at most one initiative (propose to a ≥ 1.1× stronger
 neighbor under multi-front pressure — state-side cooldowns make oscillation
 structurally impossible — or tribute a ≥ 1.5× bully when the pact route is on
-cooldown). Hard betrays a pacted partner only at ≥ 2× dominance when that partner
-is the last obstacle, which keeps pacted duels from deadlocking.
+cooldown). The proposal and betrayal bands come from the profile: Hard betrays a
+pacted partner only past its dominance band (2× on neutral, 1.5× for the
+schemer, unreachable for the turtle) when that partner is the last obstacle,
+which keeps pacted duels from deadlocking; schemers also court neighbors the
+neutral profile would not.
 
 ## Testing (`core/src/test/`)
 
@@ -385,7 +435,15 @@ is the last obstacle, which keeps pacted duels from deadlocking.
   and the decisive-marine ladder; see roadmap.md's landed entry); Easy expands
   within 3 rounds; turns < 1 s on LARGE; AI games fully deterministic; fog
   games terminate across seeds 1–10 and mixed-civ across 1–4 (every
-  historical seed dodge is retired).
+  historical seed dodge is retired); two different game seeds on the same map
+  must diverge within ten rounds (the personality/jitter variety gate) while
+  pinned-personality reruns stay byte-identical.
+- Personality/strategy suites: `AiPersonalityTest` (seed derivation, per-seat
+  distinctness, explicit override), `StrategyTest` (cut values on an isthmus,
+  distance fields, fog honesty), `CutAiTest` (the cut is executed, not just
+  detected), `CounterAttackAiTest`, `RepositionAiTest`, `ToolboxAiTest`
+  (bridge/tower-coverage/disband tripwires + the no-peasant-swarm gate), and
+  `PersonalityHooksTest` (each policy knob read from the profile).
 - Expansion suites: `DepositEconomyTest` (per-building income rules, spread
   suppression, capture semantics), `DepositGenerationTest` (fairness property
   tests), `SpecialUnitTest` (aura/bypass/range/merge/upkeep), `DiplomacyTest`

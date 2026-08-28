@@ -53,6 +53,38 @@ class ToolboxAiTest {
     }
 
     @Test
+    fun `a bridge reaching foreign land is an asset the argmax can fund`() {
+        // The purchase captures nothing the turn it lands, so without an asset
+        // term the simulated score could only drop and no bridge would ever be
+        // bought outside the war chest.
+        var state = TestStates.custom(
+            owners = mapOf(
+                hex(0, 0) to 0, hex(1, 0) to 0, hex(2, 0) to 0,
+                hex(3, 0) to null,
+                hex(4, 0) to 1, hex(5, 0) to 1,
+            ),
+            capital0 = hex(0, 0),
+            capital1 = hex(5, 0),
+            rules = RuleConstants(navalEnabled = true),
+        )
+        state = state.copy(
+            tiles = state.tiles + (hex(3, 0) to Tile(owner = null, terrain = Terrain.SEA)),
+        )
+        val spanned = state.copy(
+            tiles = state.tiles + (
+                hex(3, 0) to Tile(
+                    owner = com.msa.fightandconquer.core.model.PlayerId(0),
+                    terrain = Terrain.SEA,
+                    building = com.msa.fightandconquer.core.model.Building.BRIDGE,
+                )
+                ),
+        )
+        val without = Evaluator.score(state, com.msa.fightandconquer.core.model.PlayerId(0), Difficulty.NORMAL)
+        val with = Evaluator.score(spanned, com.msa.fightandconquer.core.model.PlayerId(0), Difficulty.NORMAL)
+        assertTrue("a war bridge must score above no bridge ($with vs $without)", with > without)
+    }
+
+    @Test
     fun `towers cover contested ground and interior spots never qualify`() {
         // P0 flower around (0,0); enemy hexes press the eastern petals.
         val owners = HashMap<Hex, Int?>()

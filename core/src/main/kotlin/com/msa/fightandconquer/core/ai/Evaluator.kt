@@ -166,6 +166,22 @@ object Evaluator {
             if (state.config.rules.navalEnabled) {
                 // Ports are gateway assets (supply + boat yard), but two is plenty.
                 score += 6.0 * profile.navalWeight * min(myPorts, 2)
+                // A bridge REACHING foreign land is a second front the argmax can
+                // fund on its own (its purchase captures nothing, so without an
+                // asset term the simulated score only ever drops). Kept small and
+                // capped: territory it is not (see the terrain filter above —
+                // pricing bridge hexes as land had the AI paving the sea).
+                var warBridges = 0
+                for ((hex, tile) in state.tiles) {
+                    if (tile.owner != me || tile.building != Building.BRIDGE) continue
+                    val opensFront = com.msa.fightandconquer.core.hex.HexMath.neighbors(hex).any { n ->
+                        val t = state.tiles[n]
+                        t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                            t.owner != me && t.owner !in partners
+                    }
+                    if (opensFront) warBridges++
+                }
+                score += 4.0 * min(warBridges, 2)
                 // Enemy WAR boats are threats worth sinking (+4 per kill via this
                 // term); a fisherman is not an invasion — just a snack worth
                 // taking when a warship is already alongside, never worth buying
