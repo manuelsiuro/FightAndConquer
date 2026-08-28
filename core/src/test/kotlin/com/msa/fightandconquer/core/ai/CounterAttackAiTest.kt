@@ -31,16 +31,20 @@ class CounterAttackAiTest {
 
     @Test
     fun `a raider at the fence lowers the position score`() {
+        // The frozen threat list is the reference (the visibleOverride idiom):
+        // the same set scores both positions, so the state where the raider
+        // is DEAD reads as the gain.
         val threatened = raidedBorder()
+        val threats = Strategy.assess(threatened, PlayerId(0), AiProfile.NEUTRAL, null).threatUnits
+        assertTrue("the raider must register as a threat", threats.isNotEmpty())
         val quiet = threatened.copy(
             units = emptyMap(),
             tiles = threatened.tiles.mapValues { (_, t) -> t.copy(unit = null) },
         )
-        val visible = null
-        val with = Evaluator.score(threatened, PlayerId(0), Difficulty.NORMAL, visible)
-        val without = Evaluator.score(quiet, PlayerId(0), Difficulty.NORMAL, visible)
+        val with = Evaluator.score(threatened, PlayerId(0), Difficulty.NORMAL, null, AiProfile.NEUTRAL, threats)
+        val without = Evaluator.score(quiet, PlayerId(0), Difficulty.NORMAL, null, AiProfile.NEUTRAL, threats)
         assertTrue(
-            "an enemy soldier beside my land must read as pressure (with=$with without=$without)",
+            "a dead raider must out-score a live one (with=$with without=$without)",
             without > with,
         )
     }

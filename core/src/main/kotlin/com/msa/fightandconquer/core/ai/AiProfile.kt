@@ -55,8 +55,14 @@ data class AiProfile(
     val researchOrder: ResearchOrder = ResearchOrder.BALANCED,
     /** Open the naval invasion ladder on mixed maps when the sea flank is softer. */
     val amphibious: Boolean = false,
-    /** Minimum own hexes a tower must actually harden to be worth proposing. */
-    val towerGainThreshold: Int = 2,
+    /**
+     * Minimum contested own hexes a tower must actually harden to be worth
+     * proposing. 1 matches the historical eagerness (the old rule accepted any
+     * uncovered border spot — the tower hex itself counts); raiders demand more.
+     */
+    val towerGainThreshold: Int = 1,
+    /** Minimum aura gain before an archer is proposed (historical: 2). */
+    val archerGainThreshold: Int = 2,
     // --- Structure caps: economy buildings are a garnish, not a wall-to-wall
     // strategy, and uncapped fortresses are the turtle-stalemate risk ---
     val maxMarkets: Int = 3,
@@ -74,9 +80,13 @@ data class AiProfile(
          */
         fun resolve(state: GameState, me: PlayerId, difficulty: Difficulty): AiProfile {
             if (difficulty == Difficulty.EASY || difficulty == Difficulty.PASSIVE) return NEUTRAL
-            val personality = (state.player(me).kind as? PlayerKind.Ai)?.personality
-                ?: derivedPersonality(state.config.seed, me)
-            return of(difficulty, personality)
+            // Personalities belong to AI SEATS. A Human chair driven by an
+            // AiPlayer (the campaign playthrough stand-in, autoplay) is a
+            // stand-in for a competent player, not a someone — it plays the
+            // neutral profile, which also keeps the campaign catalogue's
+            // solvability gates out of the personality reshuffle.
+            val kind = state.player(me).kind as? PlayerKind.Ai ?: return NEUTRAL
+            return of(difficulty, kind.personality ?: derivedPersonality(state.config.seed, me))
         }
 
         /**
@@ -110,7 +120,7 @@ data class AiProfile(
                     hexWeight = 0.9, counterAttackWeight = 1.2,
                     assetWeight = 1.2, defenseWeight = 1.5,
                     jitterAmplitude = 1.0,
-                    towerGainThreshold = 1, maxFortresses = 3,
+                    archerGainThreshold = 1, maxFortresses = 3,
                     betrayalDominance = 99.0,
                     researchOrder = ResearchOrder.BULWARK,
                 )

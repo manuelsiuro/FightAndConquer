@@ -89,7 +89,7 @@ class AiPlayer(private val difficulty: Difficulty) {
         // The strategic read is frozen alongside visibility: candidates are
         // GENERATED from what is true now, then judged by simulation.
         val context = Strategy.assess(state, me, profile, frozenVisible)
-        val baseline = Evaluator.score(state, me, difficulty, frozenVisible, profile)
+        val baseline = Evaluator.score(state, me, difficulty, frozenVisible, profile, context.threatUnits)
         var best: GameAction = GameAction.EndTurn
         var bestScore = baseline
 
@@ -118,7 +118,8 @@ class AiPlayer(private val difficulty: Difficulty) {
                 profile.jitterAmplitude *
                     (Math.floorMod(Rng.output(key), 1024L) / 1024.0 - 0.5)
             }
-            val score = Evaluator.score(result.state, me, difficulty, frozenVisible, profile) + noise
+            val score =
+                Evaluator.score(result.state, me, difficulty, frozenVisible, profile, context.threatUnits) + noise
             if (score > bestScore + EPSILON) {
                 best = action
                 bestScore = score

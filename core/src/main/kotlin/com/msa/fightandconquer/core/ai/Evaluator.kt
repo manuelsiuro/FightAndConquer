@@ -20,6 +20,17 @@ object Evaluator {
         difficulty: Difficulty,
         visibleOverride: Set<com.msa.fightandconquer.core.hex.Hex>? = null,
         profile: AiProfile = AiProfile.NEUTRAL,
+        /**
+         * Enemy units that threatened my territory at the TURN'S START (the
+         * frozen [StrategicContext.threatUnits]) — the visibleOverride idiom
+         * for soldiers. The counter-attack term prices only these: one killed
+         * is a gain, but an enemy newly ADJACENT after a candidate advance
+         * must never read as a fresh penalty — pricing contact itself turns
+         * the term into a repulsion field that steers expansion AWAY from the
+         * war (measured on crown_granary: the stand-in fled its EASY attacker
+         * south into a thin ribbon and was cut apart).
+         */
+        threats: Collection<com.msa.fightandconquer.core.model.UnitId> = emptyList(),
     ): Double {
         (state.phase as? GamePhase.Finished)?.let {
             return if (it.winner == me) 1e9 else -1e9
@@ -300,16 +311,24 @@ object Evaluator {
         }
 
         // Counter-attack pressure (Normal/Hard, every map): an enemy soldier
-        // standing on or beside my territory is a raid in progress — a candidate
-        // that kills it scores the removal on top of any hex it takes, which is
-        // what makes recapturing a fresh enemy foothold beat expanding politely
-        // somewhere quiet. The naval invader term below still prices deep
-        // beachheads on top. Enemy units already starving are bonus corpses:
-        // they die at their own turn start, the payoff of a landed cut.
+        // that threatened my territory at the turn's start is a raid in
+        // progress — a candidate that kills it scores the removal on top of
+        // any hex it takes, which is what makes recapturing a fresh enemy
+        // foothold beat expanding politely somewhere quiet. Priced from the
+        // FROZEN threat list only (see the parameter doc): contact made by my
+        // own advance is never a penalty. The naval invader term below still
+        // prices deep beachheads on top. Enemy units already starving are
+        // bonus corpses: they die at their own turn start, the payoff of a
+        // landed cut.
         if (difficulty != Difficulty.EASY) {
             var threatStrength = 0
             var maxThreat = 0
             var starvingEnemies = 0
+            for (id in threats) {
+                val u = state.units[id] ?: continue // already dead: the payoff
+                if (u.owner == me) continue
+                threatStrength += Rules.strengthOf(state, u)
+            }
             for (u in state.units.values) {
                 if (u.owner == me || u.owner in partners || Rules.isNaval(u.type)) continue
                 if (visible != null && u.hex !in visible) continue
@@ -318,7 +337,6 @@ object Evaluator {
                     com.msa.fightandconquer.core.hex.HexMath.neighbors(u.hex).any { it in ownLand }
                 if (near) {
                     val s = Rules.strengthOf(state, u)
-                    threatStrength += s
                     if (s > maxThreat) maxThreat = s
                 }
             }

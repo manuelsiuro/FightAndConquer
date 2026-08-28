@@ -59,9 +59,12 @@ class AiPersonalityTest {
     }
 
     @Test
-    fun `normal and hard resolve a personality for every seat`() {
-        val state = TestStates.strip(9, 0..2, 6..8)
+    fun `normal and hard resolve a personality for every AI seat`() {
+        val base = TestStates.strip(9, 0..2, 6..8)
         for (difficulty in listOf(Difficulty.NORMAL, Difficulty.HARD)) {
+            val state = base.copy(
+                players = base.players.map { it.copy(kind = PlayerKind.Ai(difficulty)) },
+            )
             val profile = AiProfile.resolve(state, PlayerId(1), difficulty)
             assertTrue("$difficulty must play a personality", profile.personality != null)
             assertEquals(
@@ -70,5 +73,15 @@ class AiPersonalityTest {
                 AiProfile.resolve(state, PlayerId(1), difficulty),
             )
         }
+    }
+
+    @Test
+    fun `a human chair driven by an AI stand-in plays the neutral profile`() {
+        // Campaign playthroughs and autoplay put an AiPlayer in the Human seat:
+        // that is a stand-in for a competent player, never a someone — and it
+        // keeps the campaign solvability gates out of the personality reshuffle.
+        val state = TestStates.strip(9, 0..2, 6..8)
+        assertEquals(AiProfile.NEUTRAL, AiProfile.resolve(state, PlayerId(0), Difficulty.NORMAL))
+        assertEquals(AiProfile.NEUTRAL, AiProfile.resolve(state, PlayerId(0), Difficulty.HARD))
     }
 }

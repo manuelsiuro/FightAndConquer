@@ -394,7 +394,7 @@ object MoveGenerator {
                                 }
                         }
                         .map { it.key to auraGain(state, it.key, me) }
-                        .filter { it.second >= profile.towerGainThreshold }
+                        .filter { it.second >= profile.archerGainThreshold }
                         .sortedWith(compareByDescending<Pair<Hex, Int>> { it.second }.thenBy { it.first.packed })
                         .take(3)
                         .forEach {
@@ -539,13 +539,18 @@ object MoveGenerator {
         // --- Upkeep relief: on a strained economy, offer to pension off units
         // parked deep behind the line. The evaluator arbitrates — the freed
         // upkeep and the surplus-peasant penalty must actually beat the army
-        // value lost, so a useful reserve is never sold off. ---
+        // value lost, so a useful reserve is never sold off. Only units that
+        // actually COST upkeep and have not acted this turn: under zeroed
+        // upkeep (the Academy teaching levels) the 50% refund is free money to
+        // the evaluator, and the stand-in sold its own opening army mid-lesson. ---
         if (context != null && difficulty != Difficulty.EASY &&
             income - Rules.upkeepOf(state, me) <= 2
         ) {
             state.units.values
                 .filter { u ->
-                    u.owner == me && u.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER &&
+                    u.owner == me && !u.spent &&
+                        u.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER &&
+                        eff.unitUpkeep[u.tier - 1] > 0 &&
                         (context.distanceToFront[u.hex] ?: Int.MAX_VALUE) > 2
                 }
                 .sortedBy { it.id.value }

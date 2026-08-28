@@ -298,19 +298,26 @@ internal object NavalPolicy {
                 // fleet freezes at sea forever while the war stalemates.
                 Sailing.sailToward(state, boat, nearCapital)?.let { return it }
                 Sailing.sailToward(state, boat, strikeable)?.let { return it }
-            } else {
-                // 3b: nothing to strike — bring the marine home as garrison.
-                val homeLanding = HexMath.neighbors(boat.hex)
-                    .filter { it in homeland }
-                    .map { GameAction.Disembark(boat.id, it) }
-                    .firstOrNull { Legality.check(state, it) is LegalityResult.Ok }
-                homeLanding?.let { return it }
-                val landable = homeland.filter { h ->
-                    val t = state.tiles[h]
-                    t != null && t.owner == me && t.unit == null && t.building == null
-                }
-                Sailing.sailToward(state, boat, landable)?.let { return it }
+                // Closing on NOTHING despite a beatable beach = the convoy is
+                // jammed (hulls walling a narrow channel block every
+                // strictly-closer step). Fall through to 3b: unload home, free
+                // the lane, and let the war economy recycle what the jam
+                // stranded. Without this, six committed transports gridlocked
+                // a 3-wide strait at mutual EndTurn from ~round 120 to the
+                // two-island termination cap.
             }
+            // 3b: nothing to strike — or no way to close on it — bring the
+            // marine home as garrison.
+            val homeLanding = HexMath.neighbors(boat.hex)
+                .filter { it in homeland }
+                .map { GameAction.Disembark(boat.id, it) }
+                .firstOrNull { Legality.check(state, it) is LegalityResult.Ok }
+            homeLanding?.let { return it }
+            val landable = homeland.filter { h ->
+                val t = state.tiles[h]
+                t != null && t.owner == me && t.unit == null && t.building == null
+            }
+            Sailing.sailToward(state, boat, landable)?.let { return it }
         }
 
         // 2c. Sea control (HARD only): enemy ferries on the water are an

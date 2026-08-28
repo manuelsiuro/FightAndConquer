@@ -77,6 +77,32 @@ internal object MilitaryPolicy {
         // marine ladder (which saves for tier 2+) is what the hall unlocks.
         val seaDemand = rules.navalEnabled && frontier.isEmpty() &&
             state.players.any { !it.eliminated && it.id != me && it.id !in partners }
+        // The tier the SEA war waits on: the weakest fog-visible enemy coastal
+        // hex, solved ungated (0 = no naval siege). A coast sealed wall-to-wall
+        // with strong towers demands tier 4 — and unlike a land wall there is
+        // no catapult path (siege demand never fires without a land frontier),
+        // so the heavy keep is the ONLY crack. A tier-3-locked island pair
+        // stalemates forever otherwise (the peasant-locked lesson, at sea).
+        val seaDemandTier = if (!seaDemand) {
+            0
+        } else {
+            val visible = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
+            var minCoast = Int.MAX_VALUE
+            for ((hex, tile) in state.tiles) {
+                if (tile.terrain != Terrain.LAND) continue
+                val owner = tile.owner ?: continue
+                if (owner == me || owner in partners) continue
+                if (visible != null && hex !in visible) continue
+                if (HexMath.neighbors(hex).none { state.tiles[it]?.terrain == Terrain.SEA }) continue
+                val d = Rules.defenseOf(state, hex)
+                if (d < minCoast) minCoast = d
+            }
+            if (minCoast == Int.MAX_VALUE) {
+                0
+            } else {
+                Tiers.cheapestBreaker(state, me, minCoast, gated = false) ?: 0
+            }
+        }
 
         fun wantsHall(type: BuildingType, building: Building): Boolean =
             type !in rules.disabledBuildings && !Rules.hasWorkingBuilding(state.tiles, me, building)
@@ -126,13 +152,15 @@ internal object MilitaryPolicy {
             }
         }
 
-        // 4. The tier-4 Fortress (HARD): the ungated demand solves to the Knight
-        //    and only the heavy keep unlocks it. Non-hazard when it stays locked:
-        //    tier 3 + catapult still cracks any fortification (catapults zero
-        //    building defense), so termination never hangs on this chain.
-        if (difficulty == Difficulty.HARD &&
+        // 4. The tier-4 Fortress: the ungated demand solves to the Knight and
+        //    only the heavy keep unlocks it. On LAND this stays HARD-only and
+        //    non-hazard when locked: tier 3 + catapult still cracks any
+        //    fortification (catapults zero building defense). At SEA the
+        //    catapult escape does not exist, so NORMAL also founds it when the
+        //    weakest enemy beach demands tier 4 — termination-load-bearing.
+        if ((difficulty == Difficulty.HARD || (difficulty == Difficulty.NORMAL && seaDemandTier >= 4)) &&
             Rules.hasWorkingBuilding(state.tiles, me, Building.BARRACKS) &&
-            maxOf(landDemandTier, guardDemandTier) >= 4 &&
+            maxOf(landDemandTier, guardDemandTier, seaDemandTier) >= 4 &&
             !Rules.hasWorkingBuilding(state.tiles, me, Building.FORTRESS) &&
             BuildingType.FORTRESS !in rules.disabledBuildings &&
             Rules.buildingAvailable(state, me, BuildingType.FORTRESS) &&
