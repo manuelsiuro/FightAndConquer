@@ -2507,7 +2507,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val state = engine.state.value
         val me = state.currentPlayer
         val rules = state.config.rules
-        val summary = engine.incomeSummary(me)
+        if (state.player(me).kind is PlayerKind.Human) lastHumanSeat = me.value
+        // The coin row always shows the human's economy — an AI seat's treasury
+        // never reaches the HUD (same convention as fog, see viewPerspective).
+        val summary = engine.incomeSummary(viewPerspective(state))
         val selected = selectedUnit?.let { state.units[it] }
         val selectedName = selected?.let { unitNameRes(it.type, it.tier) }
         val purchases = if (selectedUnit == null) {
@@ -2595,7 +2598,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (selectedUnit?.let { !state.units.containsKey(it) } == true) clearSelection()
         // Fog of war: refreshHud runs after every state entry point (submit, undo,
         // load, AI actions), so the vision sets stay in lockstep with the board.
-        if (state.player(me).kind is PlayerKind.Human) lastHumanSeat = me.value
         refreshVisibility(state)
         refreshCampaign()
     }
@@ -2760,20 +2762,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /**
-     * Whose fog the board shows. During AI turns this stays on the human who most
-     * recently played — never the next human, whose map would leak to the player
-     * still holding the device in pass-and-play.
-     */
-    private fun viewPerspective(state: GameState): PlayerId {
-        if (state.player(state.currentPlayer).kind is PlayerKind.Human) return state.currentPlayer
-        lastHumanSeat?.let { seat ->
-            val p = state.players[seat]
-            if (p.kind is PlayerKind.Human && !p.eliminated) return p.id
-        }
-        return state.players.firstOrNull { it.kind is PlayerKind.Human && !it.eliminated }?.id
-            ?: state.currentPlayer
-    }
+    /** Whose fog the board shows and whose gold the top bar shows — see [hudViewer]. */
+    private fun viewPerspective(state: GameState): PlayerId = hudViewer(state, lastHumanSeat)
 
     // Note on anchors/popups under fog: overlay labels are frontier hexes (always
     // within vision) and coin popups fire only on the viewer's own actions, so the
@@ -2788,4 +2778,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
          */
         const val CUSTOM_CAMPAIGN = "@custom"
     }
+}
+
+/**
+ * The seat whose perspective the HUD adopts: their fog on the board, their gold in
+ * the top bar. On a human's own turn that is the current player; during AI turns it
+ * stays on the human who most recently played (never the next human, whose map and
+ * treasury would leak to whoever is still holding the device in pass-and-play),
+ * falling back to the first living human, then the current player for AI-vs-AI
+ * spectating.
+ */
+internal fun hudViewer(state: GameState, lastHumanSeat: Int?): PlayerId {
+    if (state.player(state.currentPlayer).kind is PlayerKind.Human) return state.currentPlayer
+    lastHumanSeat?.let { seat ->
+        val p = state.players[seat]
+        if (p.kind is PlayerKind.Human && !p.eliminated) return p.id
+    }
+    return state.players.firstOrNull { it.kind is PlayerKind.Human && !it.eliminated }?.id
+        ?: state.currentPlayer
 }
