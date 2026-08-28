@@ -37,12 +37,10 @@ internal object NavalPolicy {
     /** Savings can bankroll upkeep for this many turns when income can't carry it. */
     private const val SAVINGS_TURNS = 5
 
-    /** A treasury this deep means the greedy loop has stalled — start force-spending. */
-    private const val WAR_CHEST = 300
-
     fun action(
         state: GameState,
         difficulty: com.msa.fightandconquer.core.model.Difficulty = com.msa.fightandconquer.core.model.Difficulty.NORMAL,
+        profile: AiProfile = AiProfile.NEUTRAL,
     ): GameAction? {
         if (!state.config.rules.navalEnabled) return null
         val easy = difficulty == com.msa.fightandconquer.core.model.Difficulty.EASY
@@ -179,7 +177,7 @@ internal object NavalPolicy {
         //     savings on exactly the unit that cracks the weakest frontier hex —
         //     guaranteed forward progress in any stalled war, land or sea.
         //     Easy hoards instead — cracking walls is what it is bad at.
-        if (!easy && treasury >= WAR_CHEST) {
+        if (!easy && treasury >= profile.warChestTarget) {
             val frontier = HashMap<Hex, Int>()
             for ((hex, tile) in state.tiles) {
                 if (tile.owner != me || tile.starving) continue
@@ -350,7 +348,14 @@ internal object NavalPolicy {
             }
         }
 
-        if (!overseasMode(state, partners)) return null
+        // Admirals also open the ladder on MIXED maps when the softest reachable
+        // enemy coast is strictly softer than the softest land-frontier hex —
+        // the sea flank is then the cheaper crack, not a detour.
+        if (!overseasMode(state, partners) &&
+            !(profile.amphibious && seaFlankSofter(state, partners, homeland))
+        ) {
+            return null
+        }
 
         // 2d. War economy: with no breakable land frontier the standing army is
         //     pure upkeep — exactly what pins net income at zero so the fleet
@@ -608,6 +613,43 @@ internal object NavalPolicy {
      * hex is walled at defense >= maxTier (a knight wall no land assault can
      * ever crack — flanking by sea is then the only path to a decision).
      */
+    /**
+     * True when a fog-honest enemy coastal hex OFF the homeland defends softer
+     * than the softest land-frontier hex — the admiral's amphibious trigger.
+     * False with no land frontier at all (plain overseas mode covers that).
+     */
+    private fun seaFlankSofter(
+        state: GameState,
+        partners: Set<com.msa.fightandconquer.core.model.PlayerId>,
+        homeland: Set<Hex>,
+    ): Boolean {
+        val me = state.currentPlayer
+        val visible = if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
+        var landBar = Int.MAX_VALUE
+        for ((hex, tile) in state.tiles) {
+            if (tile.owner != me || tile.starving) continue
+            HexMath.forEachNeighbor(hex) { n ->
+                val t = state.tiles[n]
+                if (t != null && t.terrain == Terrain.LAND && t.owner != me && t.owner !in partners) {
+                    val d = Rules.defenseOf(state, n)
+                    if (d < landBar) landBar = d
+                }
+            }
+        }
+        if (landBar == Int.MAX_VALUE) return false
+        var coastBar = Int.MAX_VALUE
+        for ((hex, tile) in state.tiles) {
+            if (tile.terrain != Terrain.LAND || hex in homeland) continue
+            val owner = tile.owner ?: continue
+            if (owner == me || owner in partners) continue
+            if (visible != null && hex !in visible) continue
+            if (HexMath.neighbors(hex).none { state.tiles[it]?.terrain == Terrain.SEA }) continue
+            val d = Rules.defenseOf(state, hex)
+            if (d < coastBar) coastBar = d
+        }
+        return coastBar < landBar
+    }
+
     private fun overseasMode(state: GameState, partners: Set<com.msa.fightandconquer.core.model.PlayerId>): Boolean {
         val me = state.currentPlayer
         val enemiesAlive = state.players.any {

@@ -89,8 +89,66 @@ data class AiProfile(
                 (Rng.output(seed) + me.value).mod(AiPersonality.entries.size.toLong()).toInt(),
             ]
 
-        /** Preset lookup. Phase 1: every preset still plays neutral. */
-        fun of(difficulty: Difficulty, personality: AiPersonality): AiProfile =
-            NEUTRAL.copy(personality = personality)
+        /**
+         * Preset lookup. HARD plays the full preset; NORMAL blends its scalar
+         * weights halfway back to neutral (flavor stays, edge softens) and
+         * jitters harder — a NORMAL opponent should feel varied more than sharp.
+         */
+        fun of(difficulty: Difficulty, personality: AiPersonality): AiProfile {
+            val full = when (personality) {
+                AiPersonality.RAIDER -> AiProfile(
+                    personality = personality,
+                    hexWeight = 1.15, cutWeight = 1.6, counterAttackWeight = 1.3,
+                    assetWeight = 0.8, defenseWeight = 0.7,
+                    jitterAmplitude = 1.0,
+                    universityGateOffset = 4, warChestTarget = 220,
+                    towerGainThreshold = 3,
+                    researchOrder = ResearchOrder.OFFENSE,
+                )
+                AiPersonality.TURTLE -> AiProfile(
+                    personality = personality,
+                    hexWeight = 0.9, counterAttackWeight = 1.2,
+                    assetWeight = 1.2, defenseWeight = 1.5,
+                    jitterAmplitude = 1.0,
+                    towerGainThreshold = 1, maxFortresses = 3,
+                    betrayalDominance = 99.0,
+                    researchOrder = ResearchOrder.BULWARK,
+                )
+                AiPersonality.ADMIRAL -> AiProfile(
+                    personality = personality,
+                    navalWeight = 1.6,
+                    jitterAmplitude = 1.0,
+                    proactiveWarships = true, amphibious = true,
+                    researchOrder = ResearchOrder.NAVAL,
+                )
+                AiPersonality.SCHEMER -> AiProfile(
+                    personality = personality,
+                    cutWeight = 1.4, assetWeight = 1.2,
+                    jitterAmplitude = 1.0,
+                    universityGateOffset = -2, secondUniversity = true,
+                    betrayalDominance = 1.5, pactProposalRatioTenths = 9,
+                    researchOrder = ResearchOrder.SCHOLARLY,
+                )
+            }
+            return if (difficulty == Difficulty.HARD) full else blendTowardNeutral(full)
+        }
+
+        private fun blendTowardNeutral(full: AiProfile): AiProfile {
+            fun mid(x: Double): Double = (x + 1.0) / 2
+            return full.copy(
+                hexWeight = mid(full.hexWeight),
+                cutWeight = mid(full.cutWeight),
+                counterAttackWeight = mid(full.counterAttackWeight),
+                assetWeight = mid(full.assetWeight),
+                defenseWeight = mid(full.defenseWeight),
+                navalWeight = mid(full.navalWeight),
+                jitterAmplitude = 1.5,
+                universityGateOffset = full.universityGateOffset / 2,
+                warChestTarget = (full.warChestTarget + NEUTRAL.warChestTarget) / 2,
+                towerGainThreshold = (full.towerGainThreshold + NEUTRAL.towerGainThreshold) / 2,
+                maxFortresses = (full.maxFortresses + NEUTRAL.maxFortresses) / 2,
+                betrayalDominance = (full.betrayalDominance + NEUTRAL.betrayalDominance) / 2,
+            )
+        }
     }
 }

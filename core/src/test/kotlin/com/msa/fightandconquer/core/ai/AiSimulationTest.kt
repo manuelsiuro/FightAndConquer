@@ -255,6 +255,74 @@ class AiSimulationTest {
     }
 
     @Test
+    fun `different game seeds play differently on the same map`() {
+        // The whole point of seeded personalities + jitter: the same board must
+        // not produce the same war twice. Same map seed, different game seeds.
+        fun actionLog(gameSeed: Long): List<GameAction> {
+            val params = MapParams(seed = 9L, size = MapSize.SMALL, playerCount = 2, shape = MapShape.entries[0])
+            var state = MapGenerator.generate(params).newGame(
+                gameSeed = gameSeed,
+                kinds = List(2) { PlayerKind.Ai(Difficulty.NORMAL) },
+                rules = RuleConstants(),
+            )
+            val ais = List(2) { AiPlayer(Difficulty.NORMAL) }
+            val log = ArrayList<GameAction>()
+            var rounds = 0
+            while (state.phase is GamePhase.Playing && rounds < 10) {
+                val ai = ais[state.currentPlayer.value]
+                var actions = 0
+                while (true) {
+                    val action = ai.chooseAction(state)
+                    log.add(action)
+                    state = Reducer.reduce(state, action).state
+                    actions++
+                    if (action == GameAction.EndTurn || state.phase !is GamePhase.Playing) break
+                    if (actions >= AiPlayer.MAX_ACTIONS_PER_TURN) {
+                        state = Reducer.reduce(state, GameAction.EndTurn).state
+                        break
+                    }
+                }
+                rounds++
+            }
+            return log
+        }
+        assertTrue(
+            "two different game seeds replayed the identical ten rounds — variety is dead",
+            actionLog(1001L) != actionLog(2002L),
+        )
+    }
+
+    @Test
+    fun `explicitly pinned personalities are fully deterministic`() {
+        val json = Json
+        fun run(): String {
+            var state = newAiGame(7L, listOf(Difficulty.HARD, Difficulty.HARD))
+            state = state.copy(
+                players = state.players.mapIndexed { i, p ->
+                    p.copy(
+                        kind = PlayerKind.Ai(
+                            Difficulty.HARD,
+                            if (i == 0) {
+                                com.msa.fightandconquer.core.model.AiPersonality.RAIDER
+                            } else {
+                                com.msa.fightandconquer.core.model.AiPersonality.TURTLE
+                            },
+                        ),
+                    )
+                },
+            )
+            val ais = List(2) { AiPlayer(Difficulty.HARD) }
+            var rounds = 0
+            while (state.phase is GamePhase.Playing && rounds < 30) {
+                state = playTurn(state, ais)
+                rounds++
+            }
+            return json.encodeToString(GameState.serializer(), state)
+        }
+        assertEquals(run(), run())
+    }
+
+    @Test
     fun `ai games are fully deterministic`() {
         val json = Json
         fun run(): String {

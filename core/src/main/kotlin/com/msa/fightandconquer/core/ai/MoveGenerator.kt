@@ -35,7 +35,11 @@ object MoveGenerator {
         val partners: Set<com.msa.fightandconquer.core.model.PlayerId> =
             if (rules.diplomacyEnabled && state.diplomacy.pacts.isNotEmpty()) {
                 val all = state.diplomacy.partnersOf(me)
-                if (difficulty == Difficulty.HARD) all - DiplomacyPolicy.betrayalTargets(state, me) else all
+                if (difficulty == Difficulty.HARD) {
+                    all - DiplomacyPolicy.betrayalTargets(state, me, profile)
+                } else {
+                    all
+                }
             } else {
                 emptySet()
             }
