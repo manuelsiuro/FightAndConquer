@@ -47,6 +47,8 @@ data class GameStatsState(
     val totals: SeatTotals,
     /** Moments the viewer acted in or suffered, newest first, capped. */
     val moments: List<KeyMoment>,
+    /** Indexed by seat; drives the Player N / AI N naming in the turning points. */
+    val seatIsHuman: List<Boolean>,
 )
 
 /** The turning-points feed stays glanceable — the full story is the debrief's job. */
@@ -93,5 +95,6 @@ fun buildGameStats(
             .filter { it.actorSeat == seat || it.victimSeat == seat }
             .takeLast(MAX_STATS_MOMENTS)
             .reversed(),
+        seatIsHuman = record.seats.map { it.isHuman },
     )
 }
