@@ -358,7 +358,6 @@
     <string name="banner_player">Player %d</string>
     <string name="banner_turn_micro">Turn %1$d · %2$s</string>
     <string name="banner_tap_to_start">Tap to start your turn</string>
-    <string name="game_over_winner">Player %d conquers!</string>
     <string name="game_over_back_to_menu">Back to menu</string>
     <string name="cd_defense_capturable">Defense %d — you can capture this hex</string>
     <string name="cd_defense_blocked">Defense %d — too strong for the selected unit</string>

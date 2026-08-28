@@ -124,7 +124,12 @@ internal fun TurnBanner(seat: Int, turnNumber: Int, civ: Civilization, onBegin: 
 }
 
 @Composable
-internal fun GameOverOverlay(winner: Int, onDebrief: (() -> Unit)?, onBackToMenu: () -> Unit) {
+internal fun GameOverOverlay(
+    winner: Int,
+    winnerIsHuman: Boolean,
+    onDebrief: (() -> Unit)?,
+    onBackToMenu: () -> Unit,
+) {
     OverlayScrim {
         Box(Modifier.size(72.dp).background(UiColors.faction(winner), CircleShape))
         // The winner's capital as the trophy on the plinth-L hero box.
@@ -142,7 +147,8 @@ internal fun GameOverOverlay(winner: Int, onDebrief: (() -> Unit)?, onBackToMenu
             )
         }
         Text(
-            stringResource(R.string.game_over_winner, winner + 1),
+            // The seat named its own way — an AI victory says so (the seatLabel scheme).
+            stringResource(R.string.debrief_conquers, seatLabel(winner, winnerIsHuman)),
             fontSize = 26.sp,
             fontWeight = FontWeight.ExtraBold,
             color = UiColors.ink,

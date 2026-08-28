@@ -227,7 +227,11 @@ fun GameScreen(viewModel: GameViewModel) {
                 )
                 // A campaign level reports against its own terms, never "player N wins".
                 campaignRun == null -> state.winner?.let { winner ->
-                    GameOverOverlay(winner, onDebrief = onDebrief) { viewModel.backToMenu() }
+                    GameOverOverlay(
+                        winner,
+                        winnerIsHuman = state.winnerIsHuman ?: true,
+                        onDebrief = onDebrief,
+                    ) { viewModel.backToMenu() }
                 }
             }
         }
@@ -240,7 +244,8 @@ fun GameScreen(viewModel: GameViewModel) {
 
 @Composable
 private fun boardContentDescription(state: HudState): String = when {
-    state.winner != null -> stringResource(R.string.game_over_winner, state.winner + 1)
+    state.winner != null ->
+        stringResource(R.string.debrief_conquers, seatLabel(state.winner, state.winnerIsHuman ?: true))
     state.banner != null -> stringResource(R.string.banner_player, state.banner + 1)
     else -> seatLabel(state.currentPlayer, state.currentIsHuman)
 }

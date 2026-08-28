@@ -375,6 +375,8 @@ data class HudState(
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
     val banner: Int?,
     val winner: Int?,
+    /** The winner's kind, for Player N / AI N naming; null while the war is on. */
+    val winnerIsHuman: Boolean?,
     val freshUnitCount: Int,
     val shopInfo: ShopInfo,
     /** Research is part of this game's rules — 20 legacy missions must not grow a dead entry. */
@@ -2542,6 +2544,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             canUndo = engine.canUndo(),
             banner = banner,
             winner = (state.phase as? GamePhase.Finished)?.winner?.value,
+            winnerIsHuman = (state.phase as? GamePhase.Finished)?.winner
+                ?.let { state.player(it).kind is PlayerKind.Human },
             freshUnitCount = state.units.values.count { it.owner == me && !it.spent },
             // The tray previews MY prospective pieces, so every number is read at my
             // effective rules — a Shogunate archer really upkeeps 3, a Sultanate
