@@ -19,6 +19,7 @@ object Evaluator {
         me: PlayerId,
         difficulty: Difficulty,
         visibleOverride: Set<com.msa.fightandconquer.core.hex.Hex>? = null,
+        profile: AiProfile = AiProfile.NEUTRAL,
     ): Double {
         (state.phase as? GamePhase.Finished)?.let {
             return if (it.winner == me) 1e9 else -1e9

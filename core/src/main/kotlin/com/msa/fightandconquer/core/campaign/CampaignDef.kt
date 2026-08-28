@@ -2,6 +2,7 @@ package com.msa.fightandconquer.core.campaign
 
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.map.MapDefinition
+import com.msa.fightandconquer.core.model.AiPersonality
 import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.Difficulty
 import com.msa.fightandconquer.core.model.PlayerId
@@ -22,11 +23,15 @@ sealed interface SeatDef {
 
     @Serializable
     @SerialName("ai")
-    data class Ai(val difficulty: Difficulty) : SeatDef
+    data class Ai(
+        val difficulty: Difficulty,
+        /** Optional authored play style; null lets the game seed pick one. */
+        val personality: AiPersonality? = null,
+    ) : SeatDef
 
     fun toKind(): PlayerKind = when (this) {
         Player -> PlayerKind.Human
-        is Ai -> PlayerKind.Ai(difficulty)
+        is Ai -> PlayerKind.Ai(difficulty, personality)
     }
 }
 

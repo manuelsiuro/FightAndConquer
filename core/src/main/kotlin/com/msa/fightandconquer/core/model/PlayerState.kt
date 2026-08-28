@@ -12,7 +12,14 @@ sealed interface PlayerKind {
 
     @Serializable
     @SerialName("ai")
-    data class Ai(val difficulty: Difficulty) : PlayerKind
+    data class Ai(
+        val difficulty: Difficulty,
+        /**
+         * Play-style preset; null (the pre-personality save default) means
+         * "derive one from the game seed" — see [AiPersonality].
+         */
+        val personality: AiPersonality? = null,
+    ) : PlayerKind
 }
 
 @Serializable

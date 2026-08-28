@@ -26,6 +26,10 @@ class AiPlayer(private val difficulty: Difficulty) {
         if (difficulty == Difficulty.PASSIVE) return GameAction.EndTurn
 
         val me = state.currentPlayer
+        // One profile for the whole decision: personality (explicit or
+        // seed-derived) folded with difficulty into the weight/threshold set
+        // every stage below reads (see AiProfile).
+        val profile = AiProfile.resolve(state, me, difficulty)
 
         // Diplomacy is a threshold policy, not an argmax candidate (see
         // DiplomacyPolicy). The legality guard keeps a policy/rules mismatch from
@@ -82,11 +86,11 @@ class AiPlayer(private val difficulty: Difficulty) {
         // judged on what is known NOW, never penalized for what they reveal
         // (see Evaluator.score's visibleOverride).
         val frozenVisible = if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
-        val baseline = Evaluator.score(state, me, difficulty, frozenVisible)
+        val baseline = Evaluator.score(state, me, difficulty, frozenVisible, profile)
         var best: GameAction = GameAction.EndTurn
         var bestScore = baseline
 
-        val candidates = MoveGenerator.candidates(state, difficulty)
+        val candidates = MoveGenerator.candidates(state, difficulty, profile)
         for ((index, action) in candidates.withIndex()) {
             // Easy considers only ~60% of its options (deterministic per state+index).
             if (difficulty == Difficulty.EASY &&
@@ -96,7 +100,7 @@ class AiPlayer(private val difficulty: Difficulty) {
             }
             val result = Reducer.reduce(state, action)
             if (result.events.firstOrNull() is GameEvent.ActionRejected) continue
-            val score = Evaluator.score(result.state, me, difficulty, frozenVisible)
+            val score = Evaluator.score(result.state, me, difficulty, frozenVisible, profile)
             if (score > bestScore + EPSILON) {
                 best = action
                 bestScore = score

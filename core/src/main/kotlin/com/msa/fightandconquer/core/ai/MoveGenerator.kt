@@ -15,14 +15,11 @@ import com.msa.fightandconquer.core.model.GameState
  */
 object MoveGenerator {
 
-    /** AI market cap: markets are an economy garnish, not a wall-to-wall strategy. */
-    private const val MAX_AI_MARKETS = 3
-
-    /** Research-line caps: banks are markets' cousins, fortresses are the turtle risk. */
-    private const val MAX_AI_BANKS = 2
-    private const val MAX_AI_FORTRESSES = 2
-
-    fun candidates(state: GameState, difficulty: Difficulty): List<GameAction> {
+    fun candidates(
+        state: GameState,
+        difficulty: Difficulty,
+        profile: AiProfile = AiProfile.NEUTRAL,
+    ): List<GameAction> {
         val me = state.currentPlayer
         val rules = state.config.rules
         // Civ-modifiable prices/stats (special units, buildings) MUST come from here;
@@ -254,7 +251,7 @@ object MoveGenerator {
                 val myMarkets = state.tiles.values.count {
                     it.owner == me && it.building == com.msa.fightandconquer.core.model.Building.MARKET
                 }
-                if (myMarkets < MAX_AI_MARKETS && treasury >= eff.marketCost + 10) {
+                if (myMarkets < profile.maxMarkets && treasury >= eff.marketCost + 10) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
                             tile.owner == me && !tile.starving && tile.building == null &&
@@ -311,7 +308,7 @@ object MoveGenerator {
                     it.owner == me && it.building == com.msa.fightandconquer.core.model.Building.BANK
                 }
                 if (Rules.buildingAvailable(state, me, BuildingType.BANK) &&
-                    myBanks < MAX_AI_BANKS && treasury >= eff.bankCost + 10
+                    myBanks < profile.maxBanks && treasury >= eff.bankCost + 10
                 ) {
                     state.tiles.entries
                         .filter { (hex, tile) ->
@@ -333,7 +330,7 @@ object MoveGenerator {
                     val myFortresses = state.tiles.values.count {
                         it.owner == me && it.building == com.msa.fightandconquer.core.model.Building.FORTRESS
                     }
-                    if (myFortresses < MAX_AI_FORTRESSES) {
+                    if (myFortresses < profile.maxFortresses) {
                         state.tiles.entries
                             .filter { (hex, tile) ->
                                 tile.owner == me && !tile.starving && tile.building == null &&
