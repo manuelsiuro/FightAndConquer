@@ -109,12 +109,22 @@ object Rules {
      */
     fun litHexes(state: GameState): Set<Hex> = litHexesFrom(state.tiles)
 
-    /** Map-shape-agnostic core of [litHexes], shared with the engine's NightPipeline. */
-    internal fun litHexesFrom(tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>): Set<Hex> {
+    /**
+     * Map-shape-agnostic core of [litHexes], shared with the engine's
+     * NightPipeline and the renderer (the [shoalHexesWithin] doctrine — the
+     * safe-zone rule must never be re-derived outside this function).
+     * [sourceFilter] lets a caller drop whole sources — the renderer's fog
+     * gate — without touching the derivation itself.
+     */
+    fun litHexesFrom(
+        tiles: Map<Hex, com.msa.fightandconquer.core.model.Tile>,
+        sourceFilter: (Hex) -> Boolean = { true },
+    ): Set<Hex> {
         var lit: HashSet<Hex>? = null
         for ((hex, tile) in tiles) {
             if (!tile.beacon) continue
             val radius = tile.building?.let { beaconRadiusOf(it) } ?: continue
+            if (!sourceFilter(hex)) continue
             val set = lit ?: HashSet<Hex>().also { lit = it }
             for (h in HexMath.range(hex, radius)) if (h in tiles) set.add(h)
         }

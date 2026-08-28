@@ -235,7 +235,13 @@ internal class StateBuilder(private val base: GameState) {
         }.ifEmpty { largest.toList() }
         val sorted = preferred.sortedBy { it.packed }
         val newCapital = sorted[rollIndex(sorted.size)]
-        updateTile(newCapital) { it.copy(building = Building.CAPITAL, flora = null) }
+        // The last-resort fallback can land on a built hex: the old building is
+        // razed by the relocation (its beacon dies with it), and the renderer
+        // needs the destruction event or reconcile has to correct a stale piece.
+        tiles.getValue(newCapital).building?.let {
+            events.add(GameEvent.BuildingDestroyed(newCapital, it))
+        }
+        updateTile(newCapital) { it.copy(building = Building.CAPITAL, flora = null, beacon = false) }
         updatePlayer(victim) { it.copy(capital = newCapital) }
         events.add(GameEvent.CapitalMoved(victim, hex, newCapital, loot))
     }

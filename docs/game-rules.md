@@ -355,8 +355,9 @@ the wrapping player's EndTurn reduction.
   `Rules.beaconRadiusOf` (1; Fortress 2 = `monsterCapitalStandoff`, a
   capital-grade sanctuary reserved for the 55-gold keep) — are **monster-proof**:
   excluded from the spawn wave, impassable to monsters (one caught in fresh
-  light may walk out but never re-enter), never struck (a strike enters its
-  target hex), and never a prowl lure. Any owner's light repels — monsters
+  light may walk out but never re-enter; one with every exit lit and nothing
+  to strike is driven out entirely — it despawns on the spot, no cache), never
+  struck (a strike enters its target hex), and never a prowl lure. Any owner's light repels — monsters
   shun it all. Rejections: `BEACON_NOT_SUPPORTED` (wrong building, or the
   day-night rule is off), `BEACON_ALREADY_LIT`. The AI (Normal/Hard) lights
   beacons via `BeaconPolicy` with night ≤ 2 rounds out, on the building

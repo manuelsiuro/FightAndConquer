@@ -1073,9 +1073,13 @@ class BoardScene(
             is GameEvent.BeaconLit -> {
                 // The same piece swap reconcile would derive from Tile.beacon —
                 // done here as a beat so the swap never counts as a correction.
-                buildingPieces.remove(event.hex)?.let { destroyPiece(it) }
+                // Validate against latestState BEFORE destroying the standing
+                // piece: latestState is batch-final, so a queued destruction may
+                // already have emptied the hex — the unlit piece must survive
+                // for the BuildingDestroyed beat's sinkAway.
                 val tile = latestState.tiles[event.hex] ?: return
                 val building = tile.building ?: return
+                buildingPieces.remove(event.hex)?.let { destroyPiece(it) }
                 val piece = createPiece(buildingKind(building, lit = true), event.hex, tile.owner?.value)
                 buildingPieces[event.hex] = piece
                 spawnBounce(piece)
@@ -1489,25 +1493,8 @@ class BoardScene(
         kind == PieceKind.BOAT || kind == PieceKind.WARSHIP || kind == PieceKind.FISHING_BOAT
 
     /** [lit] swaps a defense building for its beacon-lit variant ([Tile.beacon]). */
-    private fun buildingKind(building: Building, lit: Boolean = false): PieceKind = when (building) {
-        Building.CAPITAL -> PieceKind.CAPITAL
-        Building.FARM -> PieceKind.FARM
-        Building.TOWER -> if (lit) PieceKind.TOWER_LIT else PieceKind.TOWER
-        Building.STRONG_TOWER -> if (lit) PieceKind.STRONG_TOWER_LIT else PieceKind.STRONG_TOWER
-        Building.MINE -> PieceKind.MINE
-        Building.MARKET -> PieceKind.MARKET
-        Building.LUMBER_CAMP -> PieceKind.LUMBER_CAMP
-        Building.WATCHTOWER -> if (lit) PieceKind.WATCHTOWER_LIT else PieceKind.WATCHTOWER
-        Building.PORT -> PieceKind.PORT
-        Building.FISHERY -> PieceKind.FISHERY
-        Building.BRIDGE -> PieceKind.BRIDGE
-        Building.UNIVERSITY -> PieceKind.UNIVERSITY
-        Building.BANK -> PieceKind.BANK
-        Building.FORTRESS -> if (lit) PieceKind.FORTRESS_LIT else PieceKind.FORTRESS
-        Building.BARRACKS -> PieceKind.BARRACKS
-        Building.ARCHERY_RANGE -> PieceKind.ARCHERY_RANGE
-        Building.SIEGE_WORKSHOP -> PieceKind.SIEGE_WORKSHOP
-    }
+    private fun buildingKind(building: Building, lit: Boolean = false): PieceKind =
+        PieceMeshes.buildingKind(building, lit)
 
     /**
      * A bridge deck (authored along Z) aims along the player-stored orientation,
@@ -1772,18 +1759,14 @@ class BoardScene(
      * (the [refreshAuras] rule).
      */
     private fun refreshBeaconLights(state: GameState) {
+        // Rules owns the lit derivation (its shoalHexesWithin doctrine); this
+        // side only contributes the fog gate — and collects the visible source
+        // hexes for the point-light diff below while it's at it.
         val wanted = HashSet<Hex>()
-        val tint = HashSet<Hex>()
-        for ((hex, tile) in state.tiles) {
-            if (!tile.beacon) continue
-            val radius = tile.building
-                ?.let { com.msa.fightandconquer.core.engine.Rules.beaconRadiusOf(it) }
-                ?: continue
-            if (FogRules.auraSourceHidden(fogVisible, hex)) continue
-            wanted.add(hex)
-            for (h in com.msa.fightandconquer.core.hex.HexMath.range(hex, radius)) {
-                if (h in tiles) tint.add(h)
-            }
+        val tint = com.msa.fightandconquer.core.engine.Rules.litHexesFrom(state.tiles) { hex ->
+            val visible = !FogRules.auraSourceHidden(fogVisible, hex)
+            if (visible) wanted.add(hex)
+            visible
         }
         if (tint != litTint) {
             // Repaint exactly the hexes whose lit state flipped (a mid-night
@@ -1794,10 +1777,7 @@ class BoardScene(
         }
         val stale = beaconLights.keys.filter { it !in wanted }
         for (hex in stale) {
-            val entity = beaconLights.remove(hex) ?: continue
-            engine.scene.removeEntity(entity)
-            filament.lightManager.destroy(entity)
-            EntityManager.get().destroy(entity)
+            beaconLights.remove(hex)?.let { destroyBeaconLight(it) }
         }
         for (hex in wanted) {
             if (hex in beaconLights) continue
@@ -1816,6 +1796,14 @@ class BoardScene(
             engine.scene.addEntity(entity)
             beaconLights[hex] = entity
         }
+    }
+
+    /** Single teardown for a beacon light entity — the file's destroyEntity idiom
+     *  (all components, so a future transform/flicker component can't leak). */
+    private fun destroyBeaconLight(entity: Int) {
+        engine.scene.removeEntity(entity)
+        filament.destroyEntity(entity)
+        EntityManager.get().destroy(entity)
     }
 
     /** A deposit marker shows only while its hex has no building on it. */
@@ -1941,11 +1929,7 @@ class BoardScene(
         }
         auraPool.clear()
         auraMesh.destroy(filament)
-        for (entity in beaconLights.values) {
-            engine.scene.removeEntity(entity)
-            filament.lightManager.destroy(entity)
-            EntityManager.get().destroy(entity)
-        }
+        for (entity in beaconLights.values) destroyBeaconLight(entity)
         beaconLights.clear()
         for (te in tiles.values) {
             filament.destroyEntity(te.entity)

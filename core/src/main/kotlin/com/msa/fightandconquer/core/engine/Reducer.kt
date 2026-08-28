@@ -357,6 +357,8 @@ object Reducer {
                     building = if (bridge) tile.building else null,
                     starving = false,
                     graceTurns = 0,
+                    // The beacon dies with its building (bridges never carry one).
+                    beacon = false,
                 )
             }
         }

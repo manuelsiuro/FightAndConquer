@@ -119,6 +119,16 @@ internal object NightPipeline {
                 continue
             }
 
+            // Caught in the light with every exit lit (reach is only the
+            // origin) and nothing to strike: the light drives it out entirely.
+            // Freezing it here would squat — and income-suppress — ground the
+            // game paints as monster-proof safe.
+            if (origin in lit && reach.size == 1) {
+                b.updateTile(origin) { it.copy(monster = null) }
+                b.events.add(GameEvent.MonsterDespawned(origin))
+                continue
+            }
+
             // Prowl: one step along a shortest passable path toward the nearest
             // hex bordering someone's territory or army. No RNG — (depth, packed)
             // ordering decides every tie.

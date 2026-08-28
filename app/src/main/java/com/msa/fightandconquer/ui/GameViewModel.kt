@@ -1194,7 +1194,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 // Keep the card open so the "Beacon lit" state is seen landing.
                 val after = engine.state.value
                 _infoCard.value = after.tiles[action.hex]?.let { infoCardFor(after, action.hex, it) }
-                refreshHud()
             }
             is InfoCardAction.Demolish -> {
                 submit(GameAction.DemolishBuilding(action.hex))

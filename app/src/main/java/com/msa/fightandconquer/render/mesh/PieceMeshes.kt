@@ -168,6 +168,46 @@ class PieceMeshes(private val engine: Engine, context: Context? = null) {
                 com.msa.fightandconquer.core.model.MonsterKind.WYRM -> PieceKind.MONSTER_WYRM
             }
 
+        /** Building art mapping; [lit] swaps in the beacon-lit variant ([litVariantOf]). */
+        fun buildingKind(
+            building: com.msa.fightandconquer.core.model.Building,
+            lit: Boolean = false,
+        ): PieceKind {
+            val kind = when (building) {
+                com.msa.fightandconquer.core.model.Building.CAPITAL -> PieceKind.CAPITAL
+                com.msa.fightandconquer.core.model.Building.FARM -> PieceKind.FARM
+                com.msa.fightandconquer.core.model.Building.TOWER -> PieceKind.TOWER
+                com.msa.fightandconquer.core.model.Building.STRONG_TOWER -> PieceKind.STRONG_TOWER
+                com.msa.fightandconquer.core.model.Building.MINE -> PieceKind.MINE
+                com.msa.fightandconquer.core.model.Building.MARKET -> PieceKind.MARKET
+                com.msa.fightandconquer.core.model.Building.LUMBER_CAMP -> PieceKind.LUMBER_CAMP
+                com.msa.fightandconquer.core.model.Building.WATCHTOWER -> PieceKind.WATCHTOWER
+                com.msa.fightandconquer.core.model.Building.PORT -> PieceKind.PORT
+                com.msa.fightandconquer.core.model.Building.FISHERY -> PieceKind.FISHERY
+                com.msa.fightandconquer.core.model.Building.BRIDGE -> PieceKind.BRIDGE
+                com.msa.fightandconquer.core.model.Building.UNIVERSITY -> PieceKind.UNIVERSITY
+                com.msa.fightandconquer.core.model.Building.BANK -> PieceKind.BANK
+                com.msa.fightandconquer.core.model.Building.FORTRESS -> PieceKind.FORTRESS
+                com.msa.fightandconquer.core.model.Building.BARRACKS -> PieceKind.BARRACKS
+                com.msa.fightandconquer.core.model.Building.ARCHERY_RANGE -> PieceKind.ARCHERY_RANGE
+                com.msa.fightandconquer.core.model.Building.SIEGE_WORKSHOP -> PieceKind.SIEGE_WORKSHOP
+            }
+            return if (lit) litVariantOf(kind) ?: kind else kind
+        }
+
+        /**
+         * Beacon-lit art variant of [kind], or null when it has none. The single
+         * owner of the lit set on the render side — must cover exactly the
+         * buildings `Rules.beaconRadiusOf` accepts (a unit test ties the two).
+         */
+        fun litVariantOf(kind: PieceKind): PieceKind? = when (kind) {
+            PieceKind.TOWER -> PieceKind.TOWER_LIT
+            PieceKind.STRONG_TOWER -> PieceKind.STRONG_TOWER_LIT
+            PieceKind.FORTRESS -> PieceKind.FORTRESS_LIT
+            PieceKind.WATCHTOWER -> PieceKind.WATCHTOWER_LIT
+            else -> null
+        }
+
         /** Player-owned kinds whose art may fork per civilization. */
         val CIV_FORKED_KINDS: Set<PieceKind> = PieceKind.entries.toSet() - NEUTRAL_KINDS
     }
