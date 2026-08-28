@@ -40,6 +40,10 @@ object Evaluator {
         // income is actually paid from, so the valuation can't drift from it.
         val eff = Rules.effectiveRules(state, me)
 
+        val partners: Set<PlayerId> =
+            if (state.config.rules.diplomacyEnabled) state.diplomacy.partnersOf(me) else emptySet()
+        val ownLand = HashSet<com.msa.fightandconquer.core.hex.Hex>()
+
         var myHexes = 0
         var myTrees = 0
         var enemyHexes = 0
@@ -58,6 +62,7 @@ object Evaluator {
             if (tile.terrain != com.msa.fightandconquer.core.model.Terrain.LAND) continue
             when {
                 tile.owner == me -> {
+                    ownLand.add(hex)
                     if (!tile.starving) {
                         myHexes++
                         when (tile.deposit) {
@@ -151,16 +156,16 @@ object Evaluator {
             score += incomeScore
             score += 0.25 * min(treasury, 100)
         } else {
-            score += 14.0 * myHexes
+            score += 14.0 * profile.hexWeight * myHexes
             score += incomeScore
             score += 0.15 * min(treasury, 200)
-            score += 10.0 * myVeins + 18.0 * myVeinsWithMine + 6.0 * myFertile
-            score += buildingScore
+            score += profile.assetWeight *
+                (10.0 * myVeins + 18.0 * myVeinsWithMine + 6.0 * myFertile + buildingScore)
             if (state.config.rules.fogOfWar) score += 6.0 * myWatchtowers
             score -= 4.0 * enemyVeins
             if (state.config.rules.navalEnabled) {
                 // Ports are gateway assets (supply + boat yard), but two is plenty.
-                score += 6.0 * min(myPorts, 2)
+                score += 6.0 * profile.navalWeight * min(myPorts, 2)
                 // Enemy WAR boats are threats worth sinking (+4 per kill via this
                 // term); a fisherman is not an invasion — just a snack worth
                 // taking when a warship is already alongside, never worth buying
@@ -172,7 +177,7 @@ object Evaluator {
                     if (visible != null && u.hex !in visible) continue
                     if (u.type == UnitType.FISHING_BOAT) enemyFishingBoats++ else enemyWarBoats++
                 }
-                score -= 4.0 * enemyWarBoats + 1.0 * enemyFishingBoats
+                score -= profile.navalWeight * (4.0 * enemyWarBoats + 1.0 * enemyFishingBoats)
             }
         }
         score -= 6.0 * myTrees
@@ -227,7 +232,7 @@ object Evaluator {
                         Rules.moveRangeOf(state, u) &&
                         Rules.strengthOf(state, u) > capDefense
                 }
-                if (threatened) score -= 30.0
+                if (threatened) score -= 30.0 * profile.defenseWeight
             }
         }
 
@@ -271,9 +276,76 @@ object Evaluator {
         // Slicing pays: enemy tiles cut off from their capital are dying assets.
         // Not just Hard's trick — it is a core mechanic the Academy teaches in
         // mission 5, and under range-bound movement the cut is the main answer
-        // to a cheap swarm, so Normal must see it too (Easy stays blind).
+        // to a cheap swarm, so Normal must see it too (Easy stays blind). Priced
+        // near a starving tile's true swing (its lost income plus my denial),
+        // so a genuine cut outbids a plain capture of the same cost.
         if (difficulty != Difficulty.EASY) {
-            score += 8.0 * enemyStarving
+            score += 12.0 * profile.cutWeight * enemyStarving
+        }
+
+        // Counter-attack pressure (Normal/Hard, every map): an enemy soldier
+        // standing on or beside my territory is a raid in progress — a candidate
+        // that kills it scores the removal on top of any hex it takes, which is
+        // what makes recapturing a fresh enemy foothold beat expanding politely
+        // somewhere quiet. The naval invader term below still prices deep
+        // beachheads on top. Enemy units already starving are bonus corpses:
+        // they die at their own turn start, the payoff of a landed cut.
+        if (difficulty != Difficulty.EASY) {
+            var threatStrength = 0
+            var maxThreat = 0
+            var starvingEnemies = 0
+            for (u in state.units.values) {
+                if (u.owner == me || u.owner in partners || Rules.isNaval(u.type)) continue
+                if (visible != null && u.hex !in visible) continue
+                if (state.tiles[u.hex]?.starving == true) starvingEnemies++
+                val near = u.hex in ownLand ||
+                    com.msa.fightandconquer.core.hex.HexMath.neighbors(u.hex).any { it in ownLand }
+                if (near) {
+                    val s = Rules.strengthOf(state, u)
+                    threatStrength += s
+                    if (s > maxThreat) maxThreat = s
+                }
+            }
+            score -= 0.8 * profile.counterAttackWeight * threatStrength
+            score += 3.0 * profile.cutWeight * starvingEnemies
+
+            // Army value: a soldier sized to a wall or raider that actually
+            // exists is an asset, not just upkeep — without this the one-ply
+            // argmax treats every unit as a liability the moment it stops
+            // capturing, buys nothing but the cheapest breaker, and never
+            // holds a standing force. Surplus peasants beyond the open (
+            // undefended) frontier plus slack stay a liability, so a swarm
+            // still reads as waste and a disband can win the comparison.
+            var openFrontier = 0
+            val walls = HashSet<Int>()
+            val seen = HashSet<com.msa.fightandconquer.core.hex.Hex>()
+            for (hex in ownLand) {
+                if (state.tiles.getValue(hex).starving) continue
+                com.msa.fightandconquer.core.hex.HexMath.forEachNeighbor(hex) { n ->
+                    if (seen.add(n)) {
+                        val t = state.tiles[n]
+                        if (t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                            t.owner != me && t.owner !in partners
+                        ) {
+                            val d = Rules.defenseOf(state, n)
+                            if (d == 0) openFrontier++ else walls.add(d)
+                        }
+                    }
+                }
+            }
+            var peasants = 0
+            var armyScore = 0.0
+            for (u in state.units.values) {
+                if (u.owner != me || u.type != UnitType.SOLDIER) continue
+                if (u.tier == 1) {
+                    peasants++
+                } else if (walls.any { it >= u.tier - 1 } || maxThreat >= u.tier - 1) {
+                    armyScore += 0.6 * u.tier
+                }
+            }
+            val surplus = peasants - openFrontier - 2
+            if (surplus > 0) armyScore -= 1.0 * surplus
+            score += armyScore
         }
 
         // Invasion defense (Normal/Hard, naval games only): an enemy soldier
@@ -294,7 +366,7 @@ object Evaluator {
                 it.owner != me && !Rules.isNaval(it.type) && it.hex in homeland &&
                     (visible == null || it.hex in visible)
             }
-            score -= 6.0 * invaders
+            score -= 6.0 * profile.defenseWeight * invaders
         }
 
         if (difficulty == Difficulty.HARD) {
@@ -319,7 +391,7 @@ object Evaluator {
                     }
                 }
                 val cap = if (myForce >= enemyForce) 3 else 6
-                score -= 1.5 * min(exposed, cap)
+                score -= 1.5 * profile.defenseWeight * min(exposed, cap)
             }
             // Anti-hoard: a catapult with no visible fortification left to crack is
             // pure upkeep — let attrition pressure retire it.

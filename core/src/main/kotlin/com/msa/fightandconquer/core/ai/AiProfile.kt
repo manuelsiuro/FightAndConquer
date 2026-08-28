@@ -8,6 +8,13 @@ import com.msa.fightandconquer.core.model.PlayerId
 import com.msa.fightandconquer.core.model.PlayerKind
 
 /**
+ * Flavor of the research priority ordering (see ResearchPolicy.priorityList).
+ * BALANCED keeps the historical per-difficulty lists; the rest are personality
+ * permutations of the same twelve techs — pacing changes, never new powers.
+ */
+enum class ResearchOrder { BALANCED, OFFENSE, ECONOMY, NAVAL, SCHOLARLY, BULWARK }
+
+/**
  * The single tuning surface the whole AI reads: every personality- or
  * difficulty-dependent weight, threshold, and cap lives here, so play styles
  * are data, not scattered branches. [NEUTRAL] reproduces the historical
@@ -40,6 +47,14 @@ data class AiProfile(
     val proactiveWarships: Boolean = false,
     /** Power ratio over a pact partner at which betrayal opens (HARD). */
     val betrayalDominance: Double = 2.0,
+    /** Propose a pact to neighbors at >= this/10 of my power (historical: 11). */
+    val pactProposalRatioTenths: Int = 11,
+    /** Fund a second University once one is working (historically HARD-only). */
+    val secondUniversity: Boolean = false,
+    /** Which flavor of tech ordering the research policy runs. */
+    val researchOrder: ResearchOrder = ResearchOrder.BALANCED,
+    /** Open the naval invasion ladder on mixed maps when the sea flank is softer. */
+    val amphibious: Boolean = false,
     /** Minimum own hexes a tower must actually harden to be worth proposing. */
     val towerGainThreshold: Int = 2,
     // --- Structure caps: economy buildings are a garnish, not a wall-to-wall

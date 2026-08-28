@@ -19,6 +19,7 @@ object MoveGenerator {
         state: GameState,
         difficulty: Difficulty,
         profile: AiProfile = AiProfile.NEUTRAL,
+        context: StrategicContext? = null,
     ): List<GameAction> {
         val me = state.currentPlayer
         val rules = state.config.rules
@@ -187,26 +188,21 @@ object MoveGenerator {
         val income = Rules.incomeOf(state, me)
         val structuresAllowed = difficulty != Difficulty.EASY || income > 15
         if (structuresAllowed) {
-            // Towers on border hexes touching ENEMY territory that lack coverage.
+            // Towers ranked by PREDICTED COVERAGE (the Antiyoy expert rule): what
+            // counts is how many contested own hexes the aura would actually
+            // harden, not how exposed the tower hex itself is — one hex behind
+            // the line often covers more border than standing on it.
             if (treasury >= eff.towerCost) {
                 val towerSpots = state.tiles.entries
-                    .filter { (hex, tile) ->
+                    .filter { (_, tile) ->
                         tile.owner == me && !tile.starving && tile.building == null &&
-                            tile.unit == null && tile.flora == null &&
-                            Rules.defenseOf(state, hex) < eff.towerDefense &&
-                            HexMath.neighbors(hex).any { n ->
-                                val t = state.tiles[n]
-                                t?.owner != null && t.owner != me
-                            }
+                            tile.unit == null && tile.flora == null
                     }
-                    .sortedByDescending { (hex, _) ->
-                        HexMath.neighbors(hex).count { n ->
-                            val t = state.tiles[n]
-                            t?.owner != null && t.owner != me
-                        } * 1000 - (hex.packed and 0x3FF)
-                    }
+                    .map { it.key to towerGain(state, it.key, me, eff.towerDefense) }
+                    .filter { it.second >= profile.towerGainThreshold }
+                    .sortedWith(compareByDescending<Pair<Hex, Int>> { it.second }.thenBy { it.first.packed })
                     .take(3)
-                towerSpots.forEach { out.add(GameAction.BuyBuilding(BuildingType.TOWER, it.key)) }
+                towerSpots.forEach { out.add(GameAction.BuyBuilding(BuildingType.TOWER, it.first)) }
             }
             // Farms: grow the economy when there's spare cash.
             val farmCost = Rules.nextFarmCost(state, me)
@@ -394,7 +390,7 @@ object MoveGenerator {
                                 }
                         }
                         .map { it.key to auraGain(state, it.key, me) }
-                        .filter { it.second >= 2 }
+                        .filter { it.second >= profile.towerGainThreshold }
                         .sortedWith(compareByDescending<Pair<Hex, Int>> { it.second }.thenBy { it.first.packed })
                         .take(3)
                         .forEach {
@@ -446,9 +442,35 @@ object MoveGenerator {
                         .take(2)
                         .forEach { out.add(GameAction.BuyBuilding(BuildingType.FISHERY, it.key)) }
                 }
+                // Bridges as ordinary strategy, not just the rich-man's war-chest
+                // escape: one span from our shore to foreign land opens a
+                // permanent second front (or shortcut) the simulated capture
+                // terms can price like any other purchase.
+                if (treasury >= eff.bridgeCost + 10) {
+                    state.tiles.entries
+                        .filter { (hex, tile) ->
+                            tile.terrain == com.msa.fightandconquer.core.model.Terrain.SEA &&
+                                tile.building == null && tile.unit == null &&
+                                HexMath.neighbors(hex).any {
+                                    val t = state.tiles[it]
+                                    t?.owner == me && !t.starving &&
+                                        t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND
+                                } &&
+                                HexMath.neighbors(hex).any {
+                                    val t = state.tiles[it]
+                                    t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                                        t.owner != me && t.owner !in partners
+                                }
+                        }
+                        .sortedBy { it.key.packed }
+                        .take(2)
+                        .forEach { out.add(GameAction.BuyBuilding(BuildingType.BRIDGE, it.key)) }
+                }
                 // Warships answer visible enemy WAR boats (the -4/boat evaluator
                 // term makes the hunt worthwhile once one is afloat). Fishermen
-                // never trigger a purchase — a dory is prey, not a threat.
+                // never trigger a purchase — a dory is prey, not a threat. An
+                // admiral doesn't wait to be provoked: any beatable coastal
+                // target justifies a hull.
                 if (treasury >= eff.warshipCost) {
                     val visible = if (rules.fogOfWar) Rules.visibleHexes(state, me) else null
                     val enemyBoats = state.units.values.any {
@@ -459,7 +481,16 @@ object MoveGenerator {
                                 ) &&
                             (visible == null || it.hex in visible)
                     }
-                    if (enemyBoats) {
+                    val coastalPrey = profile.proactiveWarships && state.tiles.entries.any { (hex, tile) ->
+                        tile.terrain == com.msa.fightandconquer.core.model.Terrain.LAND &&
+                            tile.owner != null && tile.owner != me && tile.owner !in partners &&
+                            (visible == null || hex in visible) &&
+                            Rules.defenseOf(state, hex) < eff.warshipStrength &&
+                            HexMath.neighbors(hex).any {
+                                state.tiles[it]?.terrain == com.msa.fightandconquer.core.model.Terrain.SEA
+                            }
+                    }
+                    if (enemyBoats || coastalPrey) {
                         val spot = state.tiles.entries
                             .asSequence()
                             .filter { (_, tile) ->
@@ -501,6 +532,23 @@ object MoveGenerator {
                     .forEach { out.add(GameAction.BuyBuilding(BuildingType.WATCHTOWER, it.first)) }
             }
         }
+        // --- Upkeep relief: on a strained economy, offer to pension off units
+        // parked deep behind the line. The evaluator arbitrates — the freed
+        // upkeep and the surplus-peasant penalty must actually beat the army
+        // value lost, so a useful reserve is never sold off. ---
+        if (context != null && difficulty != Difficulty.EASY &&
+            income - Rules.upkeepOf(state, me) <= 2
+        ) {
+            state.units.values
+                .filter { u ->
+                    u.owner == me && u.type == com.msa.fightandconquer.core.model.UnitType.SOLDIER &&
+                        (context.distanceToFront[u.hex] ?: Int.MAX_VALUE) > 2
+                }
+                .sortedBy { it.id.value }
+                .take(3)
+                .forEach { out.add(GameAction.DisbandUnit(it.id)) }
+        }
+
         // Never pave the last muster yard: in a naval game a fully built-up
         // island leaves no hex to raise a unit on, and a rich AI with no army
         // can never invade anyone again — the game freezes with a full purse.
@@ -514,6 +562,31 @@ object MoveGenerator {
         }
 
         return out
+    }
+
+    /**
+     * How many CONTESTED own hexes (bordering non-owned land) a tower at [hex]
+     * would actually raise above their current defense — the tower hex itself
+     * included. Interior spots score 0 and never qualify.
+     */
+    private fun towerGain(
+        state: GameState,
+        hex: Hex,
+        me: com.msa.fightandconquer.core.model.PlayerId,
+        towerDefense: Int,
+    ): Int {
+        fun contested(h: Hex): Boolean = HexMath.neighbors(h).any { n ->
+            val t = state.tiles[n]
+            t != null && t.terrain == com.msa.fightandconquer.core.model.Terrain.LAND && t.owner != me
+        }
+
+        var gain = 0
+        if (Rules.defenseOf(state, hex) < towerDefense && contested(hex)) gain++
+        HexMath.forEachNeighbor(hex) { n ->
+            val t = state.tiles[n]
+            if (t != null && t.owner == me && Rules.defenseOf(state, n) < towerDefense && contested(n)) gain++
+        }
+        return gain
     }
 
     /** How many hexes (self + adjacent own) an archer's aura would raise above their current defense. */

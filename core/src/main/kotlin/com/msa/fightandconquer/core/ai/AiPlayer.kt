@@ -86,11 +86,14 @@ class AiPlayer(private val difficulty: Difficulty) {
         // judged on what is known NOW, never penalized for what they reveal
         // (see Evaluator.score's visibleOverride).
         val frozenVisible = if (state.config.rules.fogOfWar) Rules.visibleHexes(state, me) else null
+        // The strategic read is frozen alongside visibility: candidates are
+        // GENERATED from what is true now, then judged by simulation.
+        val context = Strategy.assess(state, me, profile, frozenVisible)
         val baseline = Evaluator.score(state, me, difficulty, frozenVisible, profile)
         var best: GameAction = GameAction.EndTurn
         var bestScore = baseline
 
-        val candidates = MoveGenerator.candidates(state, difficulty, profile)
+        val candidates = MoveGenerator.candidates(state, difficulty, profile, context)
         for ((index, action) in candidates.withIndex()) {
             // Easy considers only ~60% of its options (deterministic per state+index).
             if (difficulty == Difficulty.EASY &&
@@ -104,6 +107,13 @@ class AiPlayer(private val difficulty: Difficulty) {
             if (score > bestScore + EPSILON) {
                 best = action
                 bestScore = score
+            }
+        }
+        // Nothing to capture, buy, or defend? March a rear laggard toward the
+        // front (the Antiyoy relocate phase) before yielding the turn.
+        if (best == GameAction.EndTurn && difficulty != Difficulty.EASY) {
+            RepositionPolicy.action(state, context)?.let { action ->
+                if (Legality.check(state, action) is LegalityResult.Ok) return action
             }
         }
         return best

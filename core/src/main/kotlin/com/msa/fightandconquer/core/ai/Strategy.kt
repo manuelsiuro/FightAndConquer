@@ -20,7 +20,7 @@ import com.msa.fightandconquer.core.model.UnitId
  * Everything here honors fog through [visible]: enemy ground and units outside
  * vision do not exist for this assessment (the Evaluator convention).
  */
-internal data class StrategicContext(
+data class StrategicContext(
     val profile: AiProfile,
     /** Own funded land hexes adjacent to enemy-owned land. */
     val frontHexes: Set<Hex>,
