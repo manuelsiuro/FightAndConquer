@@ -246,11 +246,12 @@ menu instead of racing into the game.
 `MenuScreen`: floating chrome over a slowly orbiting 3D world. The backdrop is a
 `FilamentHost` filling the screen under the button column, running a `BoardScene` built
 from `GameViewModel.menuWorld` — a throwaway `GameState` nobody plays, made by
-`MenuWorld` (`ui/menu/MenuWorld.kt`: MEDIUM map, seed-derived shape, 2–4 AI seats with
-distinct civilizations, default rules) on `Dispatchers.Default`. Every entry to the menu
-goes through the one funnel `GameViewModel.enterMenu(hasAutosave)` (init, autosave-load
-failure, `backToMenu`, game exit): it nulls the world so the previous host leaves
-composition, cancels the in-flight job, takes a fresh seed from
+`MenuWorld` (`ui/menu/MenuWorld.kt`: MEDIUM map, always a continent — the generator
+leaves open ocean untiled, so island shapes read as a near-empty backdrop — 2–4 AI
+seats with distinct civilizations, default rules) on `Dispatchers.Default`. Every entry
+to the menu goes through the one funnel `GameViewModel.enterMenu(hasAutosave)` (init,
+autosave-load failure, `backToMenu`, game exit): it nulls the world so the previous host
+leaves composition, cancels the in-flight job, takes a fresh seed from
 `MenuWorldSeeds.next(nowMillis, previous)` (the clock mixed through SplitMix64, never
 equal to the previous one) and regenerates — a different world every single time the
 menu is shown. Generation failure is swallowed: the world stays null and the buttons sit

@@ -9,8 +9,8 @@ import org.junit.Test
 
 /**
  * The menu backdrop must be reproducible from its seed (same seed → same world) and
- * varied across seeds (different shapes, different seat counts, distinct civs so the
- * capital art differs on screen).
+ * varied across seeds: the map shape is pinned to CONTINENT, but seat counts and civs
+ * vary so the capital art differs on screen.
  */
 class MenuWorldTest {
 
@@ -46,15 +46,14 @@ class MenuWorldTest {
     }
 
     @Test
-    fun `seeds vary shape and seat count`() {
-        val shapes = HashSet<MapShape>()
+    fun `every seed is a continent and seat counts vary`() {
         val counts = HashSet<Int>()
         for (seed in seeds) {
             val params = MenuWorld.params(seed)
-            shapes.add(params.shape)
+            // Island shapes leave open ocean untiled: the backdrop would read as empty.
+            assertEquals("shape for seed $seed", MapShape.CONTINENT, params.shape)
             counts.add(params.playerCount)
         }
-        assertTrue("shapes seen: $shapes", shapes.size >= 2)
         assertTrue("player counts seen: $counts", counts.size >= 2)
     }
 
