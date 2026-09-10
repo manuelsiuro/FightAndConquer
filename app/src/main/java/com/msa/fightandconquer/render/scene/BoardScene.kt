@@ -84,6 +84,14 @@ class BoardScene(
      */
     var fitForOrbit = false
 
+    /**
+     * Margin around the orbit fit ([OrbitMath.DEFAULT_MARGIN] = 10 % of breathing room).
+     * Below 1 the footprint circle overflows the screen on purpose — the menu world
+     * fills the width and lets its sea rim clip at the sides. Ignored unless
+     * [fitForOrbit]; read by the first frame's fit like [fitForOrbit] is.
+     */
+    var orbitFitMargin: Float = OrbitMath.DEFAULT_MARGIN
+
     private val picker = HexPicker(
         topYOf = { hex -> tiles[hex]?.let { it.y + Primitives.HEX_HEIGHT } },
     )
@@ -296,6 +304,13 @@ class BoardScene(
     private var rumbleTime = -1f
     private var boardSpanX = 10f
     private var boardSpanZ = 10f
+
+    /**
+     * Radius of the circle the board sweeps around the camera target — the orbit fit's
+     * real footprint, computed once in `init` (the orbit fit itself runs once, on the
+     * first frame with a viewport; the editor's board edits never orbit).
+     */
+    private var boardRadius = 5f
     private var cameraFitted = false
 
     var onTap: ((Hex) -> Unit)? = null
@@ -480,6 +495,12 @@ class BoardScene(
         rig.targetZ = (minZ + maxZ) / 2f
         boardSpanX = maxX - minX + 2f
         boardSpanZ = maxZ - minZ + 2f
+        boardRadius = OrbitMath.circumscribedRadius(
+            initialState.tiles.keys.map { HexWorld.centerX(it) to HexWorld.centerZ(it) },
+            rig.targetX,
+            rig.targetZ,
+            Primitives.HEX_RADIUS,
+        )
         rig.boundsFromBoard(minX, maxX, minZ, maxZ)
 
         // Load only the art sets this game can show; absent civs stay unloaded.
@@ -927,7 +948,12 @@ class BoardScene(
         if (viewport.width <= 0 || viewport.height <= 0) return
         val aspect = viewport.width.toFloat() / viewport.height
         val distance = if (fitForOrbit) {
-            OrbitMath.orbitFitDistance(boardSpanX, boardSpanZ, aspect, RenderEngine.FOV_DEGREES)
+            OrbitMath.orbitFitDistanceForCircle(
+                boardRadius * 2f,
+                aspect,
+                RenderEngine.FOV_DEGREES,
+                orbitFitMargin,
+            )
         } else {
             val tanHalf = kotlin.math.tan(Math.toRadians(RenderEngine.FOV_DEGREES / 2).toFloat())
             val fitZ = boardSpanZ * 0.5f / tanHalf

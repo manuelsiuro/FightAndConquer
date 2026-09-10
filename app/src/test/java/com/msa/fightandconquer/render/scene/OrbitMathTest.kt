@@ -3,6 +3,7 @@ package com.msa.fightandconquer.render.scene
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.hypot
 
 /**
  * The orbit camera must keep the whole board on screen at EVERY yaw: the fit distance
@@ -105,5 +106,69 @@ class OrbitMathTest {
     fun `a zero rate leaves the yaw untouched`() {
         assertEquals(2.5f, OrbitMath.advanceYaw(2.5f, 0f, 0.033f), 0f)
         assertEquals(0f, OrbitMath.advanceYaw(0f, 0f, 1f), 0f)
+    }
+
+    // ----- circumscribedRadius: the board's true footprint, not its bounding box -----
+
+    @Test
+    fun `circumscribed radius is the farthest center plus the hex radius`() {
+        val centers = listOf(0f to 0f, 3f to 4f, -1f to 2f, 2f to -2f)
+        assertEquals(5f + 0.5f, OrbitMath.circumscribedRadius(centers, 0f, 0f, 0.5f), 1e-4f)
+    }
+
+    @Test
+    fun `a single tile on the center is exactly one hex wide`() {
+        assertEquals(
+            0.62f,
+            OrbitMath.circumscribedRadius(listOf(7f to -3f), 7f, -3f, 0.62f),
+            1e-4f,
+        )
+    }
+
+    @Test
+    fun `circumscribed radius covers every center it is given`() {
+        val centers = listOf(-6f to 1.5f, 4f to 9f, 0f to 0f, 11f to -2f, -3f to -8f)
+        val cx = 1f
+        val cz = 0.5f
+        val hexRadius = 0.5f
+        val radius = OrbitMath.circumscribedRadius(centers, cx, cz, hexRadius)
+        for ((x, z) in centers) {
+            val distance = hypot(x - cx, z - cz)
+            assertTrue("radius $radius must cover ($x, $z) at $distance", radius >= distance)
+        }
+        val farthest = centers.maxOf { (x, z) -> hypot(x - cx, z - cz) }
+        assertEquals(farthest + hexRadius, radius, 1e-4f)
+    }
+
+    @Test
+    fun `the circumscribed footprint of a round board is smaller than its bounding diagonal`() {
+        // A hex-shaped board of radius 8: the bbox diagonal that the first fit used is
+        // ~1.4x the circle it really sweeps, which framed the world far too small.
+        val centers = ArrayList<Pair<Float, Float>>()
+        for (q in -8..8) for (r in -8..8) {
+            if (kotlin.math.abs(q + r) > 8) continue
+            centers += (q + r * 0.5f) to (r * 0.866f)
+        }
+        val radius = OrbitMath.circumscribedRadius(centers, 0f, 0f, 0.5f)
+        val spanX = centers.maxOf { it.first } - centers.minOf { it.first } + 2f
+        val spanZ = centers.maxOf { it.second } - centers.minOf { it.second } + 2f
+        assertTrue("2R ${radius * 2f} must be smaller than the bbox diagonal", radius * 2f < hypot(spanX, spanZ))
+    }
+
+    @Test
+    fun `the circle fit and the span fit agree on a circle-shaped diameter`() {
+        assertEquals(
+            OrbitMath.orbitFitDistance(12f, 16f, 0.46f, fov),
+            OrbitMath.orbitFitDistanceForCircle(20f, 0.46f, fov),
+            1e-4f,
+        )
+    }
+
+    @Test
+    fun `a margin below one pulls the camera in so the world overflows the width`() {
+        val framed = OrbitMath.orbitFitDistanceForCircle(24f, 0.46f, fov, margin = 1f)
+        val overflowing = OrbitMath.orbitFitDistanceForCircle(24f, 0.46f, fov, margin = 0.6f)
+        assertEquals(framed * 0.6f, overflowing, 1e-3f)
+        assertTrue("margin 0.6 ($overflowing) must be closer than margin 1 ($framed)", overflowing < framed)
     }
 }

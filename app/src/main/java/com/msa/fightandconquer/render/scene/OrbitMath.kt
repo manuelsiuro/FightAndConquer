@@ -1,6 +1,7 @@
 package com.msa.fightandconquer.render.scene
 
 import kotlin.math.hypot
+import kotlin.math.sqrt
 import kotlin.math.tan
 
 /**
@@ -15,10 +16,49 @@ object OrbitMath {
     const val DEFAULT_MARGIN: Float = 1.1f
 
     /**
-     * Camera distance that keeps a board of [spanX] x [spanZ] fully inside the frustum at
-     * EVERY yaw: a rotating board sweeps the circle circumscribing its footprint, so the
-     * fit uses that circle's diameter on both axes (vertical FOV and horizontal FOV, the
-     * latter narrowed by [aspect] on portrait screens) and takes the binding one.
+     * Radius of the circle a board really sweeps while it turns: the distance from
+     * ([cx], [cz]) to the farthest tile center in [centers], plus [hexRadius] for that
+     * tile's own reach. The bounding-box diagonal over-states this by up to ~40 % on the
+     * roundish maps the generator makes, which frames the world far too small.
+     */
+    fun circumscribedRadius(
+        centers: Iterable<Pair<Float, Float>>,
+        cx: Float,
+        cz: Float,
+        hexRadius: Float,
+    ): Float {
+        var farthestSq = 0f
+        for ((x, z) in centers) {
+            val dx = x - cx
+            val dz = z - cz
+            val distanceSq = dx * dx + dz * dz
+            if (distanceSq > farthestSq) farthestSq = distanceSq
+        }
+        return sqrt(farthestSq) + hexRadius
+    }
+
+    /**
+     * Camera distance that keeps a footprint circle of [diameter] inside the frustum at
+     * EVERY yaw: the circle is fitted against the vertical FOV and the horizontal one
+     * (narrowed by [aspect] on portrait screens), the binding one wins. A [margin] below
+     * 1 deliberately lets the circle overflow the screen — the menu world does that so
+     * the board fills the width; the sea rim clipping at the sides is the point.
+     */
+    fun orbitFitDistanceForCircle(
+        diameter: Float,
+        aspect: Float,
+        fovDegrees: Double,
+        margin: Float = DEFAULT_MARGIN,
+    ): Float {
+        val tanHalf = tan(Math.toRadians(fovDegrees / 2).toFloat())
+        val fitVertical = diameter * 0.5f / tanHalf
+        val fitHorizontal = diameter * 0.5f / (tanHalf * aspect)
+        return maxOf(fitVertical, fitHorizontal) * margin
+    }
+
+    /**
+     * [orbitFitDistanceForCircle] for callers that only know a bounding box: the circle
+     * circumscribing a [spanX] x [spanZ] box has the box's diagonal as its diameter.
      */
     fun orbitFitDistance(
         spanX: Float,
@@ -26,13 +66,7 @@ object OrbitMath {
         aspect: Float,
         fovDegrees: Double,
         margin: Float = DEFAULT_MARGIN,
-    ): Float {
-        val diameter = hypot(spanX, spanZ)
-        val tanHalf = tan(Math.toRadians(fovDegrees / 2).toFloat())
-        val fitVertical = diameter * 0.5f / tanHalf
-        val fitHorizontal = diameter * 0.5f / (tanHalf * aspect)
-        return maxOf(fitVertical, fitHorizontal) * margin
-    }
+    ): Float = orbitFitDistanceForCircle(hypot(spanX, spanZ), aspect, fovDegrees, margin)
 
     /** [yaw] + [radPerSec] * [dt], wrapped into [0, 2pi) for positive and negative rates. */
     fun advanceYaw(yaw: Float, radPerSec: Float, dt: Float): Float {
