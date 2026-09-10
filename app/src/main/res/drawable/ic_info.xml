@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Info disc (About). Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:fillType="evenOdd"
+        android:pathData="M2,12 A10,10 0 1,0 22,12 A10,10 0 1,0 2,12 Z M12,5.6 A1.6,1.6 0 1,0 12,8.8 A1.6,1.6 0 1,0 12,5.6 Z M10.5,10.5 L13.5,10.5 L13.5,18.5 L10.5,18.5 Z" />
+</vector>

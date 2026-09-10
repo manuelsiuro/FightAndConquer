@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Map editor: a hex tile beside a pencil. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:fillType="evenOdd"
+        android:pathData="M8.5,1.5 L2.44,5 L2.44,12 L8.5,15.5 L14.56,12 L14.56,5 Z M12.22,6.35 L12.22,10.65 L8.5,12.8 L4.78,10.65 L4.78,6.35 L8.5,4.2 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M13.05,16.05 L19.05,10.05 L20.95,11.95 L14.95,17.95 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M13.05,16.05 L12.5,18.5 L14.95,17.95 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M19.35,9.75 L20.35,8.75 L22.25,10.65 L21.25,11.65 Z" />
+</vector>

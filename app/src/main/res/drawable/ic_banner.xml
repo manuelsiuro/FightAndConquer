@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hanging banner (Campaign). Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M3,2 L21,2 L21,4.5 L3,4.5 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M6,4.5 L18,4.5 L18,21.5 L12,17.5 L6,21.5 Z" />
+</vector>
