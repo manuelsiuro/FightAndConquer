@@ -167,7 +167,9 @@ rotate/pitch gesture exists, so the rig exposes none — FOV 30° near-ortho
 look). `fitCameraOnce` frames the whole board using the **viewport
 aspect** (portrait makes horizontal FOV the constraint) and raises the max
 distance per board (`max(40, fit×1.3)` — the constructor's 35 is only a default;
-the far plane sits at 800 because island maps fit the camera ~330 units out).
+the far plane sits at 800 because island maps fit the camera ~330 units out). With
+`BoardScene.fitForOrbit` set it fits the circumscribed circle instead, via `OrbitMath`
+(see "Frame pacing" — the menu backdrop is the only caller).
 `jumpTo(hex)` glides on a **separate Animator** (the shared one gates the event
 queue); user pan cancels glides. Picking is CPU ray-casting: `rayThrough(px)` →
 plane tests against each possible tile top — raised land, land, sunken sea —
@@ -197,3 +199,16 @@ the target applies **while animating** — an idle board legitimately logs
 ~20 fps, so read drops only during action. Shadow map is 1024 (soft toy
 shadows at tabletop zoom) and SSAO runs LOW — both retuned for heat with no
 visible change.
+
+**The one exception: the menu's attract orbit.** `BoardScene.autoOrbitRadPerSec`
+(non-zero only on the menu backdrop, `ui/MenuScreen.kt`) advances `CameraRig.yaw` every
+frame through `OrbitMath.advanceYaw` and makes `isBusy()` true for as long as it is set,
+so the menu is the single place the board renders at the display rate while nothing
+gameplay-related moves. That is deliberate: an idle-throttled orbit is a ~20 fps stutter,
+and the menu is a short-lived screen, not the heat-relevant steady state (measured
+118–120 fps on the SM-S921B). The companion knobs frame it: `fitForOrbit` makes
+`fitCameraOnce` fit the board's true circumscribed circle — `OrbitMath.circumscribedRadius`
+over the tile centers, then `OrbitMath.orbitFitDistanceForCircle` — so no yaw can clip the
+board, and `orbitFitMargin` scales that distance (the menu passes a margin *below* 1 on
+purpose, letting the sea rim overflow the screen sides). Both default to off, so the game
+path is untouched.

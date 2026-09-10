@@ -10,8 +10,9 @@ Material scheme in `theme/Theme.kt` is derived from the same instance. Faction
 pastels, `onFaction` and the board-overlay chips are fixed across themes because
 they mirror the render palette; only the chrome tokens (paper, ink, surfaces,
 toasts) flip. The legacy translucent `panel` / `toastWarning` tokens survive for
-the menu, guide and editor screens only — the in-game HUD is all opaque `surface`
-(see the chrome idiom below). No dynamic color — wallpaper-derived schemes clashed
+the guide, campaign/about/debrief and editor screens only — the in-game HUD and,
+since it grew a 3D backdrop, the menu are all opaque `surface` (see the chrome
+idiom below). No dynamic color — wallpaper-derived schemes clashed
 with the fixed board palette. System bars are transparent edge-to-edge (`MainActivity` sets
 `SystemBarStyle.auto(TRANSPARENT, TRANSPARENT)` + disables nav-bar contrast
 enforcement); the Game screen hides them entirely (immersive, edge-swipe reveals
@@ -32,6 +33,7 @@ Unit/building names come from `unitNameRes(tier)`.
 | Flow | Type | Drives |
 |---|---|---|
 | `screen` | `Menu(hasAutosave) \| Setup(generating) \| Campaign \| Briefing(campaignId, levelId) \| MapEditor \| Settings \| About \| Game` | Top-level navigation |
+| `menuWorld` | `GameState?` | The menu's decorative orbiting world; null while it generates (or if generation failed), renewed by `enterMenu` on every menu entry |
 | `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection name + Atk/Def/upkeep/cargo-attack stats, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`) |
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex (never on a fishing dory: a hull that cannot attack has nothing to compare, and the badge would occlude the parked-catch coin chip on its own hex). The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
@@ -241,13 +243,32 @@ single "back" target for every non-game screen; it recomputes `hasAutosave` and
 cancels any in-flight map generation, so backing out mid-generation returns to the
 menu instead of racing into the game.
 
-`MenuScreen`: a decorative piece tableau (knight/capital/tower renders on a panel
-plinth) under the title, then a button list — Continue Game (only when an autosave
-exists), New game, Campaign, Map Editor, Guide, Settings, About. Whichever of
-Continue/New game comes first is the filled button; the rest are outlined. Guide
-opens the `FieldGuide` overlay in place rather than navigating. **Note the layout
-shifts when Continue is visible — scripted UI tests must not hardcode coordinates;
-derive them from `uiautomator dump`.**
+`MenuScreen`: floating chrome over a slowly orbiting 3D world. The backdrop is a
+`FilamentHost` filling the screen under the button column, running a `BoardScene` built
+from `GameViewModel.menuWorld` — a throwaway `GameState` nobody plays, made by
+`MenuWorld` (`ui/menu/MenuWorld.kt`: MEDIUM map, seed-derived shape, 2–4 AI seats with
+distinct civilizations, default rules) on `Dispatchers.Default`. Every entry to the menu
+goes through the one funnel `GameViewModel.enterMenu(hasAutosave)` (init, autosave-load
+failure, `backToMenu`, game exit): it nulls the world so the previous host leaves
+composition, cancels the in-flight job, takes a fresh seed from
+`MenuWorldSeeds.next(nowMillis, previous)` (the clock mixed through SplitMix64, never
+equal to the previous one) and regenerates — a different world every single time the
+menu is shown. Generation failure is swallowed: the world stays null and the buttons sit
+on the plain `background`. The camera orbits one turn per minute
+(`MENU_ORBIT_RAD_PER_SEC`) with `fitForOrbit` and a margin below 1, so the world
+overflows the screen sides on purpose and fills the width (see
+[rendering.md](rendering.md) "Frame pacing"). Decorative: no gesture modifiers, and the
+scene is never held in Compose state.
+
+Over it, HUD chrome rather than translucent panels: title + subtitle on one `hudSurface`
+chip, then a button list — Continue Game (only when an autosave exists), New game,
+Campaign, Map Editor, Guide, Settings, About — each button its own opaque surface.
+Whichever of Continue/New game comes first is the primary (`faction(0)` pastel fill, the
+end-turn FAB's darker hairline, `onFaction` label); the rest are `surface` + hairline +
+the single `boardLift`, none of them outlined any more. Guide opens the `FieldGuide`
+overlay in place rather than navigating. **Note the layout shifts when Continue is
+visible — scripted UI tests must not hardcode coordinates; derive them from
+`uiautomator dump`.**
 
 `SetupScreen` (behind New game, `ui/setup/` — the quick-start card design): a
 tableau card summarizing the match (human civ's piece trio + one-line summary +
