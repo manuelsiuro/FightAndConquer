@@ -1,6 +1,7 @@
 package com.msa.fightandconquer.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.msa.fightandconquer.core.ai.AiPlayer
@@ -59,6 +60,8 @@ import com.msa.fightandconquer.ui.campaign.CampaignRepository
 import com.msa.fightandconquer.ui.campaign.CampaignText
 import com.msa.fightandconquer.ui.campaign.counter
 import com.msa.fightandconquer.ui.campaign.label
+import com.msa.fightandconquer.ui.menu.MenuWorld
+import com.msa.fightandconquer.ui.menu.MenuWorldSeeds
 import com.msa.fightandconquer.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -480,8 +483,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val autosaveFile = File(application.filesDir, "autosave.json")
 
-    private val _screen = MutableStateFlow<Screen>(Screen.Menu(autosaveFile.exists()))
+    private val _screen = MutableStateFlow<Screen>(Screen.Menu(hasAutosave = autosaveFile.exists()))
     val screen: StateFlow<Screen> = _screen.asStateFlow()
+
+    /** The world orbiting behind the main menu; null while it is being generated. */
+    private val _menuWorld = MutableStateFlow<GameState?>(null)
+    val menuWorld: StateFlow<GameState?> = _menuWorld.asStateFlow()
+
+    private var menuWorldJob: Job? = null
+    private var lastMenuSeed: Long? = null
+
+    init {
+        // The initial screen is already a Menu; this is what gives it its backdrop.
+        enterMenu(autosaveFile.exists())
+    }
 
     var engine: GameEngine? = null
         private set
@@ -664,7 +679,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val save = runCatching { SaveCodec.decode(autosaveFile.readText()) }.getOrNull()
             withContext(Dispatchers.Main.immediate) {
                 if (save == null) {
-                    _screen.value = Screen.Menu(hasAutosave = false)
+                    enterMenu(hasAutosave = false)
                     return@withContext
                 }
                 // A campaign autosave resumes as a campaign: the mission is named in the
@@ -903,7 +918,35 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun backToMenu() {
         teardownMatch()
-        _screen.value = Screen.Menu(autosaveFile.exists())
+        enterMenu(autosaveFile.exists())
+    }
+
+    /**
+     * The one door into the menu — every path back here goes through it, so the backdrop
+     * world is renewed exactly once per entry. The world is nulled first: the old scene
+     * then leaves composition (and Filament tears it down) before the new one arrives,
+     * which is what makes "a different world every time" true.
+     */
+    private fun enterMenu(hasAutosave: Boolean) {
+        _screen.value = Screen.Menu(hasAutosave)
+        _menuWorld.value = null
+        menuWorldJob?.cancel()
+        val seed = MenuWorldSeeds.next(System.currentTimeMillis(), lastMenuSeed)
+        lastMenuSeed = seed
+        menuWorldJob = viewModelScope.launch(Dispatchers.Default) {
+            // Generation can exhaust the map validator's attempts. The backdrop is pure
+            // scenery, so a failure leaves the plain background behind the buttons —
+            // it must never take the menu down with it.
+            val world = try {
+                MenuWorld.generate(seed)
+            } catch (e: Exception) {
+                Log.w(TAG, "menu world generation failed", e)
+                null
+            }
+            withContext(Dispatchers.Main.immediate) {
+                if (_screen.value is Screen.Menu) _menuWorld.value = world
+            }
+        }
     }
 
     private fun teardownMatch() {
@@ -958,7 +1001,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     /** The match was already torn down on the way in; only the screen goes back. */
     fun closeDebrief() {
         debriefData = null
-        _screen.value = Screen.Menu(autosaveFile.exists())
+        enterMenu(autosaveFile.exists())
     }
 
     private fun startEngine(newEngine: GameEngine, showOpeningBanner: Boolean) {
@@ -2781,6 +2824,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
          * which is exactly right — no next mission, no unlocks, no progress.
          */
         const val CUSTOM_CAMPAIGN = "@custom"
+
+        private const val TAG = "GameViewModel"
     }
 }
 

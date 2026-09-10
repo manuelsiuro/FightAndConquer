@@ -62,6 +62,9 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
 - Camera fit must use viewport aspect (portrait clips horizontally otherwise).
 - Menu layout shifts when an autosave's Continue button is visible — don't
   hardcode tap coordinates in scripted UI checks.
+- The emulator's `screencap` composites the Filament `SurfaceView` unreliably (all
+  black, or torn strips between the Compose layers) — judge anything 3D from a
+  physical-device screenshot.
 - Blender MCP renders (`thumb`) may land in the server's temp dir instead of the
   requested path (sandboxing) — always read the `filepath` in the returned JSON,
   never assume your requested path was honored.

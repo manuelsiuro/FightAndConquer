@@ -47,10 +47,11 @@ screen.
 
 ## The screens
 
-**1. Main Menu** — a decorative tableau of rendered pieces (knight, castle, tower
-on a plinth) under the game title, then a vertical button list: Continue Game (only
-when an autosave exists), New Game, Campaign, Map Editor, Guide, Settings, About.
-The first of Continue/New Game is a filled button, the rest outlined.
+**1. Main Menu** — a freshly generated hex world orbiting slowly behind the chrome:
+the game title on an opaque chip, then a vertical button list of opaque surfaces:
+Continue Game (only when an autosave exists), New Game, Campaign, Map Editor, Guide,
+Settings, About. The first of Continue/New Game is a filled pastel button, the rest
+white.
 
 **2. Setup Screen — ⭐ the redesign target** — described in detail below.
 

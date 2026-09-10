@@ -49,9 +49,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             FightAndConquerTheme {
                 val screen by viewModel.screen.collectAsStateWithLifecycle()
+                val menuWorld by viewModel.menuWorld.collectAsStateWithLifecycle()
                 ImmersiveDuringGame(screen)
                 when (val s = screen) {
                     is Screen.Menu -> MenuScreen(
+                        world = menuWorld,
                         hasAutosave = s.hasAutosave,
                         onContinue = viewModel::continueGame,
                         onNewGame = viewModel::openSetup,
