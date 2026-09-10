@@ -69,6 +69,21 @@ class BoardScene(
     private val cameraAnimator = Animator()
 
     val rig = CameraRig()
+
+    /**
+     * Auto-orbit rate in radians per second, 0 = off (the game path). Non-zero spins
+     * [rig] yaw every frame and pins [isBusy] — an orbit throttled to the idle ambience
+     * rate is visibly choppy (docs/rendering.md "Frame pacing"). Used by the menu world.
+     */
+    var autoOrbitRadPerSec = 0f
+
+    /**
+     * When true the one-shot camera fit frames the circle circumscribing the board
+     * footprint ([OrbitMath.orbitFitDistance]) instead of the two axes, so no yaw of an
+     * orbiting camera clips a corner. Read lazily by the first frame's fit.
+     */
+    var fitForOrbit = false
+
     private val picker = HexPicker(
         topYOf = { hex -> tiles[hex]?.let { it.y + Primitives.HEX_HEIGHT } },
     )
@@ -545,7 +560,8 @@ class BoardScene(
     override fun isBusy(): Boolean =
         wakeFrames > 0 || pulsingShown || rumbleTime >= 0f ||
             !animator.isIdle || !cameraAnimator.isIdle ||
-            eventQueue.isNotEmpty() || pendingState != null
+            eventQueue.isNotEmpty() || pendingState != null ||
+            autoOrbitRadPerSec != 0f
 
     fun tap(xPx: Float, yPx: Float) {
         wake()
@@ -869,6 +885,9 @@ class BoardScene(
                     h.instance.setParameter("color", h.rgba[0], h.rgba[1], h.rgba[2], h.rgba[3] * pulseAlpha)
                 }
             }
+            if (autoOrbitRadPerSec != 0f) {
+                rig.yaw = OrbitMath.advanceYaw(rig.yaw, autoOrbitRadPerSec, deltaSeconds)
+            }
         }
         rig.update(engine.camera)
         publishAnchors()
@@ -899,16 +918,22 @@ class BoardScene(
     /**
      * Frames the whole board once the viewport aspect is known (portrait screens make
      * the horizontal FOV the binding constraint — a single-axis fit cuts the sides off).
+     * Reads [fitForOrbit] here, on the first frame with a viewport: set it right after
+     * construction and the orbiting fit is the one that lands.
      */
     private fun fitCameraOnce() {
         if (cameraFitted) return
         val viewport = engine.view.viewport
         if (viewport.width <= 0 || viewport.height <= 0) return
         val aspect = viewport.width.toFloat() / viewport.height
-        val tanHalf = kotlin.math.tan(Math.toRadians(RenderEngine.FOV_DEGREES / 2).toFloat())
-        val fitZ = boardSpanZ * 0.5f / tanHalf
-        val fitX = boardSpanX * 0.5f / (tanHalf * aspect)
-        val distance = maxOf(fitZ, fitX) * 1.1f
+        val distance = if (fitForOrbit) {
+            OrbitMath.orbitFitDistance(boardSpanX, boardSpanZ, aspect, RenderEngine.FOV_DEGREES)
+        } else {
+            val tanHalf = kotlin.math.tan(Math.toRadians(RenderEngine.FOV_DEGREES / 2).toFloat())
+            val fitZ = boardSpanZ * 0.5f / tanHalf
+            val fitX = boardSpanX * 0.5f / (tanHalf * aspect)
+            maxOf(fitZ, fitX) * 1.1f
+        }
         rig.maxDistance = maxOf(40f, distance * 1.3f)
         rig.distance = distance.coerceIn(rig.minDistance, rig.maxDistance)
         cameraFitted = true
