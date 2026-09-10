@@ -33,6 +33,15 @@ object MenuLayout {
     /** Below this usable height the anchored layout would collide; fall back to a scroll column. */
     const val ANCHORED_MIN_HEIGHT_DP = 420
 
+    /**
+     * Height the title block takes at the top (its 16 dp inset + the two-line chip) —
+     * an estimate, it only feeds the framing math, never the layout.
+     */
+    const val TITLE_BLOCK_DP = 104
+
+    /** Never lift more than this — beyond it the world's far rim leaves the screen top. */
+    const val MAX_LIFT_FRACTION = 0.15f
+
     /** The Continue bar above the grid, only with an autosave. */
     fun continueBar(hasAutosave: Boolean): MenuEntry? =
         if (hasAutosave) MenuEntry.CONTINUE else null
@@ -68,4 +77,19 @@ object MenuLayout {
 
     /** True when title-on-top / tiles-at-bottom fit without colliding. */
     fun anchored(availableHeightDp: Int): Boolean = availableHeightDp >= ANCHORED_MIN_HEIGHT_DP
+
+    /**
+     * Fraction of the usable height the orbiting world's center should sit *above* the
+     * screen center so it lands in the middle of the free band instead of behind the
+     * tiles: the band runs from [TITLE_BLOCK_DP] down to the top of the bottom block, so
+     * its middle is (block - title) / 2 dp above the screen's middle, i.e.
+     * (block - title) / (2 . availableHeight) of the height. Clamped to
+     * [0, MAX_LIFT_FRACTION]; 0 when the layout is not [anchored] (the scrolling column
+     * covers the world anyway). Fed to `BoardScene.orbitTargetLiftFraction`.
+     */
+    fun liftFraction(availableHeightDp: Int, hasAutosave: Boolean): Float {
+        if (!anchored(availableHeightDp)) return 0f
+        val bandOffsetDp = blockHeightDp(hasAutosave) - TITLE_BLOCK_DP
+        return (bandOffsetDp.toFloat() / (2f * availableHeightDp)).coerceIn(0f, MAX_LIFT_FRACTION)
+    }
 }

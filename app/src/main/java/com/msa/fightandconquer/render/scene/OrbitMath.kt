@@ -1,6 +1,8 @@
 package com.msa.fightandconquer.render.scene
 
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.tan
 
@@ -14,6 +16,12 @@ object OrbitMath {
 
     /** Breathing room around the framed footprint — same 10 % the game's single-axis fit uses. */
     const val DEFAULT_MARGIN: Float = 1.1f
+
+    /**
+     * A pitch this shallow already lifts absurdly far; below it the 1/sin blows up (and
+     * at 0 it would divide by zero), so the foreshortening factor stops here.
+     */
+    const val MIN_LIFT_SIN_PITCH: Float = 0.05f
 
     /**
      * Radius of the circle a board really sweeps while it turns: the distance from
@@ -77,4 +85,30 @@ object OrbitMath {
         val lifted = wrapped + TWO_PI
         return if (lifted >= TWO_PI) 0f else lifted
     }
+
+    /**
+     * Ground-plane distance the look-at target must move so a point at the target's depth
+     * shifts by [fraction] of the viewport height on screen: [fraction] x the visible
+     * height at that depth (2 . d . tan(fov/2)), divided by sin([pitch]) because the
+     * ground plane is foreshortened by the camera's elevation ([pitch] is radians above
+     * the horizon, `CameraRig.pitch`; its sine is floored at [MIN_LIFT_SIN_PITCH]).
+     *
+     * Slightly conservative on purpose: moving the target also brings it closer to the
+     * eye, which narrows the frustum, so the real shift lands a few percent under
+     * [fraction] — never over, so the lift can never throw the far rim off the top.
+     */
+    fun targetLift(distance: Float, fovDegrees: Double, pitch: Float, fraction: Float): Float {
+        if (fraction == 0f) return 0f
+        val visibleHeight = 2f * distance * tan(Math.toRadians(fovDegrees / 2).toFloat())
+        return fraction * visibleHeight / sin(pitch).coerceAtLeast(MIN_LIFT_SIN_PITCH)
+    }
+
+    /**
+     * The look-at target that shows the board center [cx],[cz] [lift] world units ABOVE
+     * the screen center at [yaw]: screen-up on the ground plane is (-sin yaw, -cos yaw)
+     * (`CameraRig.pan`), so the target moves the opposite way, *toward* the camera —
+     * which sits at +Z when yaw = 0 (`CameraRig.eye`) — and the board slides up-screen.
+     */
+    fun liftedTarget(cx: Float, cz: Float, yaw: Float, lift: Float): Pair<Float, Float> =
+        (cx + lift * sin(yaw)) to (cz + lift * cos(yaw))
 }

@@ -101,4 +101,58 @@ class MenuLayoutTest {
         assertTrue(MenuLayout.anchored(420))
         assertTrue(MenuLayout.anchored(800))
     }
+
+    // ----- liftFraction: how high the orbiting world sits above the screen center -----
+
+    @Test
+    fun `liftFraction centers the world in the band between the title and the block`() {
+        // (block - title) / (2 * height): 196 vs 104 dp over 800 dp of usable height.
+        assertEquals(0.0575f, MenuLayout.liftFraction(800, hasAutosave = false), 1e-3f)
+        // The Continue bar makes the block 252 dp, so the band's middle sits higher.
+        assertEquals(0.0925f, MenuLayout.liftFraction(800, hasAutosave = true), 1e-3f)
+    }
+
+    @Test
+    fun `the Continue bar lifts the world further than the bare grid`() {
+        assertTrue(
+            MenuLayout.liftFraction(800, hasAutosave = true) >
+                MenuLayout.liftFraction(800, hasAutosave = false),
+        )
+    }
+
+    @Test
+    fun `a scrolling menu never lifts the world`() {
+        assertEquals(0f, MenuLayout.liftFraction(400, hasAutosave = true), 0f)
+        assertEquals(0f, MenuLayout.liftFraction(419, hasAutosave = false), 0f)
+    }
+
+    @Test
+    fun `liftFraction clamps at the maximum`() {
+        assertEquals(0.15f, MenuLayout.MAX_LIFT_FRACTION, 1e-6f)
+        // 148 / 960 = 0.154 -> clamped.
+        assertEquals(MenuLayout.MAX_LIFT_FRACTION, MenuLayout.liftFraction(480, hasAutosave = true), 1e-6f)
+        // 148 / 1000 = 0.148 -> still under the cap, so it is passed through.
+        assertEquals(0.148f, MenuLayout.liftFraction(500, hasAutosave = true), 1e-3f)
+    }
+
+    @Test
+    fun `liftFraction stays inside zero and the maximum for every height`() {
+        for (height in 0..2400 step 7) {
+            for (hasAutosave in listOf(false, true)) {
+                val lift = MenuLayout.liftFraction(height, hasAutosave)
+                assertTrue(
+                    "lift $lift out of range at $height dp (autosave=$hasAutosave)",
+                    lift >= 0f && lift <= MenuLayout.MAX_LIFT_FRACTION,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `a taller screen needs a smaller fraction for the same band`() {
+        assertTrue(
+            MenuLayout.liftFraction(1000, hasAutosave = true) <
+                MenuLayout.liftFraction(700, hasAutosave = true),
+        )
+    }
 }

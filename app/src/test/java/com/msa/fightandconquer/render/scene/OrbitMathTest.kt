@@ -1,5 +1,7 @@
 package com.msa.fightandconquer.render.scene
 
+import com.msa.fightandconquer.render.CameraRig
+import dev.romainguy.kotlin.math.Float3
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,6 +15,9 @@ import kotlin.math.hypot
 class OrbitMathTest {
 
     private val fov = 30.0
+
+    /** The menu world's elevation (MenuScreen.MENU_PITCH_RADIANS), radians above the horizon. */
+    private val pitch55 = Math.toRadians(55.0).toFloat()
 
     /** The pre-orbit, single-axis fit BoardScene.fitCameraOnce uses for the game path. */
     private fun singleAxisFit(spanX: Float, spanZ: Float, aspect: Float): Float {
@@ -170,5 +175,123 @@ class OrbitMathTest {
         val overflowing = OrbitMath.orbitFitDistanceForCircle(24f, 0.46f, fov, margin = 0.6f)
         assertEquals(framed * 0.6f, overflowing, 1e-3f)
         assertTrue("margin 0.6 ($overflowing) must be closer than margin 1 ($framed)", overflowing < framed)
+    }
+
+    // ----- targetLift / liftedTarget: the menu world sits in the free band -----
+
+    @Test
+    fun `a zero fraction lifts nothing`() {
+        assertEquals(0f, OrbitMath.targetLift(18f, fov, pitch55, 0f), 0f)
+        assertEquals(0f, OrbitMath.targetLift(4f, 90.0, 0.3f, 0f), 0f)
+    }
+
+    @Test
+    fun `targetLift is linear in the fraction`() {
+        val single = OrbitMath.targetLift(18f, fov, pitch55, 0.05f)
+        assertEquals(single * 2f, OrbitMath.targetLift(18f, fov, pitch55, 0.10f), 1e-4f)
+        assertEquals(single * 3f, OrbitMath.targetLift(18f, fov, pitch55, 0.15f), 1e-4f)
+    }
+
+    @Test
+    fun `targetLift is linear in the distance`() {
+        val near = OrbitMath.targetLift(10f, fov, pitch55, 0.09f)
+        assertEquals(near * 2f, OrbitMath.targetLift(20f, fov, pitch55, 0.09f), 1e-4f)
+        assertEquals(near * 0.5f, OrbitMath.targetLift(5f, fov, pitch55, 0.09f), 1e-4f)
+    }
+
+    @Test
+    fun `a top-down camera lifts exactly the fraction of the visible height`() {
+        val distance = 18f
+        val fraction = 0.0925f
+        val visibleHeight = 2f * distance * kotlin.math.tan(Math.toRadians(fov / 2).toFloat())
+        assertEquals(
+            fraction * visibleHeight,
+            OrbitMath.targetLift(distance, fov, (Math.PI / 2).toFloat(), fraction),
+            1e-4f,
+        )
+    }
+
+    @Test
+    fun `a lower pitch needs a longer ground move for the same screen shift`() {
+        val topDown = OrbitMath.targetLift(18f, fov, (Math.PI / 2).toFloat(), 0.09f)
+        val menu = OrbitMath.targetLift(18f, fov, pitch55, 0.09f)
+        val flat = OrbitMath.targetLift(18f, fov, Math.toRadians(20.0).toFloat(), 0.09f)
+        assertTrue("55 deg ($menu) must exceed top-down ($topDown)", menu > topDown)
+        assertTrue("20 deg ($flat) must exceed 55 deg ($menu)", flat > menu)
+    }
+
+    @Test
+    fun `a near-horizon pitch stays finite`() {
+        val lift = OrbitMath.targetLift(18f, fov, 0f, 0.09f)
+        assertTrue("lift $lift must stay finite", lift.isFinite())
+        assertEquals(OrbitMath.targetLift(18f, fov, 0.0001f, 0.09f), lift, 1e-4f)
+    }
+
+    @Test
+    fun `the lifted target moves toward the camera at yaw zero`() {
+        // The camera sits at +Z when yaw = 0 (CameraRig.eye), so pulling the target
+        // toward it (+Z) pushes the board center up the screen.
+        val (tx, tz) = OrbitMath.liftedTarget(3f, -2f, 0f, 1.5f)
+        assertEquals(3f, tx, 1e-4f)
+        assertEquals(-0.5f, tz, 1e-4f)
+    }
+
+    @Test
+    fun `the lifted target follows the yaw a quarter turn`() {
+        val (tx, tz) = OrbitMath.liftedTarget(3f, -2f, (Math.PI / 2).toFloat(), 1.5f)
+        assertEquals(4.5f, tx, 1e-4f)
+        assertEquals(-2f, tz, 1e-4f)
+    }
+
+    @Test
+    fun `a zero lift returns the board center at every yaw`() {
+        for (yaw in floatArrayOf(0f, 0.7f, 1.57f, 3.1f, 4.9f, 6.2f)) {
+            val (tx, tz) = OrbitMath.liftedTarget(-4.25f, 7.5f, yaw, 0f)
+            assertEquals("x at yaw $yaw", -4.25f, tx, 1e-4f)
+            assertEquals("z at yaw $yaw", 7.5f, tz, 1e-4f)
+        }
+    }
+
+    /**
+     * The behaviour the two functions exist for: with the lifted target the board center
+     * projects that fraction of the viewport height ABOVE the screen center, at every
+     * yaw, and stays horizontally centered. Slightly under the asked fraction because
+     * the target also came closer to the camera (the frustum narrows) — never over.
+     */
+    @Test
+    fun `the lift raises the projected board center by about the asked fraction`() {
+        val viewportW = 1080
+        val viewportH = 2340
+        val fraction = 0.0925f
+        for (yaw in floatArrayOf(0f, 0.7f, 1.9f, 3.6f, 5.4f)) {
+            val rig = CameraRig(distance = 18f, yaw = yaw, pitch = pitch55)
+            val lift = OrbitMath.targetLift(rig.distance, fov, rig.pitch, fraction)
+            val (tx, tz) = OrbitMath.liftedTarget(0f, 0f, rig.yaw, lift)
+            rig.targetX = tx
+            rig.targetZ = tz
+            val projected = rig.project(Float3(0f, 0f, 0f), viewportW, viewportH)!!
+            val rise = viewportH / 2f - projected.y
+            assertEquals("board center stays centered at yaw $yaw", viewportW / 2f, projected.x, 0.05f)
+            assertTrue("board center must rise at yaw $yaw, rose $rise", rise > 0f)
+            assertEquals("rise at yaw $yaw", fraction * viewportH, rise, 0.08f * fraction * viewportH)
+            assertTrue("rise $rise must not overshoot", rise <= fraction * viewportH + 0.5f)
+        }
+    }
+
+    @Test
+    fun `a bigger fraction raises the board center further`() {
+        val viewportW = 1080
+        val viewportH = 2340
+        var previous = viewportH / 2f
+        for (fraction in floatArrayOf(0.03f, 0.0575f, 0.0925f, 0.15f)) {
+            val rig = CameraRig(distance = 18f, yaw = 1.1f, pitch = pitch55)
+            val lift = OrbitMath.targetLift(rig.distance, fov, rig.pitch, fraction)
+            val (tx, tz) = OrbitMath.liftedTarget(0f, 0f, rig.yaw, lift)
+            rig.targetX = tx
+            rig.targetZ = tz
+            val y = rig.project(Float3(0f, 0f, 0f), viewportW, viewportH)!!.y
+            assertTrue("fraction $fraction must sit higher than the previous one", y < previous)
+            previous = y
+        }
     }
 }

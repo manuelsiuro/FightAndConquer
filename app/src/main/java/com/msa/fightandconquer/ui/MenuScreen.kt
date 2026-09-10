@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -112,51 +115,66 @@ fun MenuScreen(
             .fillMaxSize()
             .background(UiColors.background),
     ) {
-        // The backdrop: a freshly generated world nobody plays, orbiting behind the
-        // chrome. Decorative, so no gesture modifiers — and the scene is never held in
-        // Compose state (the FilamentHost holder owns it).
-        if (world != null) {
-            FilamentHost(Modifier.fillMaxSize()) { renderEngine ->
-                BoardScene(renderEngine, context, world).apply {
-                    autoOrbitRadPerSec = MENU_ORBIT_RAD_PER_SEC
-                    fitForOrbit = true
-                    orbitFitMargin = MENU_ORBIT_FIT_MARGIN
-                    rig.pitch = MENU_PITCH_RADIANS
+        // Measured un-padded, because the world fills the whole screen while the chrome
+        // lives in the safe area: one usable height (what safeDrawingPadding would leave)
+        // decides both the layout and how high the world is lifted behind it.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val density = LocalDensity.current
+            val insets = WindowInsets.safeDrawing
+            val usableHeightDp = with(density) {
+                (maxHeight.toPx() - insets.getTop(density) - insets.getBottom(density)).toDp()
+            }.value.toInt()
+
+            // The backdrop: a freshly generated world nobody plays, orbiting behind the
+            // chrome. Decorative, so no gesture modifiers — and the scene is never held
+            // in Compose state (the FilamentHost holder owns it, and its factory runs
+            // once, when the SurfaceView is created).
+            if (world != null) {
+                FilamentHost(Modifier.fillMaxSize()) { renderEngine ->
+                    BoardScene(renderEngine, context, world).apply {
+                        autoOrbitRadPerSec = MENU_ORBIT_RAD_PER_SEC
+                        fitForOrbit = true
+                        orbitFitMargin = MENU_ORBIT_FIT_MARGIN
+                        rig.pitch = MENU_PITCH_RADIANS
+                        // Sits the land mass in the free band, not behind the tiles.
+                        orbitTargetLiftFraction = MenuLayout.liftFraction(usableHeightDp, hasAutosave)
+                    }
                 }
             }
-        }
 
-        // The chrome hugs the safe area's top and bottom edges and leaves the middle band
-        // to the world; only a screen too short for that falls back to a scrolling column.
-        BoxWithConstraints(
-            Modifier
-                .fillMaxSize()
-                .safeDrawingPadding(),
-        ) {
-            if (MenuLayout.anchored(maxHeight.value.toInt())) {
-                MenuTitleChip(
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = MenuTitleTopInset),
-                )
-                MenuActionBlock(
-                    hasAutosave = hasAutosave,
-                    onEntry = onEntry,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = MenuBlockBottomInset),
-                )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(vertical = MenuTitleTopInset),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    MenuTitleChip()
-                    Spacer(Modifier.height(MenuTileGap * 2))
-                    MenuActionBlock(hasAutosave = hasAutosave, onEntry = onEntry)
+            // The chrome hugs the safe area's top and bottom edges and leaves the middle
+            // band to the world; only a screen too short for that falls back to a
+            // scrolling column.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding(),
+            ) {
+                if (MenuLayout.anchored(usableHeightDp)) {
+                    MenuTitleChip(
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = MenuTitleTopInset),
+                    )
+                    MenuActionBlock(
+                        hasAutosave = hasAutosave,
+                        onEntry = onEntry,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = MenuBlockBottomInset),
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = MenuTitleTopInset),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        MenuTitleChip()
+                        Spacer(Modifier.height(MenuTileGap * 2))
+                        MenuActionBlock(hasAutosave = hasAutosave, onEntry = onEntry)
+                    }
                 }
             }
         }
