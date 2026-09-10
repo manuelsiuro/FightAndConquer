@@ -244,7 +244,7 @@ cancels any in-flight map generation, so backing out mid-generation returns to t
 menu instead of racing into the game.
 
 `MenuScreen`: floating chrome over a slowly orbiting 3D world. The backdrop is a
-`FilamentHost` filling the screen under the button column, running a `BoardScene` built
+`FilamentHost` filling the whole screen behind the chrome, running a `BoardScene` built
 from `GameViewModel.menuWorld` — a throwaway `GameState` nobody plays, made by
 `MenuWorld` (`ui/menu/MenuWorld.kt`: MEDIUM map, always a continent — the generator
 leaves open ocean untiled, so island shapes read as a near-empty backdrop — 2–4 AI
@@ -254,22 +254,43 @@ autosave-load failure, `backToMenu`, game exit): it nulls the world so the previ
 leaves composition, cancels the in-flight job, takes a fresh seed from
 `MenuWorldSeeds.next(nowMillis, previous)` (the clock mixed through SplitMix64, never
 equal to the previous one) and regenerates — a different world every single time the
-menu is shown. Generation failure is swallowed: the world stays null and the buttons sit
+menu is shown. Generation failure is swallowed: the world stays null and the chrome sits
 on the plain `background`. The camera orbits one turn per minute
 (`MENU_ORBIT_RAD_PER_SEC`) with `fitForOrbit` and a margin below 1, so the world
-overflows the screen sides on purpose and fills the width (see
-[rendering.md](rendering.md) "Frame pacing"). Decorative: no gesture modifiers, and the
-scene is never held in Compose state.
+overflows the screen sides on purpose and fills the width, and `orbitTargetLiftFraction`
+lifts its look-at target so the land mass rides in the free band between the title chip and
+the tiles rather than behind them (see [rendering.md](rendering.md) "Frame pacing").
+Decorative: no gesture modifiers, and the scene is never held in Compose state.
 
-Over it, HUD chrome rather than translucent panels: title + subtitle on one `hudSurface`
-chip, then a button list — Continue Game (only when an autosave exists), New game,
-Campaign, Map Editor, Guide, Settings, About — each button its own opaque surface.
-Whichever of Continue/New game comes first is the primary (`faction(0)` pastel fill, the
-end-turn FAB's darker hairline, `onFaction` label); the rest are `surface` + hairline +
-the single `boardLift`, none of them outlined any more. Guide opens the `FieldGuide`
-overlay in place rather than navigating. **Note the layout shifts when Continue is
+Over it, HUD chrome rather than translucent panels, pinned to the screen's two edges so the
+middle band stays world: the title + subtitle `hudSurface` chip sits `TopCenter` at the
+HUD's own `TopBarTopInset` (16 dp under the safe area) and the action block `BottomCenter`,
+12 dp above it. The block is six 88 dp **square icon tiles**, three per row with 8 dp gaps
+(280 dp per row) — New game · Campaign · Map Editor / Guide · Settings · About, always
+those six in that order — each an opaque `surface` + hairline + the single `boardLift` at
+the menu's shared 16 dp radius, `scaleClickable` for the HUD's press feedback, showing a
+24 dp `inkMuted` glyph over a 12 sp/600 label. Only when an autosave exists a 280 × 48 dp
+pastel **Continue bar** (20 dp glyph beside a 14 sp label) sits above the grid; the grid
+itself never changes shape. Exactly one surface is the pastel primary — `faction(0)` fill,
+the end-turn FAB's darker hairline, `onFaction` content, never `ink` on a pastel — the
+Continue bar when it exists, otherwise the New game tile. The glyphs are the tintable
+`ic_play` / `ic_swords` / `ic_banner` / `ic_hex_pencil` / `ic_gear` / `ic_info` vectors,
+with Guide reusing the open book `ic_research`. Guide opens the `FieldGuide` overlay in
+place rather than navigating.
+
+Every menu decision — which entries, their order, which one is primary, how they chunk into
+rows, the dp geometry, when to anchor and how far to lift the world — lives in the pure
+`ui/menu/MenuLayout.kt` (`enum class MenuEntry(labelRes, iconRes)` plus `object MenuLayout`:
+`continueBar`, `tiles`, `primary`, `rows`, `rowWidthDp`, `blockHeightDp`, `anchored`,
+`liftFraction`), JVM-tested in `MenuLayoutTest` because `:app` has no Robolectric; the
+composable is a dumb mapping over it. One un-padded `BoxWithConstraints` measures the usable
+height (`maxHeight` minus the safe-drawing insets) and feeds both `MenuLayout.anchored` and
+the world's `liftFraction`; below `ANCHORED_MIN_HEIGHT_DP` (420 dp — landscape phones) the
+anchored layout would collide, so the same chip and block fall back to a vertically
+scrolling centered column and the lift drops to 0. **Note the layout shifts when Continue is
 visible — scripted UI tests must not hardcode coordinates; derive them from
-`uiautomator dump`.**
+`uiautomator dump`, and read a tile's label off its child text node: merged semantics still
+leave the text on the child while the 88 dp bounds sit on the clickable parent.**
 
 `SetupScreen` (behind New game, `ui/setup/` — the quick-start card design): a
 tableau card summarizing the match (human civ's piece trio + one-line summary +
@@ -312,7 +333,7 @@ only. Replacing it means swapping a single `when` branch in
 
 `FieldGuide` (`ui/guide/`) is **not** a `Screen` — it is a self-contained overlay
 driven by `GuideCatalog`, and hosts just hoist a boolean and render it on top. Both
-`MenuScreen` (Guide button) and `GameScreen` (⋯ menu, and purchase cards passing
+`MenuScreen` (Guide tile) and `GameScreen` (⋯ menu, and purchase cards passing
 `focusEntryId` to scroll straight to one entry) do exactly that. It owns its own
 `BackHandler`, so system back closes the guide without touching host navigation.
 

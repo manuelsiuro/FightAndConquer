@@ -374,7 +374,12 @@ panels, toasts, and the proposal strip can anchor to its bottom + 8 dp
 - **Vectors** (single-color, tintable, drawn at 24 dp, rendered at 12/14/16/18/20 dp): coin,
   shield, flag, pact/handshake, warning, check-circle, info, close, overflow, income, upkeep,
   tribute. **The 🪙 emoji is removed** — the coin vector is used everywhere, including the
-  tribute button.
+  tribute button. The main menu's icon tiles add six of the same family (2026-09-10): play
+  (`ic_play`, Continue), crossed swords (`ic_swords`, New game), banner (`ic_banner`,
+  Campaign), hex + pencil (`ic_hex_pencil`, Map Editor), gear (`ic_gear`, Settings) and info
+  disc (`ic_info`, About) — rendered at 24 dp on the 88 dp tiles and at 20 dp on the Continue
+  bar, tinted `inkMuted` on a neutral tile and `onFaction` on the pastel primary; Guide
+  reuses the open book `ic_research`.
 - **Baked piece renders**: transparent PNG at 32, 48, and 80 dp (× density buckets), one per unit
   and building, plus a capital render for the game-over overlay. Rendered against the light board
   palette so they read on the `controlFill` plinth in both themes.

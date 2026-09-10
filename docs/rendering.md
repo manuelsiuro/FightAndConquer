@@ -210,5 +210,17 @@ and the menu is a short-lived screen, not the heat-relevant steady state (measur
 `fitCameraOnce` fit the board's true circumscribed circle — `OrbitMath.circumscribedRadius`
 over the tile centers, then `OrbitMath.orbitFitDistanceForCircle` — so no yaw can clip the
 board, and `orbitFitMargin` scales that distance (the menu passes a margin *below* 1 on
-purpose, letting the sea rim overflow the screen sides). Both default to off, so the game
-path is untouched.
+purpose, letting the sea rim overflow the screen sides). A third knob frames the orbit
+*vertically*: `orbitTargetLiftFraction` is the fraction of the viewport height the board
+center should sit **above** the screen center, so the world lands in the free band between
+the menu's title chip and its tile block instead of behind the tiles
+(`MenuLayout.liftFraction` computes it from that layout, capped at 0.15; see
+[ui-hud.md](ui-hud.md) "Screens & navigation"). Every orbit frame, right after
+`advanceYaw`, `OrbitMath.targetLift` turns the fraction into ground-plane world units
+(fraction × the visible height at the target's depth, 2·d·tan(fov/2), divided by
+sin(pitch) for the ground's foreshortening) from the live `rig.distance` / `rig.pitch`, and
+`OrbitMath.liftedTarget` moves the look-at target that far *toward* the camera along
+screen-up — which slides the board up-screen. Per frame on purpose: `rig.distance` is only
+meaningful after `fitCameraOnce`, and the offset has to follow the yaw. Never through
+`rig.pan`, which clamps to the board bounds and would fight the orbit. All three default to
+off (the lift to 0f), so the game path is untouched and never reads them.
