@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Typeface
 import androidx.compose.ui.graphics.toArgb
 import com.msa.fightandconquer.core.editor.CustomMapDef
 import com.msa.fightandconquer.core.model.Building
@@ -21,7 +22,8 @@ import kotlin.math.sqrt
 
 /**
  * A deterministic 2D minimap of a custom map: pointy-top hexes filled by
- * terrain/owner, capitals dotted, the map name captioned. Serves as the shareable
+ * terrain/owner, capitals dotted, the map name captioned in [captionTypeface] (callers
+ * with a Context pass the app's Figtree; null is the system face). Serves as the shareable
  * stego carrier and as a library thumbnail. Plain Canvas — no Filament, no theme
  * (faction pastels are fixed across themes; the parchment ground is its own look).
  */
@@ -29,7 +31,12 @@ object MinimapRenderer {
 
     const val SIZE = 512
 
-    fun render(def: CustomMapDef, size: Int = SIZE, caption: Boolean = true): Bitmap {
+    fun render(
+        def: CustomMapDef,
+        size: Int = SIZE,
+        caption: Boolean = true,
+        captionTypeface: Typeface? = null,
+    ): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(GROUND)
@@ -78,6 +85,7 @@ object MinimapRenderer {
                 color = INK
                 textSize = 24f * size / SIZE
                 textAlign = Paint.Align.CENTER
+                typeface = captionTypeface
             }
             canvas.drawText(def.name.take(40), size / 2f, size - 20f * size / SIZE, paint)
         }
