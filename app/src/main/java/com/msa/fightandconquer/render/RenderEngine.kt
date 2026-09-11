@@ -2,10 +2,12 @@ package com.msa.fightandconquer.render
 
 import android.view.Choreographer
 import android.view.Surface
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import com.google.android.filament.Camera
 import com.google.android.filament.ColorGrading
 import com.google.android.filament.Engine
+import com.google.android.filament.Fence
 import com.google.android.filament.Filament
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
@@ -63,6 +65,30 @@ class RenderEngine(private val surfaceView: SurfaceView) {
     var isSceneBusy: (() -> Boolean)? = null
     private var lastFrameNanos = 0L
 
+    /**
+     * A SurfaceView keeps its hole in the window shut (the Compose background shows
+     * through) until every SurfaceHolder.Callback2 reports its first draw finished.
+     * UiHelper registers a plain Callback, which counts as finished at once, so the hole
+     * opened onto the surface's black before Filament had presented anything: a black
+     * blink every time a host appeared. This callback holds the answer until a fence
+     * behind a rendered frame signals, i.e. the driver thread is past that frame's swap.
+     */
+    private var pendingDrawFinished: Runnable? = null
+    private var drawFinishedFence: Fence? = null
+
+    private val drawFinishedCallback = object : SurfaceHolder.Callback2 {
+        override fun surfaceCreated(holder: SurfaceHolder) = Unit
+        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
+        override fun surfaceDestroyed(holder: SurfaceHolder) = releaseDrawFinished()
+        override fun surfaceRedrawNeeded(holder: SurfaceHolder) = Unit
+        override fun surfaceRedrawNeededAsync(holder: SurfaceHolder, drawingFinished: Runnable) {
+            // Each request expects exactly one answer: a newer one releases the older, and
+            // the platform is never kept waiting on a loop that is not running.
+            releaseDrawFinished()
+            if (running) pendingDrawFinished = drawingFinished else drawingFinished.run()
+        }
+    }
+
     private var framesLogged = 0
     private var fpsWindowStart = 0L
     private var fpsWindowFrames = 0
@@ -70,6 +96,9 @@ class RenderEngine(private val surfaceView: SurfaceView) {
         override fun doFrame(frameTimeNanos: Long) {
             if (!running) return
             choreographer.postFrameCallback(this)
+            // Polled every vsync, ahead of the idle throttle, so the answer isn't held
+            // back up to a full ambience interval.
+            pollDrawFinished()
             // Ambience pacing: a still board skips vsyncs (water/bob advance by
             // the accumulated dt on the frames that do draw, so motion stays
             // smooth-slow rather than fast-choppy).
@@ -99,6 +128,9 @@ class RenderEngine(private val surfaceView: SurfaceView) {
                 if (framesLogged < 3) { android.util.Log.d(TAG, "frame: rendering"); framesLogged++ }
                 renderer.render(view)
                 renderer.endFrame()
+                if (pendingDrawFinished != null && drawFinishedFence == null) {
+                    drawFinishedFence = engine.createFence()
+                }
             } else if (framesLogged < 3) {
                 android.util.Log.d(TAG, "frame: not ready (ready=${uiHelper.isReadyToRender})")
                 framesLogged++
@@ -161,6 +193,22 @@ class RenderEngine(private val surfaceView: SurfaceView) {
             }
         }
         uiHelper.attachTo(surfaceView)
+        surfaceView.holder.addCallback(drawFinishedCallback)
+    }
+
+    /** Answers the pending redraw once the fenced frame is through the driver (or failed). */
+    private fun pollDrawFinished() {
+        val fence = drawFinishedFence ?: return
+        if (fence.wait(Fence.Mode.FLUSH, 0) != Fence.FenceStatus.TIMEOUT_EXPIRED) {
+            releaseDrawFinished()
+        }
+    }
+
+    private fun releaseDrawFinished() {
+        drawFinishedFence?.let { engine.destroyFence(it) }
+        drawFinishedFence = null
+        pendingDrawFinished?.run()
+        pendingDrawFinished = null
     }
 
     /** The tabletop "sky" behind the board — the day-night tween shifts it. */
@@ -184,11 +232,14 @@ class RenderEngine(private val surfaceView: SurfaceView) {
     fun pause() {
         running = false
         choreographer.removeFrameCallback(frameCallback)
+        // No frame will come to answer it, so answer now rather than stall the window.
+        releaseDrawFinished()
     }
 
     /** Destroys everything this class created. Scene content must be destroyed by its owner first. */
     fun destroy() {
         pause()
+        surfaceView.holder.removeCallback(drawFinishedCallback)
         uiHelper.detach()
         engine.destroyRenderer(renderer)
         engine.destroyView(view)

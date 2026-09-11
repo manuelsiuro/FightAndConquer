@@ -12,7 +12,15 @@ surface; models are baked offline instead — see asset-pipeline.md).
   (`onFrame(frameTimeNanos, dt)` hook → render). OpenGL backend forced
   (emulator-safe). Linear tone mapper (ACES crushes the pastels), manual exposure
   `setExposure(16, 1/125, 100)`, MSAA 4×, SSAO (radius 0.3, MEDIUM), pale clear
-  color. Debug FPS probe logs `fps=` every ~5 s (tag `FightRender`).
+  color. Debug FPS probe logs `fps=` every ~5 s (tag `FightRender`). **No black
+  blink on first show:** a `SurfaceView` keeps its window hole shut until every
+  `SurfaceHolder.Callback2` reports its draw finished, and `UiHelper`'s plain `Callback`
+  counts as finished at once — so the hole used to open onto the surface's black for
+  ~70 ms before Filament's first frame landed. The engine registers its own `Callback2`
+  that holds `surfaceRedrawNeededAsync`'s answer until a `Fence` created after the first
+  rendered frame signals (polled non-blocking every vsync, ahead of the idle throttle);
+  surface loss, `pause()` and a newer request release it early, so the platform is never
+  left waiting on a loop that isn't running.
 - `render/FilamentHost.kt` — Compose host. **Ownership lives in a plain holder, not
   Compose state**: a state-keyed `DisposableEffect` once re-ran on the factory's
   state write and destroyed the live engine (black screen). Pause/resume follows the
