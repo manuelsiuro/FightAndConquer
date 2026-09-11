@@ -34,7 +34,9 @@ Two bundled faces, both SIL OFL 1.1 (`theme/Type.kt`):
 The TTFs in `res/font/` are static instances baked by `tools/bake_fonts.py` from the upstream
 variable fonts in `art/fonts/` (license texts beside them). Fraunces is pinned at SOFT 100,
 WONK 0 and opsz 28. Edit the script and re-bake, never the TTFs. Glyphs the faces lack
-(`⋮`, `✕`, arrows) fall back to the system font per character. The About screen credits
+(`⋮`, `✕`, arrows) fall back to the system font per character. Outside Compose, the
+shared map image's caption (`MinimapRenderer`, a plain Canvas) gets Figtree SemiBold from
+`MapShareManager` via `Resources.getFont`. The About screen credits
 both faces.
 
 ## Strings

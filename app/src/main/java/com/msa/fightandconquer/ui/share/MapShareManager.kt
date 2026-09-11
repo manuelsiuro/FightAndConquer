@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.editor.CustomMapDef
 import com.msa.fightandconquer.core.share.LsbStego
 import com.msa.fightandconquer.core.share.ShareCodec
@@ -87,7 +88,8 @@ class MapShareManager(private val context: Context) {
     // ----- stego image -----
 
     fun shareStegoImage(def: CustomMapDef) {
-        val bitmap = MinimapRenderer.render(def)
+        val caption = context.resources.getFont(R.font.figtree_semibold)
+        val bitmap = MinimapRenderer.render(def, captionTypeface = caption)
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         LsbStego.embed(pixels, ShareCodec.encodeBytes(def))
