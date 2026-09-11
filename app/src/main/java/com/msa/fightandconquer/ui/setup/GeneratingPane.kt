@@ -36,6 +36,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.map.MapShape
 import com.msa.fightandconquer.core.map.MapSize
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 import kotlin.math.sin
 
 /**
@@ -68,6 +69,7 @@ internal fun GeneratingPane(
                 stringResource(R.string.setup_generating_title),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = DisplayFontFamily,
                 color = UiColors.ink,
             )
             val sizeShape = stringResource(

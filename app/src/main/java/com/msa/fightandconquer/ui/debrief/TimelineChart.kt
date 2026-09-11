@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.theme.UiFontFamily
 
 /** One seat's curve: parallel [rounds]/[values]; an eliminated seat's just ends early. */
 data class ChartSeries(val color: Color, val rounds: List<Int>, val values: List<Int>)
@@ -53,7 +54,8 @@ fun TimelineChart(
         ),
     )
     val textMeasurer = rememberTextMeasurer()
-    val labelStyle = TextStyle(fontSize = 10.sp, color = UiColors.inkMuted)
+    // Built from scratch, so it misses the theme's LocalTextStyle: name the UI face.
+    val labelStyle = TextStyle(fontFamily = UiFontFamily, fontSize = 10.sp, color = UiColors.inkMuted)
     val gridColor = UiColors.hairline
     val baselineColor = UiColors.divider
     val topLabel = yUnit?.let { stringResource(R.string.chart_axis_max, maxValue, it) }

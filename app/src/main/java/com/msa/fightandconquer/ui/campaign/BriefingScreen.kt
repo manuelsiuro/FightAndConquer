@@ -42,6 +42,7 @@ import com.msa.fightandconquer.core.campaign.Objectives
 import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.guide.FieldGuide
 import com.msa.fightandconquer.ui.resolve
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /**
  * The pre-mission card: the story, what the mission asks for, what will end it early,
@@ -80,6 +81,7 @@ fun BriefingScreen(
                 copy?.let { stringResource(it.name) } ?: level.id,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = DisplayFontFamily,
                 color = UiColors.ink,
             )
             Spacer(Modifier.height(12.dp))

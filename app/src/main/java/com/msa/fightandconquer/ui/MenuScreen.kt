@@ -49,6 +49,7 @@ import com.msa.fightandconquer.ui.guide.FieldGuide
 import com.msa.fightandconquer.ui.menu.MenuEntry
 import com.msa.fightandconquer.ui.menu.MenuLayout
 import com.msa.fightandconquer.ui.setup.scaleClickable
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /** One full turn of the menu world per minute — scenery pace, not a carousel. */
 private const val MENU_ORBIT_RAD_PER_SEC = (2.0 * Math.PI / 60.0).toFloat()
@@ -198,6 +199,7 @@ private fun MenuTitleChip(modifier: Modifier = Modifier) {
             stringResource(R.string.menu_title),
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
         )
         Text(

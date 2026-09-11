@@ -47,6 +47,9 @@ python3 tools/glb2pmesh.py --all art/models app/src/main/assets/pieces
 # Bake the campaign sources into the shipped JSON assets
 python3 tools/build_campaigns.py
 
+# Re-bake the UI fonts (art/fonts/ variable sources → res/font/ statics; needs fontTools)
+python3 tools/bake_fonts.py
+
 # Recompile Filament materials after editing app/src/main/materials/*.mat
 MATC=/path/to/filament/bin/matc ./tools/compile-materials.sh
 ```

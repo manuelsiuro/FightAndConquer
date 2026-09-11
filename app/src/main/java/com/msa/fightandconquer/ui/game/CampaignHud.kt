@@ -37,6 +37,7 @@ import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.campaign.StarRow
 import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.setup.scaleClickable
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /**
  * The mission objectives, now an on-demand bottom sheet like the other glanceable
@@ -189,6 +190,7 @@ internal fun CampaignOutcomeOverlay(
             ),
             fontSize = 26.sp,
             fontWeight = FontWeight.ExtraBold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
             textAlign = TextAlign.Center,
         )

@@ -595,6 +595,15 @@
     <string name="about_license_full_text_label">Full license text</string>
     <string name="about_license_full_text_value">apache.org/licenses/LICENSE-2.0</string>
     <string name="about_license_url" translatable="false">https://www.apache.org/licenses/LICENSE-2.0</string>
+    <string name="about_license_ofl">SIL Open Font License 1.1</string>
+    <string name="about_lib_figtree">Figtree typeface by Erik Kennedy</string>
+    <string name="about_lib_figtree_use">The lettering of every menu, panel and heads-up display.</string>
+    <string name="about_lib_fraunces">Fraunces typeface by Undercase Type</string>
+    <string name="about_lib_fraunces_use">The display lettering of screen and overlay titles.</string>
+    <string name="about_font_license_label">Font license text</string>
+    <string name="about_font_license_value">openfontlicense.org</string>
+    <string name="about_font_license_url" translatable="false">https://openfontlicense.org</string>
+    <string name="cd_about_link_font_license">Read the full SIL Open Font License</string>
     <!-- ===================== Campaign ===================== -->
 
     <!-- Campaign screen chrome -->

@@ -54,6 +54,7 @@ import com.msa.fightandconquer.ui.seatNameRes
 import com.msa.fightandconquer.ui.setup.mapShapeLowercaseRes
 import com.msa.fightandconquer.ui.setup.mapSizeLabelRes
 import com.msa.fightandconquer.ui.setup.scaleClickable
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /** Which stat the one timeline chart is showing. */
 private enum class Lens(val labelRes: Int) {
@@ -145,6 +146,7 @@ private fun VerdictHeader(data: DebriefData) {
             },
             fontSize = 28.sp,
             fontWeight = FontWeight.ExtraBold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
             textAlign = TextAlign.Center,
         )

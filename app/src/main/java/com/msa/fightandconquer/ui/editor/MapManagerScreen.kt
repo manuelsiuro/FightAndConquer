@@ -51,6 +51,7 @@ import com.msa.fightandconquer.core.share.ShareDecodeResult
 import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.resolve
 import com.msa.fightandconquer.ui.share.MapShareManager
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /**
  * The map library: every user-authored map (a Play button when valid, a draft badge
@@ -114,6 +115,7 @@ fun MapManagerScreen(
             stringResource(R.string.maps_title),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
         )
         Spacer(Modifier.height(12.dp))

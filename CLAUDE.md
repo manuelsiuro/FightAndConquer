@@ -14,6 +14,7 @@ renderer in Compose (`:app`) + Blender-authored piece models baked to binary ass
 ./gradlew :app:assembleDebug         # build APK
 python3 tools/glb2pmesh.py --all art/models app/src/main/assets/pieces   # re-bake models
 python3 tools/build_campaigns.py                                        # re-bake campaign JSON
+python3 tools/bake_fonts.py                                             # re-bake res/font (needs fontTools)
 python3 tools/render_piece_icons.py [name…]                              # re-bake UI icons (Blender w/ MCP)
 python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebuild a model (Blender must run w/ MCP add-on)
 ```
@@ -44,7 +45,9 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
   `RejectionReason` codes mapped in `UiText.kt`. Colors come from `UiColors`
   (theme-aware light/dark via `LocalUiColors`, follows the system setting, no
   dynamic color; faction pastels + `onFaction` + board chips are fixed across
-  themes — never put `ink` on a faction pastel, use `onFaction`).
+  themes — never put `ink` on a faction pastel, use `onFaction`). Type is Figtree by
+  default via the theme; titles ≥ 22 sp add `fontFamily = DisplayFontFamily` (Fraunces) —
+  never a bare `FontFamily` (docs/ui-hud.md "Typography").
 - **In-game HUD chrome follows the shipped design spec**
   (docs/design/game-screen-hud-handoff.md): every floating surface is opaque
   `surface` + 1 dp `hairline` + the single `boardLift` shadow (`Modifier.hudSurface`)
