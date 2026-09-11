@@ -55,6 +55,7 @@ import com.msa.fightandconquer.core.record.MatchKind
 import com.msa.fightandconquer.core.record.MatchMeta
 import com.msa.fightandconquer.core.record.MatchRecordSave
 import com.msa.fightandconquer.core.record.MatchRecorderState
+import com.msa.fightandconquer.render.scene.BoardPlayback
 import com.msa.fightandconquer.ui.campaign.CampaignProgressStore
 import com.msa.fightandconquer.ui.campaign.CampaignRepository
 import com.msa.fightandconquer.ui.campaign.CampaignText
@@ -570,6 +571,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var eventsJob: Job? = null
     private var mapGenJob: Job? = null
     private var aiThinking = false
+    /**
+     * The board the accepted actions are played on, or null while no game screen is composed.
+     * Written on the main thread, read from the AI's worker thread — hence @Volatile.
+     */
+    @Volatile
+    private var board: BoardPlayback? = null
     private var nextToastId = 0L
     private var freshUnitCursor = 0
 
@@ -1325,11 +1332,28 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         maybeRunAi()
     }
 
+    /**
+     * Attached by [com.msa.fightandconquer.ui.game.GameScreen] when its scene is created,
+     * detached when the screen leaves composition — the ViewModel never holds a scene
+     * beyond that (it would outlive the Filament engine that owns it).
+     */
+    fun attachBoard(board: BoardPlayback) {
+        this.board = board
+    }
+
+    /** Identity-guarded: a stale screen's detach can never drop a newer scene. */
+    fun detachBoard(board: BoardPlayback) {
+        if (this.board === board) this.board = null
+    }
+
     private fun submit(action: GameAction): LegalityResult {
         val engine = engine
             ?: return LegalityResult.Rejected(com.msa.fightandconquer.core.engine.RejectionReason.NO_GAME)
         val before = engine.state.value
         val result = engine.submit(action)
+        // The board is fed here, synchronously, on the main thread — never from an
+        // engine.events collector, or beats double.
+        if (result is LegalityResult.Ok) board?.apply(engine.state.value, engine.lastEvents)
         foldScoreboards(before, engine, action)
         // A game can finish mid-turn (capturing the last capital) — the turn-
         // boundary autosave sites never run then, so the stale resume file
@@ -2437,16 +2461,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 val action = AiPlayer(currentKind.difficulty).chooseAction(current)
                 val turnEnds = action == GameAction.EndTurn || ++guard >= AiPlayer.MAX_ACTIONS_PER_TURN
                 withContext(Dispatchers.Main.immediate) {
-                    val before = engine.state.value
                     // Fold what was actually SUBMITTED: a guard-forced EndTurn is a
                     // turn boundary too, and the turn-start scoreboards must rebase
                     // on it or the following autosave goes one turn stale.
                     val submitted = if (guard >= AiPlayer.MAX_ACTIONS_PER_TURN) GameAction.EndTurn else action
-                    engine.submit(submitted)
+                    // Same path as a human action: engine, board feed, scoreboards, HUD.
                     // The scoreboards count the AI's turn too — a boat it sinks is a unit
                     // the player lost.
-                    foldScoreboards(before, engine, submitted)
-                    refreshHud()
+                    submit(submitted)
                 }
                 if (turnEnds) {
                     guard = 0

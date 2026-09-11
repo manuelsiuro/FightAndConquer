@@ -53,7 +53,7 @@ class BoardScene(
     private val engine: RenderEngine,
     context: Context,
     initialState: GameState,
-) : SceneController {
+) : SceneController, BoardPlayback {
 
     private val filament = engine.engine
     private val materials = MaterialStore(context, filament)
@@ -491,6 +491,13 @@ class BoardScene(
     private val _anchors = MutableStateFlow<Map<Hex, Float2>>(emptyMap())
     val anchors: StateFlow<Map<Hex, Float2>> = _anchors.asStateFlow()
 
+    // ----- playback back-pressure (BoardPlayback) -----
+
+    private val _playbackIdle = MutableStateFlow(true)
+
+    /** See [BoardPlayback.playbackIdle]: false from [apply] until the queue drained + reconciled. */
+    override val playbackIdle: StateFlow<Boolean> = _playbackIdle.asStateFlow()
+
     fun setTrackedAnchors(hexes: Set<Hex>) {
         trackedAnchors = hexes
     }
@@ -667,10 +674,12 @@ class BoardScene(
     }
 
     /** Feed a new authoritative state and the events that produced it. */
-    fun apply(state: GameState, events: List<GameEvent>) {
+    override fun apply(state: GameState, events: List<GameEvent>) {
         latestState = state
         pendingState = state
         eventQueue.addAll(events)
+        // Busy even with no events: the reconcile below is still pending a frame.
+        _playbackIdle.value = false
     }
 
     // ----- editor surface (never called on the game path) -----
@@ -861,6 +870,8 @@ class BoardScene(
         eventQueue.clear()
         pendingState?.let { reconcile(it) }
         pendingState = null
+        // Everything fed has been shown (fast-forwarded) — never strand a waiter.
+        _playbackIdle.value = true
     }
 
     // ----- frame loop -----
@@ -878,6 +889,8 @@ class BoardScene(
             if (animator.isIdle && eventQueue.isEmpty()) {
                 pendingState?.let { reconcile(it) }
                 pendingState = null
+                // The last fed state is now on screen: release whoever waits on the board.
+                if (!_playbackIdle.value) _playbackIdle.value = true
             }
             if (rumbleTime >= 0f) {
                 rumbleTime += deltaSeconds
@@ -1989,6 +2002,8 @@ class BoardScene(
     }
 
     override fun destroy() {
+        // A destroyed scene never renders another frame — no waiter may be left hanging.
+        _playbackIdle.value = true
         (
             unitPieces.values + buildingPieces.values + floraPieces.values +
                 depositPieces.values + monsterPieces.values + lootPieces.values
