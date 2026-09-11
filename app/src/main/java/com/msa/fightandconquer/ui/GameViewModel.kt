@@ -1,10 +1,10 @@
 package com.msa.fightandconquer.ui
 
 import android.app.Application
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.msa.fightandconquer.core.ai.AiPlayer
 import com.msa.fightandconquer.core.campaign.CampaignSave
 import com.msa.fightandconquer.core.campaign.CampaignSaveRef
 import com.msa.fightandconquer.core.editor.CustomMapDef
@@ -64,8 +64,11 @@ import com.msa.fightandconquer.ui.campaign.label
 import com.msa.fightandconquer.ui.menu.MenuWorld
 import com.msa.fightandconquer.ui.menu.MenuWorldSeeds
 import com.msa.fightandconquer.R
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,9 +76,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
 enum class GameMode { VS_AI, PASS_AND_PLAY }
@@ -570,7 +574,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var aiJob: Job? = null
     private var eventsJob: Job? = null
     private var mapGenJob: Job? = null
-    private var aiThinking = false
+    /**
+     * The AI seat the HUD presents, from the start of its turn until its last beat has
+     * played; null = follow the engine's current player ([presentedTurn]).
+     */
+    private var presentedAiSeat: Int? = null
+    /** Human-facing toasts held back until the presented AI seat hands over ([onAiTurnsDone]). */
+    private val handoffToasts = ArrayList<Pair<UiText, ToastKind>>()
+    /** How long the last [AiTurnDriver.Host.awaitBoardSettled] waited — the TurnFlow probe's N. */
+    private var lastBoardWaitMs = 0L
     /**
      * The board the accepted actions are played on, or null while no game screen is composed.
      * Written on the main thread, read from the AI's worker thread — hence @Volatile.
@@ -959,6 +971,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun teardownMatch() {
         closeEditorSession()
         mapGenJob?.cancel()
+        // The driver may still be mid-iteration on Dispatchers.Default: it stops at its next
+        // main-thread callback, where AiHost.checkLive() sees the engine is gone.
         aiJob?.cancel()
         eventsJob?.cancel()
         engine = null
@@ -972,6 +986,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _popups.value = emptyList()
         selectedUnit = null; selectedHex = null; banner = null; pendingPactBreak = null
         lastHumanSeat = null
+        presentedAiSeat = null
+        handoffToasts.clear()
         _visibility.value = null
         recorder = null
         turnStartRecorder = null
@@ -1012,12 +1028,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun startEngine(newEngine: GameEngine, showOpeningBanner: Boolean) {
+        // Cancel is a request: the old driver can still run one iteration against the OLD
+        // engine it captured, and AiHost.checkLive() stops it before it touches this match.
         aiJob?.cancel()
         eventsJob?.cancel()
         engine = newEngine
         selectedUnit = null; selectedHex = null; pendingPactBreak = null
         closePanels()
         lastHumanSeat = null
+        presentedAiSeat = null
+        handoffToasts.clear()
         banner = if (showOpeningBanner) 0 else null
         freshUnitCursor = 0
         aiCapturedFromHumans = 0
@@ -1902,8 +1922,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
             is GameEvent.TurnStarted -> {
                 if (state.players[event.player.value].kind is PlayerKind.Human) {
+                    // The human's turn starts on the AI's EndTurn, but the player is still
+                    // watching the AI's last beats — these land at the handoff instead.
+                    fun announce(text: UiText, kind: ToastKind) {
+                        if (presentedAiSeat != null) handoffToasts += text to kind else pushToast(text, kind)
+                    }
                     if (aiCapturedFromHumans > 0) {
-                        pushToast(
+                        announce(
                             UiText.plural(R.plurals.toast_ai_captured, aiCapturedFromHumans, aiCapturedFromHumans),
                             ToastKind.WARNING,
                         )
@@ -1913,7 +1938,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     knownStarving = currentHumanStarving(state)
                     // Dusk warning: one last daylight turn to garrison up.
                     if (Rules.roundsUntilNight(state.turnNumber, state.config.rules) == 1) {
-                        pushToast(UiText.of(R.string.toast_night_approaching), ToastKind.WARNING)
+                        announce(UiText.of(R.string.toast_night_approaching), ToastKind.WARNING)
                     }
                 }
             }
@@ -2450,49 +2475,117 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val kind = state.player(state.currentPlayer).kind
         if (kind !is PlayerKind.Ai || aiJob?.isActive == true) return
 
-        aiThinking = true
+        // The HUD holds on this seat until the driver's last beat has been shown.
+        presentedAiSeat = state.currentPlayer.value
         refreshHud()
-        aiJob = viewModelScope.launch(Dispatchers.Default) {
-            var guard = 0
-            while (isActive) {
-                val current = engine.state.value
-                if (current.phase !is GamePhase.Playing) break
-                val currentKind = current.player(current.currentPlayer).kind as? PlayerKind.Ai ?: break
-                val action = AiPlayer(currentKind.difficulty).chooseAction(current)
-                val turnEnds = action == GameAction.EndTurn || ++guard >= AiPlayer.MAX_ACTIONS_PER_TURN
-                withContext(Dispatchers.Main.immediate) {
-                    // Fold what was actually SUBMITTED: a guard-forced EndTurn is a
-                    // turn boundary too, and the turn-start scoreboards must rebase
-                    // on it or the following autosave goes one turn stale.
-                    val submitted = if (guard >= AiPlayer.MAX_ACTIONS_PER_TURN) GameAction.EndTurn else action
-                    // Same path as a human action: engine, board feed, scoreboards, HUD.
-                    // The scoreboards count the AI's turn too — a boat it sinks is a unit
-                    // the player lost.
-                    submit(submitted)
-                }
-                if (turnEnds) {
-                    guard = 0
-                    withContext(Dispatchers.Main.immediate) { autosave() }
-                    val after = engine.state.value
-                    if (after.phase !is GamePhase.Playing ||
-                        after.player(after.currentPlayer).kind !is PlayerKind.Ai
-                    ) {
-                        break
+        // LAZY, then assign, then start: the host and the finally below compare the live
+        // `aiJob` against this job, so `aiJob` must hold it before a single line of the body
+        // (or of a `finally`) can run.
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val self = coroutineContext[Job]
+            try {
+                AiTurnDriver(AiHost(engine, self), Dispatchers.Default, Dispatchers.Main.immediate).run()
+            } finally {
+                // Cancelled (mission settled, teardown, new engine) or done: never leave an
+                // AI seat presented, or the human's chrome would stay hidden for good.
+                withContext(NonCancellable + Dispatchers.Main.immediate) {
+                    // Only the job that still owns the turn may clear it: a superseded job
+                    // (startEngine already launched the next one) must not clobber the seat
+                    // the new driver is presenting.
+                    if (aiJob === self && presentedAiSeat != null) {
+                        presentedAiSeat = null
+                        handoffToasts.clear()
+                        refreshHud()
                     }
                 }
-                delay(220) // pacing so board animations roughly keep up
             }
-            withContext(Dispatchers.Main.immediate) {
-                aiThinking = false
-                // An AI can win mid-turn; the loop breaks before its turn-end
-                // autosave, so drop the stale resume file (autosave deletes
-                // when the game is finished).
-                if (engine.state.value.phase is GamePhase.Finished) {
-                    finalizeRecord()
-                    autosave()
-                }
-                refreshHud()
+        }
+        aiJob = job
+        job.start()
+    }
+
+    /**
+     * The ViewModel as the driver sees it (docs/ui-hud.md "AI driving & autosave"): submit on
+     * the main thread, autosave at a seat's turn end, present the acting seat, wait for the
+     * board, hand over. Only [awaitBoardSettled] runs off the main thread.
+     *
+     * One host per run, scoped to the engine and job it was built for — see [checkLive].
+     */
+    private inner class AiHost(
+        /** The engine this driver was started for — read from the compute thread, never the field. */
+        private val engine: GameEngine,
+        /** The driver's own job, compared against [aiJob] to spot a superseded run. */
+        private val job: Job?,
+    ) : AiTurnDriver.Host {
+        override val state: GameState
+            get() = engine.state.value
+
+        /**
+         * A cancelled driver may still finish one iteration on [Dispatchers.Default] before it
+         * observes the cancellation, so every main-thread callback checks first that this run
+         * is still the live one: a teardown (no engine), a new match (another engine) or a
+         * restarted driver (another job) stops it cooperatively instead of crashing on a
+         * dead engine or replaying its actions into the new one.
+         */
+        private fun checkLive() {
+            if (this@GameViewModel.engine !== engine || aiJob !== job) {
+                throw CancellationException("AI turn superseded")
             }
+        }
+
+        override fun submitAi(action: GameAction): Boolean {
+            checkLive()
+            // Same path as a human action: engine, board feed, scoreboards, HUD. The
+            // scoreboards count the AI's turn too — a boat it sinks is a unit the player lost.
+            return submit(action) is LegalityResult.Ok
+        }
+
+        override fun onAiSeatTurnEnded() {
+            checkLive()
+            autosave()
+        }
+
+        override fun presentAiSeat(seat: Int) {
+            checkLive()
+            presentedAiSeat = seat
+            refreshHud()
+        }
+
+        override suspend fun awaitBoardSettled() {
+            // No board (the game screen is not composed yet): nothing to wait for.
+            val b = board ?: return
+            val t0 = SystemClock.uptimeMillis()
+            val settled = withTimeoutOrNull(PLAYBACK_TIMEOUT_MS) { b.playbackIdle.first { it } } != null
+            lastBoardWaitMs = SystemClock.uptimeMillis() - t0
+            // A backgrounded app draws no frames; crawling is benign, deadlocking is not.
+            if (!settled) Log.w(TURN_FLOW_TAG, "board playback timeout after $PLAYBACK_TIMEOUT_MS ms, proceeding")
+        }
+
+        override fun onAiTurnsDone() {
+            checkLive()
+            val seat = presentedAiSeat
+            presentedAiSeat = null
+            val state = engine.state.value
+            if (state.phase is GamePhase.Playing) {
+                val next = state.player(state.currentPlayer)
+                // Pass-and-play with an AI between two humans (unreachable from Setup today,
+                // but the handoff is where the privacy banner belongs).
+                if (next.kind is PlayerKind.Human && anyOtherHuman()) banner = state.currentPlayer.value
+            }
+            handoffToasts.forEach { (text, kind) -> pushToast(text, kind) }
+            handoffToasts.clear()
+            // An AI can win mid-turn: its EndTurn autosave never ran, so drop the stale
+            // resume file here (autosave deletes when the game is finished).
+            if (state.phase is GamePhase.Finished) {
+                finalizeRecord()
+                autosave()
+            }
+            Log.d(
+                TURN_FLOW_TAG,
+                "handoff from AI seat=$seat to seat=${state.currentPlayer.value} " +
+                    "after $lastBoardWaitMs ms of board playback",
+            )
+            refreshHud()
         }
     }
 
@@ -2573,6 +2666,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val engine = engine ?: run { _hud.value = null; return }
         val state = engine.state.value
         val me = state.currentPlayer
+        // Whose turn the PLAYER sees: an AI seat whose beats are still playing outranks the
+        // engine's current player, so the human's chrome returns on a still board.
+        val shown = presentedTurn(state, presentedAiSeat)
         val rules = state.config.rules
         if (state.player(me).kind is PlayerKind.Human) lastHumanSeat = me.value
         // The coin row always shows the human's economy — an AI seat's treasury
@@ -2586,10 +2682,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             emptyList()
         }
         _hud.value = HudState(
-            currentPlayer = me.value,
-            currentIsHuman = state.player(me).kind is PlayerKind.Human,
-            currentCiv = state.player(me).civ,
-            aiThinking = aiThinking,
+            currentPlayer = shown.seat,
+            currentIsHuman = shown.isHuman,
+            currentCiv = state.player(PlayerId(shown.seat)).civ,
+            aiThinking = shown.aiActing,
             treasury = summary.treasury,
             income = summary.income,
             upkeep = summary.upkeep,
@@ -2608,9 +2704,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             purchases = purchases,
             canUndo = engine.canUndo(),
             banner = banner,
-            winner = (state.phase as? GamePhase.Finished)?.winner?.value,
-            winnerIsHuman = (state.phase as? GamePhase.Finished)?.winner
-                ?.let { state.player(it).kind is PlayerKind.Human },
+            // An AI's winning capture is SHOWN before the Game Over overlay covers it.
+            winner = if (shown.aiActing) null else (state.phase as? GamePhase.Finished)?.winner?.value,
+            winnerIsHuman = if (shown.aiActing) {
+                null
+            } else {
+                (state.phase as? GamePhase.Finished)?.winner
+                    ?.let { state.player(it).kind is PlayerKind.Human }
+            },
             freshUnitCount = state.units.values.count { it.owner == me && !it.spent },
             // The tray previews MY prospective pieces, so every number is read at my
             // effective rules — a Shogunate archer really upkeeps 3, a Sultanate
@@ -2805,7 +2906,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun onMissionSettled(level: LevelDef, outcome: CampaignOutcome) {
         aiJob?.cancel()
-        aiThinking = false
+        presentedAiSeat = null
         // Custom maps have no campaign progress to advance.
         if (outcome.won && activeCampaignId != CUSTOM_CAMPAIGN) {
             campaignProgress.record(level.id, outcome.stars, outcome.rounds)
@@ -2848,6 +2949,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         const val CUSTOM_CAMPAIGN = "@custom"
 
         private const val TAG = "GameViewModel"
+
+        /** `adb logcat -s TurnFlow`: one handoff line per AI turn, with the board wait. */
+        private const val TURN_FLOW_TAG = "TurnFlow"
+
+        /** Upper bound on one board wait — a backgrounded app draws no frames. */
+        private const val PLAYBACK_TIMEOUT_MS = 5_000L
     }
 }
 

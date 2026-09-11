@@ -12,6 +12,7 @@ import com.msa.fightandconquer.core.model.PlayerKind
 import com.msa.fightandconquer.core.model.PlayerState
 import com.msa.fightandconquer.core.model.Tile
 import com.msa.fightandconquer.core.model.UnitId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -98,7 +99,11 @@ class AiTurnDriverTest {
             return script[state.currentPlayer.value]?.removeFirstOrNull() ?: GameAction.EndTurn
         }
 
+        /** Runs before every submit — the hook a superseded host uses to stop the driver. */
+        var beforeSubmit: ((GameAction) -> Unit)? = null
+
         override fun submitAi(action: GameAction): Boolean {
+            beforeSubmit?.invoke(action)
             submits += action
             if (action == rejected) return false
             when (action) {
@@ -325,5 +330,31 @@ class AiTurnDriverTest {
         assertTrue(job.isCancelled)
         assertFalse("a cancelled driver must not hand over", host.done)
         assertEquals(1, host.submits.size)
+    }
+
+    /**
+     * How `GameViewModel.AiHost.checkLive()` stops a superseded run (teardown, a new engine,
+     * a restarted driver): it throws [CancellationException] from a main-thread callback
+     * instead of touching the new match. The driver must then stop for good — no further
+     * submit, no handoff — and the launching job must end cancelled, not failed.
+     */
+    @Test
+    fun `a host that reports itself superseded stops the driver for good`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val host = FakeHost(
+            state(listOf(PlayerKind.Human, passive), currentPlayer = 1),
+            autoSettle = true,
+        )
+        host.script(1, moveX, moveY, GameAction.EndTurn)
+        host.beforeSubmit = { if (it == moveY) throw CancellationException("AI turn superseded") }
+        val job = launch {
+            AiTurnDriver(host, dispatcher, dispatcher, host::choose, beatGapMs = 0L).run()
+        }
+        advanceUntilIdle()
+
+        assertEquals(listOf<GameAction>(moveX), host.submits)
+        assertFalse("a superseded driver must not hand over", host.done)
+        assertEquals(0, host.turnEnded)
+        assertTrue("the launching job ends cancelled, not failed", job.isCancelled)
     }
 }
