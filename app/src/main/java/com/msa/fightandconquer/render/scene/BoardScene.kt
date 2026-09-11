@@ -92,6 +92,16 @@ class BoardScene(
      */
     var orbitFitMargin: Float = OrbitMath.DEFAULT_MARGIN
 
+    /**
+     * Fraction of the viewport height the board center sits ABOVE the screen center
+     * while orbiting; 0 = centered (the game path, which never reads this). Lets the
+     * menu drop the world into the free band between its title chip and its tiles
+     * ([com.msa.fightandconquer.ui.menu.MenuLayout.liftFraction]) — only read while
+     * [autoOrbitRadPerSec] is non-zero, and re-derived every frame so it survives the
+     * one-shot fit and follows the yaw.
+     */
+    var orbitTargetLiftFraction = 0f
+
     private val picker = HexPicker(
         topYOf = { hex -> tiles[hex]?.let { it.y + Primitives.HEX_HEIGHT } },
     )
@@ -306,6 +316,14 @@ class BoardScene(
     private var boardSpanZ = 10f
 
     /**
+     * Middle of the board's footprint — where the camera target starts. The orbit lift
+     * offsets the target away from it every frame, so the center itself must be kept
+     * (only read when [orbitTargetLiftFraction] is non-zero).
+     */
+    private var boardCenterX = 0f
+    private var boardCenterZ = 0f
+
+    /**
      * Radius of the circle the board sweeps around the camera target — the orbit fit's
      * real footprint, computed once in `init` (the orbit fit itself runs once, on the
      * first frame with a viewport; the editor's board edits never orbit).
@@ -493,6 +511,8 @@ class BoardScene(
 
         rig.targetX = (minX + maxX) / 2f
         rig.targetZ = (minZ + maxZ) / 2f
+        boardCenterX = rig.targetX
+        boardCenterZ = rig.targetZ
         boardSpanX = maxX - minX + 2f
         boardSpanZ = maxZ - minZ + 2f
         boardRadius = OrbitMath.circumscribedRadius(
@@ -695,6 +715,11 @@ class BoardScene(
         }
         boardSpanX = maxX - minX + 2f
         boardSpanZ = maxZ - minZ + 2f
+        // Keeps the orbit lift's anchor on the (grown or shrunk) footprint; the editor
+        // never orbits, so this is inert there. The camera target is deliberately left
+        // where the user put it.
+        boardCenterX = (minX + maxX) / 2f
+        boardCenterZ = (minZ + maxZ) / 2f
         rig.boundsFromBoard(minX, maxX, minZ, maxZ)
     }
 
@@ -908,6 +933,20 @@ class BoardScene(
             }
             if (autoOrbitRadPerSec != 0f) {
                 rig.yaw = OrbitMath.advanceYaw(rig.yaw, autoOrbitRadPerSec, deltaSeconds)
+                if (orbitTargetLiftFraction != 0f) {
+                    // Not rig.pan: that clamps to the board bounds and would fight the
+                    // orbit. rig.distance is only meaningful after fitCameraOnce, which
+                    // is why the lift is recomputed here instead of inside the fit.
+                    val lift = OrbitMath.targetLift(
+                        rig.distance,
+                        RenderEngine.FOV_DEGREES,
+                        rig.pitch,
+                        orbitTargetLiftFraction,
+                    )
+                    val (tx, tz) = OrbitMath.liftedTarget(boardCenterX, boardCenterZ, rig.yaw, lift)
+                    rig.targetX = tx
+                    rig.targetZ = tz
+                }
             }
         }
         rig.update(engine.camera)

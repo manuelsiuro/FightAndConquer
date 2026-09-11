@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Crossed swords (New game). Four paths: the blades overlap, so no shared subpaths. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M3.5,17.5 L17,4 L20.5,2.5 L19,6 L5.5,19.5 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M4.74,13.32 L9.68,18.26 L8.26,19.68 L3.32,14.74 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M20.5,17.5 L7,4 L3.5,2.5 L5,6 L18.5,19.5 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M19.26,13.32 L14.32,18.26 L15.74,19.68 L20.68,14.74 Z" />
+</vector>

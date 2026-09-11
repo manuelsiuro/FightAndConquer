@@ -60,8 +60,10 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
 - `Transforms.trs` supports translate + Y-rotation + scale (uniform XZ, separate
   `scaleY`) — **no X/Z rotation** (why the Blender pennant is modeled pre-rotated).
 - Camera fit must use viewport aspect (portrait clips horizontally otherwise).
-- Menu layout shifts when an autosave's Continue button is visible — don't
-  hardcode tap coordinates in scripted UI checks.
+- Menu layout shifts when an autosave's Continue bar is visible — don't
+  hardcode tap coordinates in scripted UI checks, and read a menu tile's label from
+  its child text node (merged semantics still leave the text there, the 88 dp
+  bounds on the clickable parent).
 - The emulator's `screencap` composites the Filament `SurfaceView` unreliably (all
   black, or torn strips between the Compose layers) — judge anything 3D from a
   physical-device screenshot.
