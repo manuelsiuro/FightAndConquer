@@ -51,15 +51,25 @@ stack — every non-game screen backs out through `backToMenu()`. See
 2. ViewModel decides (selection state machine) and calls `engine.submit(GameAction)`.
 3. `GameEngine`: `Legality.check` → `Reducer.reduce(state, action)` → new immutable
    `GameState` + ordered `List<GameEvent>` → publishes to `state` / `events` flows.
-4. `GameScreen` collector feeds each event to `BoardScene.apply(state, [event])`;
-   the scene queues events and plays one animation beat at a time; when the queue
-   drains it runs `reconcile(state)` (self-healing snap to truth).
+4. The ViewModel's `submit` feeds the board **synchronously**, on the main thread, right
+   after the engine accepted the action: `board?.apply(engine.state.value, engine.lastEvents)`
+   through the `BoardPlayback` seam (`render/scene/BoardPlayback.kt`, implemented by
+   `BoardScene`; `GameScreen` attaches the scene with `attachBoard` when it creates it and
+   detaches it on dispose — it does **not** collect `engine.events` for the board, or beats
+   would play twice). The scene queues events and plays one animation beat at a time; when
+   the queue drains it runs `reconcile(state)` (self-healing snap to truth) and flips
+   `playbackIdle` back to true.
 5. ViewModel refreshes `HudState` (+ economy panel, overlay labels, toasts) from the
    same state; Compose recomposes.
 
-AI turns run the same path: a coroutine picks `AiPlayer.chooseAction(state)` on
-`Dispatchers.Default` and submits on the main thread with ~220 ms pacing so board
-animations keep up. The AI uses only public actions — it cannot cheat.
+AI turns run the same path, paced by the **board** rather than by a clock:
+`AiTurnDriver` (`ui/AiTurnDriver.kt`) submits one action, then waits until the scene reports
+`playbackIdle` again (`Host.awaitBoardSettled`, bounded by a 5 s timeout), pauses
+`BEAT_GAP_MS` and submits the next; the following action is *thought ahead* on
+`Dispatchers.Default` while the current beat plays, so an action costs
+max(think, beat) + gap. The HUD keeps presenting the AI seat until the last beat has landed,
+so the human's turn only opens on a still board. The AI uses only public actions — it cannot
+cheat.
 
 ## Design principles
 
@@ -86,8 +96,8 @@ animations keep up. The AI uses only public actions — it cannot cheat.
 
 | Thread | Work |
 |---|---|
-| Main | Everything stateful: Compose, `GameEngine.submit/undo`, `BoardScene` (Choreographer frame loop, animations, Filament calls), autosave scheduling |
-| `Dispatchers.Default` | AI `chooseAction` (pure), map generation for new games |
+| Main | Everything stateful: Compose, `GameEngine.submit/undo`, the board feed (`BoardPlayback.apply` from `GameViewModel.submit`), `BoardScene` (Choreographer frame loop, animations, Filament calls), autosave scheduling |
+| `Dispatchers.Default` | AI `chooseAction` (pure), including `AiTurnDriver`'s think-ahead while the previous beat plays; map generation for new games |
 | `Dispatchers.IO` | Routine autosave writes, save loads (`persistNow` in `onStop` deliberately writes synchronously on main — the process may die before a dispatch runs) |
 | Filament internal threads | Driver/backend work owned by Filament (`Engine.Backend.OPENGL`) |
 

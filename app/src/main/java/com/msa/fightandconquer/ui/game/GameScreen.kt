@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -87,15 +88,15 @@ fun GameScreen(viewModel: GameViewModel) {
                         scene.setFog(vis?.visible, vis?.explored)
                     }
                     ref.scene = scene
+                    // The ViewModel feeds this board synchronously from submit().
+                    viewModel.attachBoard(scene)
                 }
             }
         }
 
         // ----- board wiring -----
-        LaunchedEffect(engine) {
-            engine.events.collect { event ->
-                ref.scene?.apply(engine.state.value, listOf(event))
-            }
+        DisposableEffect(Unit) {
+            onDispose { ref.scene?.let(viewModel::detachBoard) }
         }
         LaunchedEffect(Unit) {
             viewModel.highlights.collect { h ->
