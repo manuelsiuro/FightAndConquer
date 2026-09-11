@@ -1,9 +1,12 @@
 # UI & HUD (`app/.../ui/`)
 
 Single-ViewModel pattern: `GameViewModel` owns all UI state and is the only
-**mutator** of `GameEngine` (`GameScreen` reads `engine.state`/`engine.events`
-directly to wire the renderer, but never submits); `GameScreen` renders and wires
-the board; `MenuScreen` is the front door and `SetupScreen` configures new games.
+**mutator** of `GameEngine` (`GameScreen` reads `engine.state` directly to wire
+highlights, resync, camera jumps and fog, and registers its `BoardScene` as the
+ViewModel's `BoardPlayback` via `attachBoard`/`detachBoard`, but never submits and
+never collects `engine.events` for the board — the ViewModel feeds it);
+`GameScreen` renders and wires the board; `MenuScreen` is the front door and
+`SetupScreen` configures new games.
 Colors: `UiColors` — a `@Composable` accessor for `LocalUiColors`, resolving to
 the light or dark `UiColorScheme` per the system setting (`UiColors.kt`); the
 Material scheme in `theme/Theme.kt` is derived from the same instance. Faction
@@ -55,7 +58,7 @@ Unit/building names come from `unitNameRes(tier)`.
 |---|---|---|
 | `screen` | `Menu(hasAutosave) \| Setup(generating) \| Campaign \| Briefing(campaignId, levelId) \| MapEditor \| Settings \| About \| Game` | Top-level navigation |
 | `menuWorld` | `GameState?` | The menu's decorative orbiting world; null while it generates (or if generation failed), renewed by `enterMenu` on every menu entry |
-| `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection name + Atk/Def/upkeep/cargo-attack stats, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`) |
+| `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection name + Atk/Def/upkeep/cargo-attack stats, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`). `currentPlayer` / `currentIsHuman` / `currentCiv` / `aiThinking` / `winner`(+`winnerIsHuman`) follow the **presented** seat, not the engine's: `presentedTurn(state, presentedAiSeat)` (`PresentedTurn.kt`) keeps an AI seat current while its beats still play, so the human's chrome — and an AI victory's Game Over overlay — appear only on a still board |
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex (never on a fishing dory: a hull that cannot attack has nothing to compare, and the badge would occlude the parked-catch coin chip on its own hex). The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
 | `economy` | `EconomyBreakdown?` | Economy bottom sheet (null = closed; recomputed on every refresh while open) |
@@ -73,7 +76,12 @@ Unit/building names come from `unitNameRes(tier)`.
 ## Interaction model (`onHexTapped`)
 
 ```
-banner shown / AI turn / game over → ignore (board taps also close the glanceable sheets)
+banner shown / AI turn / game over → ignore (board taps also close the glanceable
+                                     sheets). "AI turn" lasts until the AI's beats
+                                     have played: the gate is the presented seat, so
+                                     taps stay ignored through the board's tail
+                                     (`BoardScene.tap` still fast-forwards the beats
+                                     already fed before the tap reaches the ViewModel)
 unit already selected:
     tap on move/capture target  → submit MoveUnit, clear selection
     tap on merge target         → submit MergeUnits, clear selection
@@ -108,11 +116,17 @@ internal `select()` (never submits), and emits a camera jump.
 
 ## Event feedback
 
-A second collector on `engine.events` (ViewModel scope, restarted per engine) drives:
+The ViewModel's collector on `engine.events` (ViewModel scope, restarted per engine —
+the only one left, the board is fed synchronously by `submit`) drives:
 tree-clear and demolish/disband refund popups (human actor only), loot toasts (both
 sides), "territory cut off" warning (diffed starving sets, debounced per round),
 "AI took N of your hexes" (accumulated during AI turns, flushed at the human's
 `TurnStarted`), bankruptcy alert, and `ActionRejected` reasons as info toasts.
+
+The toasts raised on the human's `TurnStarted` ("AI took N of your hexes", "night
+approaching") go through a local `announce()`: while an AI seat is still presented they
+are parked in `handoffToasts` and flushed at the handoff (`onAiTurnsDone`), so the player
+reads them when the board is still and the turn is actually his — not over the AI's tail.
 
 The selected-unit strip additionally hosts a "Disband +N" button for the held
 fresh unit (`HudState.selectedUnitDisbandRefund` → `disbandSelectedUnit()`); all
@@ -121,7 +135,9 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
 ## GameScreen layers (root Box, bottom → top)
 
 1. Gesture Box + `FilamentHost`/`BoardScene` (tap → ViewModel; transform gestures →
-   rig; wires: events→`apply`, highlights, resync→`skipAnimations`+`apply`,
+   rig; wires: `attachBoard`/`detachBoard` (the ViewModel's `BoardPlayback` — beats
+   arrive from `submit`, not from a collector), highlights,
+   resync→`skipAnimations`+`apply`,
    cameraJumps→`jumpTo`, labels+popups→`setTrackedAnchors`, visibility→`setFog` —
    also applied at scene creation so fog covers the very first frame).
 2. `AnchorOverlay` — **pixel-space, no safeDrawingPadding**: defense chips + coin
@@ -360,8 +376,34 @@ driven by `GuideCatalog`, and hosts just hoist a boolean and render it on top. B
 
 ## AI driving & autosave
 
-`maybeRunAi()` loops while the current seat is AI: `chooseAction` on Default,
-`submit` on Main, ~220 ms pacing, autosave at each AI turn end, capped by
-`AiPlayer.MAX_ACTIONS_PER_TURN` (500).
+`maybeRunAi()` launches **`AiTurnDriver`** (`ui/AiTurnDriver.kt`) for the run of
+consecutive AI seats: it thinks on `Dispatchers.Default` and calls back on
+`Dispatchers.Main.immediate` through its `Host`, which the ViewModel implements as a private
+inner `AiHost` scoped to one engine + one job (every main-thread callback first runs
+`checkLive()`, so a teardown or a new match cancels the run instead of replaying actions
+into another engine):
+
+| `Host` member | ViewModel |
+|---|---|
+| `state` | `engine.state.value` (read from the compute thread) |
+| `submitAi(action)` | `submit(action) is LegalityResult.Ok` — the human path: engine, board feed, scoreboards, HUD |
+| `onAiSeatTurnEnded()` | `autosave()` at each AI seat's turn end |
+| `presentAiSeat(seat)` | `presentedAiSeat = seat` + `refreshHud()` |
+| `awaitBoardSettled()` | `board.playbackIdle.first { it }` under `withTimeoutOrNull(5 s)` — no board attached (screen not composed) returns at once; a timeout logs `Log.w(TurnFlow, …)` and proceeds, so a backgrounded app crawls instead of deadlocking |
+| `onAiTurnsDone()` | clear `presentedAiSeat`, raise the pass-and-play banner if the next seat is another human, flush `handoffToasts`, finalize + autosave if the AI won mid-turn, `refreshHud()` |
+
+The ordering contract: one action per **settled beat** — submit, wait for the board,
+`AiTurnDriver.BEAT_GAP_MS` (100 ms) so consecutive moves read as distinct, submit the next;
+the next action is *computed while the current beat plays* (and recomputed if the state moved
+underneath), and an AI `EndTurn` also waits for the board before the next seat is presented or
+the turn is handed to the human. `AiPlayer.MAX_ACTIONS_PER_TURN` (500) still caps a turn, and
+a rejected action ends it rather than spinning. The driver is JVM-tested with a fake host and
+virtual time (`AiTurnDriverTest`); the ViewModel's `finally` clears the presented seat on
+cancellation, so the human's chrome can never stay hidden.
+
+Probe: `adb logcat -s TurnFlow` prints one
+`handoff from AI seat=N to seat=M after X ms of board playback` per handoff (X > 0 whenever
+the AI actually moved), and `board playback timeout` if the 5 s bound ever fires.
+
 Autosave also fires on human `EndTurn` and `Activity.onStop` (`persistNow`);
 a finished game deletes the autosave.

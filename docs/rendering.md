@@ -94,6 +94,14 @@ match the filament-android runtime** — recompile on every Filament upgrade.
   gravestone**. Idle boats bob (±0.008 `yOffset` in `onFrame`, per-unit phase —
   reconcile ignores `yOffset`, keeping the zero-warning gate safe).
   `TurnStarted` refreshes all dim states. Tap during playback = `skipAnimations()`.
+- **Back-pressure (`BoardPlayback.playbackIdle`)**: a `StateFlow<Boolean>` saying whether
+  everything fed so far has been shown — false at the end of `apply` (a reconcile is pending
+  even with no events), true in `onFrame` once the queue drained and reconciled, true in
+  `skipAnimations()` (fast-forward) and true as the first line of `destroy()` so no waiter is
+  ever stranded. It is the ViewModel's pacing signal (`AiTurnDriver` submits the next AI
+  action only after it flips back to true); `isBusy()` remains the separate frame-rate
+  throttle, and it already covers `pendingState != null`, so the scene keeps rendering at
+  full rate until the flag flips — at most one vsync after the last beat.
 - **Reconcile**: after every queue drain (and on undo/load via the ViewModel's
   `resync` tick) the scene diffs against `GameState` and snaps tiles/pieces/dim —
   logs a warning if it had to correct anything.

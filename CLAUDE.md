@@ -63,6 +63,12 @@ python3 tools/blender_run.py exec art/blender/pieces/<p>.py              # rebui
 - `Transforms.trs` supports translate + Y-rotation + scale (uniform XZ, separate
   `scaleY`) — **no X/Z rotation** (why the Blender pennant is modeled pre-rotated).
 - Camera fit must use viewport aspect (portrait clips horizontally otherwise).
+- The board is fed **synchronously** from `GameViewModel.submit` through `BoardPlayback`
+  (`GameScreen` only attaches/detaches the scene) — never add an `engine.events` collector
+  that calls `BoardScene.apply`, every beat would play twice. And never pace AI turns on a
+  clock: `AiTurnDriver` awaits `BoardScene.playbackIdle` between actions, which is what keeps
+  the human's turn from opening while enemy pieces still move (docs/ui-hud.md
+  "AI driving & autosave").
 - Menu layout shifts when an autosave's Continue bar is visible — don't
   hardcode tap coordinates in scripted UI checks, and read a menu tile's label from
   its child text node (merged semantics still leave the text there, the 88 dp
