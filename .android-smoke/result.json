@@ -1,9 +1,0 @@
-{
-  "status": "pass",
-  "code": 0,
-  "reason": "emulator emulator-5554 booted",
-  "package": "",
-  "activity": "",
-  "serial": "emulator-5554",
-  "out_dir": "/Users/manuel.siuro/AndroidStudioProjects/FightAndConquer/.android-smoke"
-}
