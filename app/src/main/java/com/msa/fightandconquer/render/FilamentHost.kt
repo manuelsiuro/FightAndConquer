@@ -6,6 +6,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.doOnNextLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -49,6 +50,14 @@ fun FilamentHost(
         modifier = modifier,
         factory = { context ->
             SurfaceView(context).also { surfaceView ->
+                // A SurfaceView only creates its surface from a window pre-draw pass that
+                // sees it with a non-empty frame. Compose lays AndroidViews out inside its
+                // own dispatchDraw — after that pass — and swallows the view's
+                // invalidations, so a host that joins an already-settled screen (the menu
+                // world arriving after its generation) got its frame but no surface until
+                // an unrelated redraw, e.g. a tile press. One window-level invalidate after
+                // the first layout schedules the traversal that creates the surface.
+                surfaceView.doOnNextLayout { it.rootView.postInvalidateOnAnimation() }
                 val engine = RenderEngine(surfaceView)
                 val controller = createScene(engine)
                 engine.onFrame = controller::onFrame

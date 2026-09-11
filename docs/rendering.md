@@ -16,7 +16,12 @@ surface; models are baked offline instead — see asset-pipeline.md).
 - `render/FilamentHost.kt` — Compose host. **Ownership lives in a plain holder, not
   Compose state**: a state-keyed `DisposableEffect` once re-ran on the factory's
   state write and destroyed the live engine (black screen). Pause/resume follows the
-  lifecycle; `onRelease` tears down scene-first, `Engine.destroy()` last.
+  lifecycle; `onRelease` tears down scene-first, `Engine.destroy()` last. **The
+  factory invalidates the window once after the `SurfaceView`'s first layout**: the
+  surface is only created from a window pre-draw that sees a non-empty frame, and
+  Compose lays AndroidViews out in its own `dispatchDraw` (after pre-draw) while
+  swallowing their invalidations — so a host joining an idle screen (the menu world,
+  every entry after the first) sat on `frame: no swapchain` until an unrelated redraw.
 - `render/SceneEnvironment.kt` — one directional sun `normalize(1,−1,0.4)` at
   100 k lux with PCF shadows (2048 map, shadowFar 60, normalBias 1) + single-SH-band
   flat ambient `IndirectLight` (25 k) — no IBL asset needed for matte materials.
