@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.BuildConfig
 import com.msa.fightandconquer.R
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /**
  * Static "About" page: identity and version, what the game is and what inspired it,
@@ -55,6 +56,7 @@ fun AboutScreen(onBack: () -> Unit) {
     val sourceUrl = stringResource(R.string.about_link_source_url)
     val contactUri = stringResource(R.string.about_link_contact_uri)
     val licenseUrl = stringResource(R.string.about_license_url)
+    val fontLicenseUrl = stringResource(R.string.about_font_license_url)
 
     Column(
         modifier = Modifier
@@ -110,6 +112,12 @@ fun AboutScreen(onBack: () -> Unit) {
                 descriptionRes = R.string.cd_about_link_license,
                 onClick = { openLink(licenseUrl) },
             )
+            LinkRow(
+                labelRes = R.string.about_font_license_label,
+                valueRes = R.string.about_font_license_value,
+                descriptionRes = R.string.cd_about_link_font_license,
+                onClick = { openLink(fontLicenseUrl) },
+            )
         }
 
         Spacer(Modifier.height(28.dp))
@@ -133,6 +141,8 @@ private val ABOUT_LIBRARIES = listOf(
     AboutLibrary(R.string.about_lib_kotlin_math, R.string.about_lib_kotlin_math_use, R.string.about_license_apache2),
     AboutLibrary(R.string.about_lib_compose, R.string.about_lib_compose_use, R.string.about_license_apache2),
     AboutLibrary(R.string.about_lib_kotlin, R.string.about_lib_kotlin_use, R.string.about_license_apache2),
+    AboutLibrary(R.string.about_lib_figtree, R.string.about_lib_figtree_use, R.string.about_license_ofl),
+    AboutLibrary(R.string.about_lib_fraunces, R.string.about_lib_fraunces_use, R.string.about_license_ofl),
 )
 
 @Composable
@@ -156,6 +166,7 @@ private fun AboutHeader() {
         stringResource(R.string.app_name),
         fontSize = 24.sp,
         fontWeight = FontWeight.Bold,
+        fontFamily = DisplayFontFamily,
         color = UiColors.ink,
     )
     Text(

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /** Temporary screen for features that are announced in the menu but not built yet. */
 @Composable
@@ -38,6 +39,7 @@ fun PlaceholderScreen(title: String, onBack: () -> Unit) {
             title,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
         )
         Spacer(Modifier.height(8.dp))

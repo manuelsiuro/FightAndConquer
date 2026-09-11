@@ -46,6 +46,7 @@ import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.campaign.CampaignDef
 import com.msa.fightandconquer.core.campaign.LevelDef
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /**
  * The campaign picker: a row of campaign chips over the selected campaign's mission list.
@@ -82,6 +83,7 @@ fun CampaignScreen(
             stringResource(R.string.campaign_title),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
         )
         Spacer(Modifier.height(12.dp))

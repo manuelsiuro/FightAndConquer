@@ -38,6 +38,7 @@ import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.ui.UiColors
 import com.msa.fightandconquer.ui.civNameRes
 import com.msa.fightandconquer.ui.setup.scaleClickable
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /**
  * Full-screen overlay chrome: paper scrim at 92% with a single centered card
@@ -111,6 +112,7 @@ internal fun TurnBanner(seat: Int, turnNumber: Int, civ: Civilization, onBegin: 
                 stringResource(R.string.banner_player, seat + 1),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
+                fontFamily = DisplayFontFamily,
                 color = UiColors.ink,
             )
         }
@@ -151,6 +153,7 @@ internal fun GameOverOverlay(
             stringResource(R.string.debrief_conquers, seatLabel(winner, winnerIsHuman)),
             fontSize = 26.sp,
             fontWeight = FontWeight.ExtraBold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
             textAlign = TextAlign.Center,
         )

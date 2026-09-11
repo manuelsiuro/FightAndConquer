@@ -18,6 +18,25 @@ with the fixed board palette. System bars are transparent edge-to-edge (`MainAct
 enforcement); the Game screen hides them entirely (immersive, edge-swipe reveals
 transiently) via `ImmersiveDuringGame`.
 
+## Typography
+
+Two bundled faces, both SIL OFL 1.1 (`theme/Type.kt`):
+
+- **Figtree** (`UiFontFamily`), everything by default. It is set on every Material
+  `Typography` style, and `Text` inherits it through `LocalTextStyle` (`bodyLarge`), so call
+  sites only pick size and weight. A `TextStyle` built from scratch (a `TextMeasurer` label,
+  as in `TimelineChart`) skips that chain and must name `UiFontFamily` itself.
+- **Fraunces** (`DisplayFontFamily`), screen and overlay titles at **22 sp and up** only: the
+  menu title, turn banner, outcome and victory headlines, and the screen headers (setup,
+  campaign, briefing, maps, guide, about). Bold or ExtraBold. Add `fontFamily =
+  DisplayFontFamily` to a new title in that range. HUD surfaces never use it.
+
+The TTFs in `res/font/` are static instances baked by `tools/bake_fonts.py` from the upstream
+variable fonts in `art/fonts/` (license texts beside them). Fraunces is pinned at SOFT 100,
+WONK 0 and opsz 28. Edit the script and re-bake, never the TTFs. Glyphs the faces lack
+(`⋮`, `✕`, arrows) fall back to the system font per character. The About screen credits
+both faces.
+
 ## Strings
 
 **Every user-facing string lives in `res/values/strings.xml`.** Composables use

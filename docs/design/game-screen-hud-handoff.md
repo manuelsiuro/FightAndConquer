@@ -100,7 +100,7 @@ from Setup).
 12 · bar padding 8 with a 12 leading inset · panel row vertical padding 9 · overlay card inset 24,
 padding 20–24, internal rhythm 16.
 
-**Typography** — the app's existing display face, weights 400/600/700/800:
+**Typography** — Figtree, weights 400/600/700/800; overlay titles in Fraunces (docs/ui-hud.md "Typography"):
 
 | Role | Size / weight |
 | --- | --- |
@@ -410,7 +410,7 @@ chrome above; deltas only:
 - **`ic_sword`** joins the tintable vector set (24 dp drawn, rendered at 12 dp).
 - **Faction discs** are drawn, not assets: a filled circle in the faction pastel at 10 / 14 / 48 /
   72 dp.
-- **Type**: the app's existing display face at weights 400 / 600 / 700 / 800.
+- **Type**: Figtree at weights 400 / 600 / 700 / 800; overlay titles in Fraunces.
 - The grey diagonally-striped boxes with monospace captions in the mockups are **placeholders**
   for the 3D board and every baked render.
 

@@ -61,6 +61,7 @@ import com.msa.fightandconquer.ui.civNameRes
 import com.msa.fightandconquer.ui.difficultyLabelRes
 import com.msa.fightandconquer.ui.guide.FieldGuide
 import com.msa.fightandconquer.ui.guide.GuideCatalog
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /**
  * The "New Game" quick-start screen: a tableau summarizing the match, the four
@@ -253,6 +254,7 @@ private fun TopBar(onBack: () -> Unit) {
             stringResource(R.string.setup_title),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
+            fontFamily = DisplayFontFamily,
             color = UiColors.ink,
         )
     }

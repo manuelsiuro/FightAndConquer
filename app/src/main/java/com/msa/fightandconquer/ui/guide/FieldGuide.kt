@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
 import com.msa.fightandconquer.ui.UiColors
+import com.msa.fightandconquer.ui.theme.DisplayFontFamily
 
 /** Flattened list model so section headers and entries share one scrollable [LazyColumn]. */
 private sealed interface GuideRow {
@@ -141,6 +142,7 @@ private fun GuideHeader(onClose: () -> Unit) {
                 stringResource(R.string.guide_title),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = DisplayFontFamily,
                 color = UiColors.ink,
             )
             Text(
