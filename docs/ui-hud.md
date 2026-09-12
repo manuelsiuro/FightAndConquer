@@ -103,16 +103,29 @@ select(hex):
                                   sell is dimmed and inert
     bare sea hex with buyables  → purchase selection too — the same pair on water
                                   (boats under Recruit, bridges under Build)
+    own University, no unit     → research sheet (BuildingTap.targetOf →
+                                  openResearchPanel; needs researchEnabled — a
+                                  starving University still opens the sheet)
+    own Capital, no unit        → economy sheet (BuildingTap.targetOf →
+                                  openEconomyPanel)
     anything else               → InfoCard (unit > building > flora > deposit >
                                   sea > starving tile)
                                   own pieces carry action buttons: Rotate +
                                   Destroy on an own bridge, Destroy on any own
-                                  non-capital building, Disband on an own spent
-                                  unit (performInfoAction; refunds shown inline)
+                                  non-capital building (performInfoAction;
+                                  refunds shown inline)
                                   fog on: fogged hex → generic "unexplored" card if
                                   explored, nothing if never seen — stats never leak
 tap off-board (picker miss)     → cancelSelection (via BoardScene.onTapMiss)
 ```
+
+The two building taps are one pure rule, `BuildingTap.targetOf(state, hex, seat)` in
+`ui/game/BuildingTap.kt` (JVM-tested in `BuildingTapTest`): own Capital → `ECONOMY`, own
+University with research enabled → `RESEARCH`, `null` for a missing tile, another seat's
+tile, a hex with a unit on it, or any other building. It is consulted inside `select()`,
+so a held unit acts first — tapping your own Capital with a soldier in hand moves or
+merges onto it when it is in reach, and only falls through to the economy sheet when it
+is not.
 
 In a campaign the same `select()` also raises the `unitSelected` teaching signal, which is
 how a coach step can wait on "pick up a soldier" (see `ui.UiSignals`).
@@ -123,7 +136,10 @@ internal `select()` (never submits), and emits a camera jump.
 Device fixtures for the purchase menu come from `PurchaseMenuFixturesTest`
 (`FC_FIXTURES_OUT=<dir> ./gradlew :core:test --tests '*PurchaseMenuFixturesTest'` writes a
 both / recruit-only / build-only autosave; push one as `files/autosave.json` with the app
-force-stopped, then tap Continue).
+force-stopped, then tap Continue). `PanelTapFixturesTest` writes the same way for the
+building taps and the research sheet: `panels` (Universities and spent peasants around a
+capital, one tech done, an idle research slot) and `panels_busy` (the same board with a
+research in progress).
 
 ## Event feedback
 
@@ -142,6 +158,9 @@ reads them when the board is still and the turn is actually his — not over the
 The selected-unit strip additionally hosts a "Disband +N" button for the held
 fresh unit (`HudState.selectedUnitDisbandRefund` → `disbandSelectedUnit()`); all
 destroy paths rely on the ordinary Undo button rather than a confirm dialog.
+Spent units cannot disband — the engine refuses `UNIT_ALREADY_ACTED` — so the
+InfoCard carries no Disband action: tapping an own spent unit shows its name,
+"Already moved this turn" and its stats, nothing to press.
 
 ## GameScreen layers (root Box, bottom → top)
 
@@ -163,7 +182,8 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    one plinth scale (`PlinthScale` S 40/32 · M 56/48 · L 96/80 = controlFill box +
    hairline behind every baked render); press feedback is 0.96 scale + ripple
    (`scaleClickable`). No translucent panels, no ad-hoc ink alphas, no emoji anywhere
-   (tinted vectors `ic_coin/ic_flag/ic_shield/ic_sword/ic_pact` only).
+   (tinted vectors `ic_coin/ic_flag/ic_shield/ic_sword/ic_pact`, the twelve
+   `ic_tech_*` research glyphs and `ic_end_turn` only).
    `TopBar` (full-width, content-sized: faction disc, seat label over "Civ · Turn N",
    display-only coin block, and one 48 dp controlFill circle — the ⋮ menu with Field
    Guide / two-tap-armed Resign / Exit; the circle flips to
@@ -195,7 +215,8 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    at offer time; structures keep the income/defense micro-label),
    plinth-M render, 28 dp info glyph in a 48 dp target; unaffordable = still tappable
    (engine rejection toasts), render 38 % + grayscale, `inactiveGlyph` text, rust cost /
-   44 dp outlined Undo / 56 dp radius-20 "End·TURN" FAB in the current player's pastel.
+   44 dp outlined Undo / 56 dp radius-20 FAB (20 dp `ic_end_turn` glyph over "End",
+   12 sp/800, both `onFaction`) in the current player's pastel.
    With fresh units the FAB arms instead of ending: a full-width armed surface appears
    below — micro-label "N UNITS UNMOVED" + "Tap again to end", 48 dp ✕, rust
    "End anyway" — and disarms after 3 s or on ✕; FAB-again or End-anyway commits).
@@ -238,15 +259,25 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    turns alert-coloured in the last three rounds, 18 dp check circles with
    struck-through done lines and `have / need` counters).
    `ResearchSheetBody` (one lane per branch — War/Coin/Stone/Sail, Sail absent
-   entirely when naval rules are off — of three ~100 dp tech cards flowing left
+   entirely when naval rules are off — of three 108 dp tech cards flowing left
    to right with 12×2 dp connectors: `positive` once the tier before is done,
    `divider` otherwise, so the linearity is the reading direction; each card
    carries name (2 lines), effect (2 lines), status glyph, and an always-visible
    cost + "NT" duration — dimmed `inactiveGlyph` on LOCKED and BUSY cards, since
    a locked tree must not scream about money; the in-progress card wears a
-   faction border + 3 dp progress bar; lane headers count "n/3". The pinned
-   `ResearchSheetFooter` carries the active research's progress track, the
-   per-turn rate, or the "build a University" nudge). Locked, busy and
+   faction border + 3 dp progress bar; lane headers count "n/3". Every card leads
+   its name row with a 28 dp `TechTile` — the tech's own glyph
+   (`techIconRes` in `UiText.kt` → one of twelve `ic_tech_*` vectors, drawn at 16 dp)
+   on a rounded `size * 2 / 7` square whose wash reads the status: ink 12 % with
+   an ink glyph when the tech is available, the same 12 % with an `inactiveGlyph`
+   glyph when LOCKED or BUSY, the faction pastel at 30 % with an ink glyph while
+   it is in progress, `positive` at 30 % with a `positive` glyph once it is done.
+   A lane whose three techs are all done turns its header square `positive` @30 %
+   too. The pinned `ResearchSheetFooter` carries the active research's progress
+   track — its row led by that tech's tile — the per-turn rate, or the "build a
+   University" nudge, which shows the civ-correct University render on a plinth S
+   (`PiecePlinth` + `PlinthScale.S`, civ from `ResearchPanelState.civ`) beside its
+   text). Locked, busy and
    unaffordable cards stay tappable: the engine's rejection toast explains
    itself, so the sheet carries no second rules implementation — the
    PurchaseCard contract. Starting research is single-tap; in-turn Undo covers a
