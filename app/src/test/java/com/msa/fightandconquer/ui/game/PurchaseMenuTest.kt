@@ -182,6 +182,47 @@ class PurchaseMenuTest {
         )
     }
 
+    /**
+     * What the HUD actually does on every tap: `togglePurchaseCategory` stores
+     * `toggle(current, tapped)` and `refreshHud` publishes `open(purchases, stored)`.
+     */
+    @Test
+    fun `a tap round-trips through toggle then open`() {
+        // Tap Recruit from the bare pair: its cards open.
+        assertEquals(
+            PurchaseCategory.RECRUIT,
+            PurchaseMenu.open(mixed, PurchaseMenu.toggle(null, PurchaseCategory.RECRUIT)),
+        )
+        // Tap the active button again: the cards fold, the pair stays.
+        assertNull(
+            PurchaseMenu.open(
+                mixed,
+                PurchaseMenu.toggle(PurchaseCategory.RECRUIT, PurchaseCategory.RECRUIT),
+            ),
+        )
+        // A dimmed button can never open, however often it is tapped.
+        assertNull(
+            PurchaseMenu.open(unitsOnly, PurchaseMenu.toggle(null, PurchaseCategory.BUILD)),
+        )
+        assertNull(
+            PurchaseMenu.open(
+                structuresOnly,
+                PurchaseMenu.toggle(null, PurchaseCategory.RECRUIT),
+            ),
+        )
+        // Recruit then Build: the second tap switches halves.
+        assertEquals(
+            PurchaseCategory.BUILD,
+            PurchaseMenu.open(
+                mixed,
+                PurchaseMenu.toggle(
+                    PurchaseMenu.toggle(null, PurchaseCategory.RECRUIT),
+                    PurchaseCategory.BUILD,
+                ),
+            ),
+        )
+    }
+
     @Test
     fun `each category carries its own non-zero label, glyph and description`() {
         for (category in PurchaseCategory.entries) {

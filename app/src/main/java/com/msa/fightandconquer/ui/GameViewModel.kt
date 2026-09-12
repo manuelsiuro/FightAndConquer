@@ -61,6 +61,8 @@ import com.msa.fightandconquer.ui.campaign.CampaignRepository
 import com.msa.fightandconquer.ui.campaign.CampaignText
 import com.msa.fightandconquer.ui.campaign.counter
 import com.msa.fightandconquer.ui.campaign.label
+import com.msa.fightandconquer.ui.game.PurchaseCategory
+import com.msa.fightandconquer.ui.game.PurchaseMenu
 import com.msa.fightandconquer.ui.menu.MenuWorld
 import com.msa.fightandconquer.ui.menu.MenuWorldSeeds
 import com.msa.fightandconquer.R
@@ -379,6 +381,8 @@ data class HudState(
     /** Attack of a loaded transport's cargo — what an amphibious landing fights with. */
     val selectedUnitCargoAttack: Int?,
     val purchases: List<PurchaseOption>,
+    /** The half of the purchase menu whose cards are open; null = pair only (or nothing buyable). */
+    val purchaseCategory: PurchaseCategory?,
     val canUndo: Boolean,
     /** Pass-and-play: seat waiting behind the privacy banner; null = play freely. */
     val banner: Int?,
@@ -566,6 +570,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private var selectedUnit: UnitId? = null
     private var selectedHex: Hex? = null
+    /** The half of the purchase menu the player opened on [selectedHex]; null = pair only. */
+    private var purchaseCategory: PurchaseCategory? = null
     private var banner: Int? = null
     /** Armed pact-break confirmation: capture of this partner hex proceeds on re-tap. */
     private var pendingPactBreak: Hex? = null
@@ -1149,6 +1155,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val me = state.currentPlayer
         selectedUnit = null
         selectedHex = null
+        purchaseCategory = null
         _infoCard.value = null
 
         // Own fresh unit anywhere — including a boat afloat on neutral sea.
@@ -1233,6 +1240,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun clearSelection() {
         selectedUnit = null
         selectedHex = null
+        purchaseCategory = null
         pendingPactBreak = null
         _highlights.value = HighlightSet()
         _overlayLabels.value = emptyList()
@@ -1295,6 +1303,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             is PurchaseOption.Structure -> submit(GameAction.BuyBuilding(option.type, hex))
         }
         clearSelection()
+        refreshHud()
+    }
+
+    /** Recruit / Build button tap: open that half of the purchase menu, or fold the open one. */
+    fun togglePurchaseCategory(category: PurchaseCategory) {
+        if (selectedHex == null || selectedUnit != null) return
+        purchaseCategory = PurchaseMenu.toggle(purchaseCategory, category)
         refreshHud()
     }
 
@@ -2702,6 +2717,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 Rules.buyStrength(state, selected.owner, it.tier, it.type)
             },
             purchases = purchases,
+            purchaseCategory = PurchaseMenu.open(purchases, purchaseCategory),
             canUndo = engine.canUndo(),
             banner = banner,
             // An AI's winning capture is SHOWN before the Game Over overlay covers it.
