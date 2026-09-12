@@ -103,7 +103,7 @@ rules that already existed plus one new field:
 | `maxTier` | caps the soldier ladder |
 | `specialUnitsEnabled` / `navalEnabled` / `diplomacyEnabled` | whole systems off |
 | `disabledBuildings` | per-building, so one structure can be taught at a time |
-| `hexIncome: 0` + `unitUpkeep: [0,0,0,0]` + `treasury: 0` | no economy at all — and because `GameEngine.buyableAt` already filters by affordability, the purchase tray is simply **empty**. Mission 1 has nothing on screen but two soldiers and some ground. |
+| `hexIncome: 0` + `unitUpkeep: [0,0,0,0]` + `treasury: 0` | no economy at all — and because `GameEngine.buyableAt` already filters by affordability, the purchase tray is simply **empty** (and so the Recruit / Build pair never appears). Mission 1 has nothing on screen but two soldiers and some ground. |
 
 `disabledBuildings` is enforced in `Legality.checkBuyBuilding`, so the AI cannot build
 what the player cannot either.
