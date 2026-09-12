@@ -1,5 +1,6 @@
 package com.msa.fightandconquer.ui
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
@@ -121,6 +122,23 @@ fun techEffectRes(tech: com.msa.fightandconquer.core.model.Tech): Int = when (te
     com.msa.fightandconquer.core.model.Tech.NAVIGATION -> R.string.tech_effect_navigation
     com.msa.fightandconquer.core.model.Tech.SHIPWRIGHTS -> R.string.tech_effect_shipwrights
     com.msa.fightandconquer.core.model.Tech.ADMIRALTY -> R.string.tech_effect_admiralty
+}
+
+/** Technology -> its 24 dp tintable glyph (the research sheet's card tile). */
+@DrawableRes
+fun techIconRes(tech: com.msa.fightandconquer.core.model.Tech): Int = when (tech) {
+    com.msa.fightandconquer.core.model.Tech.SMITHING -> R.drawable.ic_tech_smithing
+    com.msa.fightandconquer.core.model.Tech.ARMORY -> R.drawable.ic_tech_armory
+    com.msa.fightandconquer.core.model.Tech.SIEGECRAFT -> R.drawable.ic_tech_siegecraft
+    com.msa.fightandconquer.core.model.Tech.COINAGE -> R.drawable.ic_tech_coinage
+    com.msa.fightandconquer.core.model.Tech.BANKING -> R.drawable.ic_tech_banking
+    com.msa.fightandconquer.core.model.Tech.TREASURY -> R.drawable.ic_tech_treasury
+    com.msa.fightandconquer.core.model.Tech.MASONRY -> R.drawable.ic_tech_masonry
+    com.msa.fightandconquer.core.model.Tech.ENGINEERING -> R.drawable.ic_tech_engineering
+    com.msa.fightandconquer.core.model.Tech.BASTIONS -> R.drawable.ic_tech_bastions
+    com.msa.fightandconquer.core.model.Tech.NAVIGATION -> R.drawable.ic_tech_navigation
+    com.msa.fightandconquer.core.model.Tech.SHIPWRIGHTS -> R.drawable.ic_tech_shipwrights
+    com.msa.fightandconquer.core.model.Tech.ADMIRALTY -> R.drawable.ic_tech_admiralty
 }
 
 /** Purchasable building type -> display name resource. */

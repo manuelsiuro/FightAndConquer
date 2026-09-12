@@ -185,6 +185,8 @@ data class TechNodeUi(
     val tech: com.msa.fightandconquer.core.model.Tech,
     val nameRes: Int,
     val effect: UiText,
+    /** The tech's tintable glyph, [techIconRes]. */
+    val iconRes: Int,
     val cost: Int,
     val duration: Int,
     val status: TechUiStatus,
@@ -202,6 +204,11 @@ data class ResearchPanelState(
     /** Progress points per turn (= working Universities). */
     val ratePerTurn: Int,
     val treasury: Int,
+    /**
+     * The seat's civilization — picks the civ-correct University render for the
+     * footer nudge.
+     */
+    val civ: com.msa.fightandconquer.core.model.Civilization,
 )
 
 /**
@@ -232,6 +239,7 @@ fun buildResearchPanel(
             tech = tech,
             nameRes = techNameRes(tech),
             effect = UiText.of(techEffectRes(tech)),
+            iconRes = techIconRes(tech),
             cost = cost,
             duration = eff.techDurationByTier[tech.tier - 1],
             status = status,
@@ -266,6 +274,7 @@ fun buildResearchPanel(
         active = research.active?.let { node(it.tech) },
         ratePerTurn = universities,
         treasury = player.treasury,
+        civ = player.civ,
     )
 }
 
