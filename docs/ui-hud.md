@@ -58,7 +58,7 @@ Unit/building names come from `unitNameRes(tier)`.
 |---|---|---|
 | `screen` | `Menu(hasAutosave) \| Setup(generating) \| Campaign \| Briefing(campaignId, levelId) \| MapEditor \| Settings \| About \| Game` | Top-level navigation |
 | `menuWorld` | `GameState?` | The menu's decorative orbiting world; null while it generates (or if generation failed), renewed by `enterMenu` on every menu entry |
-| `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection name + Atk/Def/upkeep/cargo-attack stats, purchases + `ShopInfo`, canUndo, banner seat, winner, `freshUnitCount`). `currentPlayer` / `currentIsHuman` / `currentCiv` / `aiThinking` / `winner`(+`winnerIsHuman`) follow the **presented** seat, not the engine's: `presentedTurn(state, presentedAiSeat)` (`PresentedTurn.kt`) keeps an AI seat current while its beats still play, so the human's chrome — and an AI victory's Game Over overlay — appear only on a still board |
+| `hud` | `HudState?` | TopBar/BottomBar (player, coins, net, turn, selection name + Atk/Def/upkeep/cargo-attack stats, purchases + `ShopInfo` + `purchaseCategory` (the open half of the Recruit / Build pair, null = pair only), canUndo, banner seat, winner, `freshUnitCount`). `currentPlayer` / `currentIsHuman` / `currentCiv` / `aiThinking` / `winner`(+`winnerIsHuman`) follow the **presented** seat, not the engine's: `presentedTurn(state, presentedAiSeat)` (`PresentedTurn.kt`) keeps an AI seat current while its beats still play, so the human's chrome — and an AI victory's Game Over overlay — appear only on a still board |
 | `highlights` | `HighlightSet` | Board discs (selected/moves/captures/merges) |
 | `overlayLabels` | `List<OverlayLabel(hex, value, CAPTURABLE\|BLOCKED\|ATTACKER, SHIELD\|SWORD, cd)>` | While a unit is selected: defense chips on frontier hexes (attacker-aware — a catapult's numbers ignore buildings; defense-0 capturable hexes omitted — the disc already says it; a land unit holding an enemy BRIDGE reads as ordinary hex defense, never a duel), sword chips on warship duels (green sinkable / red out-gunning hulls, showing ship strength), bombard-raid shield chips (green legal / red `DEFENSE_TOO_HIGH`), shield chips on a loaded transport's hostile landings (the hex's defense — the cargo's attack rides the badge), and — whenever any chip shows — a dark sword badge with the attacker's (or its cargo's) value on the selected hex (never on a fishing dory: a hull that cannot attack has nothing to compare, and the badge would occlude the parked-catch coin chip on its own hex). The naval discs and their chips come from one `navalExtras` scan so the two renderings cannot drift |
 | `economy` | `EconomyBreakdown?` | Economy bottom sheet (null = closed; recomputed on every refresh while open) |
@@ -95,8 +95,14 @@ select(hex):
                                   (own units are selectable even on unowned sea —
                                   boats sit on hexes they don't own; embark targets
                                   highlight like moves)
-    own empty usable tile       → purchase selection (tray from engine.buyableAt)
-    bare sea hex with buyables  → purchase selection too (bridge/boat tray on water)
+    own empty usable tile       → purchase selection: the Recruit / Build pair only
+                                  (PurchaseMenu.shown — nothing buyable, nothing shown);
+                                  a button tap (togglePurchaseCategory) opens that
+                                  category's cards from engine.buyableAt, tapping the
+                                  active button folds them again; a half with nothing to
+                                  sell is dimmed and inert
+    bare sea hex with buyables  → purchase selection too — the same pair on water
+                                  (boats under Recruit, bridges under Build)
     anything else               → InfoCard (unit > building > flora > deposit >
                                   sea > starving tile)
                                   own pieces carry action buttons: Rotate +
@@ -113,6 +119,11 @@ how a coach step can wait on "pick up a soldier" (see `ui.UiSignals`).
 
 `focusNextFreshUnit()` cycles unmoved units (stable id order), selects via the
 internal `select()` (never submits), and emits a camera jump.
+
+Device fixtures for the purchase menu come from `PurchaseMenuFixturesTest`
+(`FC_FIXTURES_OUT=<dir> ./gradlew :core:test --tests '*PurchaseMenuFixturesTest'` writes a
+both / recruit-only / build-only autosave; push one as `files/autosave.json` with the app
+force-stopped, then tap Continue).
 
 ## Event feedback
 
@@ -174,7 +185,11 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    sword-Atk · shield-Def · upkeep stats line (a loaded transport shows its cargo's
    attack, an empty one an em-dash) — with Disband / `InfoCard` at plinth M
    with a divider before its outlined-primary + controlFill-secondary action row /
-   "RECRUIT" surface-chip header over the `PurchaseCard` tray — fixed 128 dp cards
+   the **purchase menu** (`PurchaseMenuView`): two 48 dp radius-16 `hudSurface`
+   buttons — Recruit (`ic_swords`) / Build (`ic_build`), filled ink while open,
+   38 % + `inactiveGlyph` when that half has nothing to sell — over the filtered
+   `PurchaseCard` row (cards only while a category is open; every rule in the pure
+   `ui/game/PurchaseMenu.kt`, JVM-tested in `PurchaseMenuTest`) — fixed 128 dp cards
    (unit cards fold upkeep beside the cost and spend the third line on an 11 sp
    sword-Atk · shield-Def row from `PurchaseOption.Unit.strength/defense`, civ-correct
    at offer time; structures keep the income/defense micro-label),
@@ -241,7 +256,7 @@ destroy paths rely on the ordinary Undo button rather than a confirm dialog.
    screen would crush the seat-identity column — the floating row below the bar
    sidesteps that), with the idle-research badge dot on that circle. AI
    research stays private until the Chronicle; a human completion shows one
-   toast, and research-gated structures ride the purchase tray as locked cards
+   toast, and research-gated structures ride the purchase menu's Build half as locked cards
    ("REQUIRES <TECH>", desaturated plinth, inactiveGlyph cost — a lock is
    structural, not poverty, so it never wears the alert color). Muster-locked
    units wear the identical treatment naming the missing hall

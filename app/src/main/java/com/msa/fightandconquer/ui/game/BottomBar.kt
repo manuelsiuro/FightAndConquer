@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -86,8 +88,8 @@ internal fun BottomBar(
         infoCard?.let { info ->
             InfoCardView(info, onAction = viewModel::performInfoAction)
         }
-        if (state.purchases.isNotEmpty() && state.currentIsHuman && state.banner == null) {
-            PurchaseTray(state, onOpenGuide, viewModel)
+        if (PurchaseMenu.shown(state.purchases) && state.currentIsHuman && state.banner == null) {
+            PurchaseMenuView(state, onOpenGuide, viewModel)
         }
 
         // End-turn-with-unmoved-units arms on the first FAB tap and commits on the
@@ -334,35 +336,107 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
     }
 }
 
+/**
+ * The purchase menu: the Recruit / Build pair, and — only while one of them is open —
+ * that half's cards. Every rule (what shows, what is dim, what is open) comes from the
+ * pure [PurchaseMenu]; this composable is the mapping onto the HUD chrome.
+ */
 @Composable
-private fun PurchaseTray(
+private fun PurchaseMenuView(
     state: HudState,
     onOpenGuide: (String?) -> Unit,
     viewModel: GameViewModel,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        // A header floating over the board never runs bare — surface chip idiom.
-        Box(
-            Modifier
-                .hudSurface(8.dp)
-                .padding(horizontal = 8.dp, vertical = 3.dp),
-        ) {
-            HudMicroLabel(stringResource(R.string.hud_recruit))
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(HudSpacing)) {
         Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier
+                .widthIn(max = 400.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(HudSpacing),
         ) {
-            for (option in state.purchases) {
-                PurchaseCard(
-                    option,
-                    state.shopInfo,
-                    civ = state.currentCiv,
-                    affordable = option.cost <= state.treasury,
-                    onLearn = onOpenGuide,
-                    onBuy = { viewModel.buy(option) },
+            for (category in PurchaseCategory.entries) {
+                CategoryButton(
+                    category = category,
+                    active = state.purchaseCategory == category,
+                    enabled = PurchaseMenu.available(state.purchases, category),
+                    modifier = Modifier.weight(1f),
+                    onClick = { viewModel.togglePurchaseCategory(category) },
                 )
             }
+        }
+        state.purchaseCategory?.let { open ->
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (option in PurchaseMenu.options(state.purchases, open)) {
+                    PurchaseCard(
+                        option,
+                        state.shopInfo,
+                        civ = state.currentCiv,
+                        affordable = option.cost <= state.treasury,
+                        onLearn = onOpenGuide,
+                        onBuy = { viewModel.buy(option) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One half of the pair: the action-circle treatment (ActionBar.kt) on a wide 48 dp button —
+ * filled ink while its cards are open, the spec's 38 % + `inactiveGlyph` when that
+ * half has nothing to sell (and then inert).
+ */
+@Composable
+private fun CategoryButton(
+    category: PurchaseCategory,
+    active: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val description = stringResource(category.descriptionRes)
+    val glyphTint = when {
+        active -> UiColors.onFilledInk
+        !enabled -> UiColors.inactiveGlyph
+        else -> UiColors.inkMuted
+    }
+    val textTint = when {
+        active -> UiColors.onFilledInk
+        !enabled -> UiColors.inactiveGlyph
+        else -> UiColors.ink
+    }
+    // The alpha rides the outer box so an active button's ink fill is never dimmed.
+    Box(modifier.graphicsLayer { alpha = if (enabled) 1f else 0.38f }) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .hudSurface(16.dp, fill = if (active) UiColors.filledInk else UiColors.surface)
+                .scaleClickable(enabled = enabled) { onClick() }
+                .semantics(mergeDescendants = true) {
+                    role = Role.Button
+                    contentDescription = description
+                },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                painterResource(category.iconRes),
+                contentDescription = null,
+                Modifier.size(20.dp),
+                tint = glyphTint,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(category.labelRes),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = textTint,
+                maxLines = 1,
+            )
         }
     }
 }

@@ -131,6 +131,9 @@
     <string name="hud_end_turn_micro">Turn</string>
     <string name="hud_tap_again_to_end">Tap again to end</string>
     <string name="hud_recruit">Recruit</string>
+    <string name="hud_build">Build</string>
+    <string name="cd_open_recruit">Recruit a unit on the selected hex</string>
+    <string name="cd_open_build">Build a structure on the selected hex</string>
     <string name="hud_end_anyway">End anyway</string>
     <string name="hud_cancel_symbol">✕</string>
     <string name="cd_cancel_end_turn">Cancel ending the turn</string>

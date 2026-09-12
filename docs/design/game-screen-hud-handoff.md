@@ -235,6 +235,9 @@ cost 13 sp/700 · upkeep as a 10 sp micro-label. **Info button**: 28 dp glyph ci
 runs bare — it takes a **surface chip** (`surface` + hairline, radius 8, padding 3/8, `inkMuted`)
 in both themes. The divider variant is only for headers inside a panel.
 
+*(Retired 2026-09-12 — the mixed tray and its "RECRUIT" chip are replaced by the Recruit /
+Build pair; see the addendum at the end. The card itself is unchanged.)*
+
 **Armed end-turn** — replaces the old three-idiom morph row. One surface spanning the full
 gutter width on its own row **below** Undo: radius 20, padding 8, `surface` + hairline +
 `boardLift`, containing
@@ -359,7 +362,8 @@ No new state is introduced by this restyle. The HUD reads:
 - `selection`: none | unit | hex — drives which bottom surface is shown
 - `openPanel`: none | economy | diplomacy | research | objectives | stats (mutually exclusive
   bottom sheets; objectives are on-demand, no longer default-visible)
-- `purchaseTrayOpen` + per-item affordability
+- `purchaseCategory`: none | recruit | build (the open half of the purchase menu) +
+  per-item affordability
 - `endTurnArmed: Boolean` with a 3 s timeout, plus `unmovedUnitCount`
 - `toasts: List<Toast>` capped at 3, `coachHint`, `incomingProposal`
 - `overlay`: none | turnBanner | gameOver | campaignOutcome
@@ -451,3 +455,33 @@ sheet. All within the chrome above; deltas only:
   alert wash). Own faction only — enemy series stay hidden under fog and hot-seat;
   comparisons remain the debrief's.
 - Toasts render **above** the scrim: a rejection toast must read while its sheet is open.
+
+---
+
+## Addendum — purchase menu: Recruit / Build pair (2026-09-12)
+
+§4's mixed tray — one scrolling row of units *and* structures under a "RECRUIT" surface
+chip — is retired. Selecting a buyable hex now shows a **two-button purchase menu**; the
+cards only appear once the player has picked a half. All within the chrome above; deltas
+only:
+
+- **Category buttons**: two side by side, each 48 dp tall, radius 16, opaque `surface` +
+  1 dp hairline + the single `boardLift` shadow, content centered as `[20 dp glyph · 8 dp ·
+  label 14 sp/700]`. 8 dp apart, equal weight, the row capped at 400 dp wide inside the
+  gutter. Labels "Recruit" / "Build"; glyphs `ic_swords` and the new `ic_build` (mallet).
+- **States**: open = `filledInk` fill with `onFilledInk` glyph and label; closed and live =
+  `inkMuted` glyph, `ink` label; **empty category** (the hex sells nothing of that kind) =
+  the 38 % disabled treatment on the container with `inactiveGlyph` content, and no tap
+  response — never hidden, so the pair keeps its shape. Press feedback is the usual 0.96
+  scale + ripple.
+- **Tap rule**: tap a live button → its cards open; tap the other one → it switches; tap the
+  open one again → the cards fold away and the pair stays. No dialogs, no memory.
+- **Card row**: the unchanged §4 purchase card, same 128 dp size and horizontal scroll, sits
+  8 dp under the pair and only while a category is open — filtered to that category in
+  engine order, locked cards included.
+- **Nothing to sell**: when the hex buys nothing at all (Academy mission 1, bare enemy
+  ground) neither the pair nor any card appears — exactly as the old tray behaved.
+- **Interaction rule**: select a hex → the pair; every new selection starts from the pair;
+  buying clears the selection, so the next hex tap shows the pair again.
+- **Assets**: `ic_build` (mallet: broad rounded head over a straight handle) joins the
+  tintable 24 dp vector set, rendered at 20 dp.

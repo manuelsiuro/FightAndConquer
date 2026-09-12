@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mallet (Build): a broad rounded head over a straight handle. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M6,4.5 L18,4.5 A1.5,1.5 0 0 1 19.5,6 L19.5,9 A1.5,1.5 0 0 1 18,10.5 L6,10.5 A1.5,1.5 0 0 1 4.5,9 L4.5,6 A1.5,1.5 0 0 1 6,4.5 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M10.6,10.5 L13.4,10.5 L13.4,20.5 A1.4,1.4 0 0 1 12,21.9 A1.4,1.4 0 0 1 10.6,20.5 Z" />
+</vector>
