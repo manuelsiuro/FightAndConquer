@@ -128,7 +128,6 @@
     <string name="hud_undo">Undo</string>
     <string name="hud_end_turn">End Turn</string>
     <string name="hud_end">End</string>
-    <string name="hud_end_turn_micro">Turn</string>
     <string name="hud_tap_again_to_end">Tap again to end</string>
     <string name="hud_recruit">Recruit</string>
     <string name="hud_build">Build</string>
