@@ -61,6 +61,8 @@ import com.msa.fightandconquer.ui.campaign.CampaignRepository
 import com.msa.fightandconquer.ui.campaign.CampaignText
 import com.msa.fightandconquer.ui.campaign.counter
 import com.msa.fightandconquer.ui.campaign.label
+import com.msa.fightandconquer.ui.game.BuildingTap
+import com.msa.fightandconquer.ui.game.BuildingTapTarget
 import com.msa.fightandconquer.ui.game.PurchaseCategory
 import com.msa.fightandconquer.ui.game.PurchaseMenu
 import com.msa.fightandconquer.ui.menu.MenuWorld
@@ -1214,6 +1216,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             refreshHud()
             return
         }
+        // Own Capital / University: the building IS the sheet (docs/ui-hud.md tap table).
+        val opened = when (BuildingTap.targetOf(state, hex, me)) {
+            BuildingTapTarget.ECONOMY -> openEconomyPanel()
+            BuildingTapTarget.RESEARCH -> openResearchPanel()
+            null -> false
+        }
+        if (opened) {
+            _highlights.value = HighlightSet()
+            _overlayLabels.value = emptyList()
+            refreshHud()
+            return
+        }
         // Not selectable: explain what was tapped instead. Fogged hexes never leak
         // their contents — explored memory gets a generic card, unseen land nothing.
         val vis = _visibility.value
@@ -1608,8 +1622,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleEconomyPanel() {
         val open = _economy.value == null
         closePanels()
-        _economy.value = if (open) computeEconomy() else null
-        if (_economy.value != null) signalUi(UiSignals.ECONOMY_OPENED)
+        if (open) openEconomyPanel()
+    }
+
+    /** Opens the economy sheet (callers close the others first); true when it has content. */
+    private fun openEconomyPanel(): Boolean {
+        _economy.value = computeEconomy()
+        val opened = _economy.value != null
+        if (opened) signalUi(UiSignals.ECONOMY_OPENED)
+        return opened
     }
 
     /** The bottom sheets are mutually exclusive; every dismiss path funnels here. */
@@ -1654,8 +1675,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleResearchPanel() {
         val open = _research.value == null
         closePanels()
-        _research.value = if (open) computeResearch() else null
-        if (_research.value != null) signalUi(UiSignals.RESEARCH_OPENED)
+        if (open) openResearchPanel()
+    }
+
+    /** Opens the research sheet (callers close the others first); true when it has content. */
+    private fun openResearchPanel(): Boolean {
+        _research.value = computeResearch()
+        val opened = _research.value != null
+        if (opened) signalUi(UiSignals.RESEARCH_OPENED)
+        return opened
     }
 
     fun startResearch(tech: com.msa.fightandconquer.core.model.Tech) {
