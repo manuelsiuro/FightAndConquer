@@ -319,14 +319,12 @@ sealed interface InfoCardAction {
     data class RotateBridge(val hex: Hex) : InfoCardAction
     data class LightBeacon(val hex: Hex, val cost: Int) : InfoCardAction
     data class Demolish(val hex: Hex, val refund: Int) : InfoCardAction
-    data class Disband(val unit: com.msa.fightandconquer.core.model.UnitId, val refund: Int) : InfoCardAction
 }
 
 fun InfoCardAction.label(): UiText = when (this) {
     is InfoCardAction.RotateBridge -> UiText.of(R.string.info_action_rotate)
     is InfoCardAction.LightBeacon -> UiText.of(R.string.info_action_light_beacon, cost)
     is InfoCardAction.Demolish -> UiText.of(R.string.info_action_destroy, refund)
-    is InfoCardAction.Disband -> UiText.of(R.string.hud_disband, refund)
 }
 
 data class InfoCard(
@@ -336,7 +334,7 @@ data class InfoCard(
     val factionIndex: Int? = null,
     /** Pre-rendered piece thumbnail; null for abstract cards (fog, cut-off). */
     val iconRes: Int? = null,
-    /** Contextual buttons (rotate a bridge, destroy a building, disband a spent unit). */
+    /** Contextual buttons (rotate a bridge, destroy a building, light a beacon). */
     val actions: List<InfoCardAction> = emptyList(),
 )
 
@@ -1289,11 +1287,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 clearSelection()
                 refreshHud()
             }
-            is InfoCardAction.Disband -> {
-                submit(GameAction.DisbandUnit(action.unit))
-                clearSelection()
-                refreshHud()
-            }
         }
     }
 
@@ -2223,13 +2216,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 stats = stats,
                 factionIndex = unit.owner.value,
                 iconRes = PieceIcons.unit(state.player(unit.owner).civ, unit.type, unit.tier),
-                // Own spent units land here (fresh ones get selected instead) and
-                // can still be dismissed for a partial refund.
-                actions = if (own && state.player(me).kind is PlayerKind.Human) {
-                    listOf(InfoCardAction.Disband(unit.id, Rules.disbandRefund(state, unit)))
-                } else {
-                    emptyList()
-                },
+                // Own spent units land here (fresh ones get selected instead).
+                // Disband is fresh-only (Legality), so the card only explains.
+                actions = emptyList(),
             )
         }
         tile.building?.let { building ->

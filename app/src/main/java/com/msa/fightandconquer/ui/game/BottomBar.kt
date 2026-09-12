@@ -310,7 +310,6 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
                             is InfoCardAction.RotateBridge -> R.string.cd_info_action_rotate
                             is InfoCardAction.LightBeacon -> R.string.cd_info_action_light_beacon
                             is InfoCardAction.Demolish -> R.string.cd_info_action_destroy
-                            is InfoCardAction.Disband -> R.string.cd_hud_disband
                         },
                     )
                     // First action is the outlined primary; the rest take the
