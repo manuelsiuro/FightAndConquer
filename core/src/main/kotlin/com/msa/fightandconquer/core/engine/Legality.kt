@@ -435,10 +435,14 @@ object Legality {
         return LegalityResult.Ok
     }
 
-    /** Any own unit — fresh or spent — may be dismissed for a partial refund. */
+    /**
+     * Only a unit that has not acted this turn may be dismissed for a partial refund —
+     * a move is a commitment.
+     */
     private fun checkDisbandUnit(state: GameState, action: GameAction.DisbandUnit): LegalityResult {
         val unit = state.units[action.unit] ?: return reject(RejectionReason.NO_SUCH_UNIT)
         if (unit.owner != state.currentPlayer) return reject(RejectionReason.NOT_YOUR_UNIT)
+        if (unit.spent) return reject(RejectionReason.UNIT_ALREADY_ACTED)
         return LegalityResult.Ok
     }
 

@@ -86,9 +86,12 @@ class AiExpansionTest {
 
     @Test
     fun `normal AIs build mines and lumber camps and never a fogless watchtower`() {
-        val built = builtAcrossGames(1L..6L, Difficulty.NORMAL)
-        assertTrue("no MINE built across 6 games", Building.MINE in built)
-        assertTrue("no LUMBER_CAMP built across 6 games", Building.LUMBER_CAMP in built)
+        // 2026-09-12 fresh-only disband (Legality rejects spent units) shortened seed 1's
+        // game before the quiet-front lumber branch fired; the camp census now rests on
+        // seeds 7 and 9 — an existence sample, not a tuned constant.
+        val built = builtAcrossGames(1L..10L, Difficulty.NORMAL)
+        assertTrue("no MINE built across 10 games", Building.MINE in built)
+        assertTrue("no LUMBER_CAMP built across 10 games", Building.LUMBER_CAMP in built)
         assertTrue("WATCHTOWER built without fog of war", Building.WATCHTOWER !in built)
     }
 

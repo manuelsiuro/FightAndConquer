@@ -400,7 +400,9 @@ internal object NavalPolicy {
                     compareBy({ Rules.strengthOf(state, it) }, { -it.id.value }),
                 )
                 val surplus = soldiers
-                    .filter { it.id != marine?.id }
+                    // disband is fresh-only (Legality): the marine floor above still
+                    // weighs every soldier, only the trim pick must be unspent.
+                    .filter { it.id != marine?.id && !it.spent }
                     .maxWithOrNull(
                         compareBy({ Rules.unitUpkeepOf(state, it) }, { -it.id.value }),
                     )
@@ -417,7 +419,9 @@ internal object NavalPolicy {
                     it.type == UnitType.SOLDIER && Rules.strengthOf(state, it) >= marineFloor
                 }
                 if (!marineWaiting) {
-                    transports.filter { it.cargo == null }
+                    // disband is fresh-only (Legality): a hull that already sailed
+                    // this turn cannot be scuttled, so never propose it.
+                    transports.filter { it.cargo == null && !it.spent }
                         .minByOrNull { it.id.value }
                         ?.let { return GameAction.DisbandUnit(it.id) }
                 }
