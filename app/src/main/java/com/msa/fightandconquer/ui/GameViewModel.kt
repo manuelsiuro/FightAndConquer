@@ -61,6 +61,8 @@ import com.msa.fightandconquer.ui.campaign.CampaignRepository
 import com.msa.fightandconquer.ui.campaign.CampaignText
 import com.msa.fightandconquer.ui.campaign.counter
 import com.msa.fightandconquer.ui.campaign.label
+import com.msa.fightandconquer.ui.game.BuildingTap
+import com.msa.fightandconquer.ui.game.BuildingTapTarget
 import com.msa.fightandconquer.ui.game.PurchaseCategory
 import com.msa.fightandconquer.ui.game.PurchaseMenu
 import com.msa.fightandconquer.ui.menu.MenuWorld
@@ -185,6 +187,8 @@ data class TechNodeUi(
     val tech: com.msa.fightandconquer.core.model.Tech,
     val nameRes: Int,
     val effect: UiText,
+    /** The tech's tintable glyph, [techIconRes]. */
+    val iconRes: Int,
     val cost: Int,
     val duration: Int,
     val status: TechUiStatus,
@@ -202,6 +206,11 @@ data class ResearchPanelState(
     /** Progress points per turn (= working Universities). */
     val ratePerTurn: Int,
     val treasury: Int,
+    /**
+     * The seat's civilization — picks the civ-correct University render for the
+     * footer nudge.
+     */
+    val civ: com.msa.fightandconquer.core.model.Civilization,
 )
 
 /**
@@ -232,6 +241,7 @@ fun buildResearchPanel(
             tech = tech,
             nameRes = techNameRes(tech),
             effect = UiText.of(techEffectRes(tech)),
+            iconRes = techIconRes(tech),
             cost = cost,
             duration = eff.techDurationByTier[tech.tier - 1],
             status = status,
@@ -266,6 +276,7 @@ fun buildResearchPanel(
         active = research.active?.let { node(it.tech) },
         ratePerTurn = universities,
         treasury = player.treasury,
+        civ = player.civ,
     )
 }
 
@@ -310,14 +321,12 @@ sealed interface InfoCardAction {
     data class RotateBridge(val hex: Hex) : InfoCardAction
     data class LightBeacon(val hex: Hex, val cost: Int) : InfoCardAction
     data class Demolish(val hex: Hex, val refund: Int) : InfoCardAction
-    data class Disband(val unit: com.msa.fightandconquer.core.model.UnitId, val refund: Int) : InfoCardAction
 }
 
 fun InfoCardAction.label(): UiText = when (this) {
     is InfoCardAction.RotateBridge -> UiText.of(R.string.info_action_rotate)
     is InfoCardAction.LightBeacon -> UiText.of(R.string.info_action_light_beacon, cost)
     is InfoCardAction.Demolish -> UiText.of(R.string.info_action_destroy, refund)
-    is InfoCardAction.Disband -> UiText.of(R.string.hud_disband, refund)
 }
 
 data class InfoCard(
@@ -327,7 +336,7 @@ data class InfoCard(
     val factionIndex: Int? = null,
     /** Pre-rendered piece thumbnail; null for abstract cards (fog, cut-off). */
     val iconRes: Int? = null,
-    /** Contextual buttons (rotate a bridge, destroy a building, disband a spent unit). */
+    /** Contextual buttons (rotate a bridge, destroy a building, light a beacon). */
     val actions: List<InfoCardAction> = emptyList(),
 )
 
@@ -1207,6 +1216,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             refreshHud()
             return
         }
+        // Own Capital / University: the building IS the sheet (docs/ui-hud.md tap table).
+        val opened = when (BuildingTap.targetOf(state, hex, me)) {
+            BuildingTapTarget.ECONOMY -> openEconomyPanel()
+            BuildingTapTarget.RESEARCH -> openResearchPanel()
+            null -> false
+        }
+        if (opened) {
+            _highlights.value = HighlightSet()
+            _overlayLabels.value = emptyList()
+            refreshHud()
+            return
+        }
         // Not selectable: explain what was tapped instead. Fogged hexes never leak
         // their contents — explored memory gets a generic card, unseen land nothing.
         val vis = _visibility.value
@@ -1277,11 +1298,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
             is InfoCardAction.Demolish -> {
                 submit(GameAction.DemolishBuilding(action.hex))
-                clearSelection()
-                refreshHud()
-            }
-            is InfoCardAction.Disband -> {
-                submit(GameAction.DisbandUnit(action.unit))
                 clearSelection()
                 refreshHud()
             }
@@ -1606,8 +1622,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleEconomyPanel() {
         val open = _economy.value == null
         closePanels()
-        _economy.value = if (open) computeEconomy() else null
-        if (_economy.value != null) signalUi(UiSignals.ECONOMY_OPENED)
+        if (open) openEconomyPanel()
+    }
+
+    /** Opens the economy sheet (callers close the others first); true when it has content. */
+    private fun openEconomyPanel(): Boolean {
+        _economy.value = computeEconomy()
+        val opened = _economy.value != null
+        if (opened) signalUi(UiSignals.ECONOMY_OPENED)
+        return opened
     }
 
     /** The bottom sheets are mutually exclusive; every dismiss path funnels here. */
@@ -1652,8 +1675,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleResearchPanel() {
         val open = _research.value == null
         closePanels()
-        _research.value = if (open) computeResearch() else null
-        if (_research.value != null) signalUi(UiSignals.RESEARCH_OPENED)
+        if (open) openResearchPanel()
+    }
+
+    /** Opens the research sheet (callers close the others first); true when it has content. */
+    private fun openResearchPanel(): Boolean {
+        _research.value = computeResearch()
+        val opened = _research.value != null
+        if (opened) signalUi(UiSignals.RESEARCH_OPENED)
+        return opened
     }
 
     fun startResearch(tech: com.msa.fightandconquer.core.model.Tech) {
@@ -2214,13 +2244,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 stats = stats,
                 factionIndex = unit.owner.value,
                 iconRes = PieceIcons.unit(state.player(unit.owner).civ, unit.type, unit.tier),
-                // Own spent units land here (fresh ones get selected instead) and
-                // can still be dismissed for a partial refund.
-                actions = if (own && state.player(me).kind is PlayerKind.Human) {
-                    listOf(InfoCardAction.Disband(unit.id, Rules.disbandRefund(state, unit)))
-                } else {
-                    emptyList()
-                },
+                // Own spent units land here (fresh ones get selected instead).
+                // Disband is fresh-only (Legality), so the card only explains.
+                actions = emptyList(),
             )
         }
         tile.building?.let { building ->

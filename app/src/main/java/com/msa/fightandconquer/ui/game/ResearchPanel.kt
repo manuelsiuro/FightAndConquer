@@ -29,10 +29,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msa.fightandconquer.R
+import com.msa.fightandconquer.core.model.Building
 import com.msa.fightandconquer.ui.GameViewModel
+import com.msa.fightandconquer.ui.PieceIcons
 import com.msa.fightandconquer.ui.ResearchBranchUi
 import com.msa.fightandconquer.ui.ResearchPanelState
 import com.msa.fightandconquer.ui.TechNodeUi
@@ -71,19 +74,25 @@ internal fun ResearchSheetBody(
 
 @Composable
 private fun BranchLane(branch: ResearchBranchUi, factionIndex: Int, viewModel: GameViewModel) {
+    // A fully researched lane wears the positive wash in its header — the lane reads
+    // as finished at a glance, without a second label.
+    val complete = branch.nodes.all { it.status == TechUiStatus.DONE }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
                     .size(18.dp)
-                    .background(UiColors.controlFill, RoundedCornerShape(5.dp)),
+                    .background(
+                        if (complete) UiColors.positive.copy(alpha = 0.3f) else UiColors.controlFill,
+                        RoundedCornerShape(5.dp),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painterResource(branch.iconRes),
                     contentDescription = null,
                     Modifier.size(12.dp),
-                    tint = UiColors.inkMuted,
+                    tint = if (complete) UiColors.positive else UiColors.inkMuted,
                 )
             }
             Spacer(Modifier.width(6.dp))
@@ -119,6 +128,34 @@ private fun LaneConnector(open: Boolean) {
     )
 }
 
+/**
+ * 28 dp status-tinted tile carrying the tech glyph: the ladder's 12 % wash for reachable
+ * and unreachable cards, 30 % positive once researched, 30 % faction while in progress.
+ */
+@Composable
+private fun TechTile(
+    iconRes: Int,
+    status: TechUiStatus,
+    factionIndex: Int,
+    size: Dp = 28.dp,
+    glyph: Dp = 16.dp,
+) {
+    val (fill, tint) = when (status) {
+        TechUiStatus.DONE -> UiColors.positive.copy(alpha = 0.3f) to UiColors.positive
+        TechUiStatus.IN_PROGRESS -> UiColors.faction(factionIndex).copy(alpha = 0.3f) to UiColors.ink
+        TechUiStatus.AVAILABLE -> UiColors.ink.copy(alpha = 0.12f) to UiColors.ink
+        TechUiStatus.LOCKED, TechUiStatus.BUSY -> UiColors.ink.copy(alpha = 0.12f) to UiColors.inactiveGlyph
+    }
+    Box(
+        Modifier
+            .size(size)
+            .background(fill, RoundedCornerShape(size * 2 / 7)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(iconRes), contentDescription = null, Modifier.size(glyph), tint = tint)
+    }
+}
+
 @Composable
 private fun TechCard(
     node: TechNodeUi,
@@ -144,7 +181,7 @@ private fun TechCard(
     val border =
         if (node.status == TechUiStatus.IN_PROGRESS) UiColors.faction(factionIndex) else UiColors.hairline
     var cardModifier = modifier
-        .height(100.dp)
+        .height(108.dp)
         .background(UiColors.controlFill, shape)
         .border(1.dp, border, shape)
     if (clickable) {
@@ -160,6 +197,8 @@ private fun TechCard(
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.Top) {
+            TechTile(node.iconRes, node.status, factionIndex)
+            Spacer(Modifier.width(6.dp))
             Text(
                 name,
                 Modifier.weight(1f),
@@ -293,6 +332,8 @@ internal fun ResearchSheetFooter(research: ResearchPanelState, factionIndex: Int
         when {
             active != null -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    TechTile(active.iconRes, TechUiStatus.IN_PROGRESS, factionIndex)
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         stringResource(active.nameRes),
                         Modifier.weight(1f),
@@ -331,12 +372,20 @@ internal fun ResearchSheetFooter(research: ResearchPanelState, factionIndex: Int
                 )
             }
             research.universityCount == 0 -> {
-                Text(
-                    stringResource(R.string.research_warn_no_university),
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    color = UiColors.ink,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PiecePlinth(
+                        PieceIcons.building(research.civ, Building.UNIVERSITY),
+                        PlinthScale.S,
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        stringResource(R.string.research_warn_no_university),
+                        Modifier.weight(1f),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = UiColors.ink,
+                    )
+                }
             }
             else -> {
                 Text(

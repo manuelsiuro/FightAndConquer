@@ -152,11 +152,66 @@ class DemolishDisbandTest {
     }
 
     @Test
-    fun `spent units disband just as well`() {
+    fun `spent units refuse to disband`() {
         val s = strip(9, 0..5, 6..8).withUnit(owner = 0, tier = 1, at = hex(2), spent = true)
-        val (next, _) = Reducer.reduce(s, GameAction.DisbandUnit(s.unitIdAt(hex(2))))
-        assertEquals(null, next.tiles.getValue(hex(2)).unit)
+        val (next, events) = Reducer.reduce(s, GameAction.DisbandUnit(s.unitIdAt(hex(2))))
+        assertEquals("state untouched", s, next)
+        assertEquals(
+            RejectionReason.UNIT_ALREADY_ACTED,
+            (events.single() as GameEvent.ActionRejected).reason,
+        )
+        assertEquals("no refund for a refused disband", treasury(s), treasury(next))
+    }
+
+    @Test
+    fun `a unit that moved this turn can no longer disband`() {
+        val s = strip(9, 0..5, 6..8).withUnit(owner = 0, tier = 1, at = hex(2))
+        val soldier = s.unitIdAt(hex(2))
+        val (moved, _) = Reducer.reduce(s, GameAction.MoveUnit(soldier, hex(3)))
+        assertEquals("the move landed", hex(3), moved.units.getValue(soldier).hex)
+        val (next, events) = Reducer.reduce(moved, GameAction.DisbandUnit(soldier))
+        assertEquals("state untouched", moved, next)
+        assertEquals(
+            RejectionReason.UNIT_ALREADY_ACTED,
+            (events.single() as GameEvent.ActionRejected).reason,
+        )
         assertInvariants(next)
+    }
+
+    @Test
+    fun `an enemy spent unit is refused as not yours, not as acted`() {
+        val s = strip(9, 0..2, 6..8).withUnit(owner = 1, tier = 1, at = hex(7), spent = true)
+        val (next, events) = Reducer.reduce(s, GameAction.DisbandUnit(s.unitIdAt(hex(7))))
+        assertEquals(s, next)
+        assertEquals(
+            RejectionReason.NOT_YOUR_UNIT,
+            (events.single() as GameEvent.ActionRejected).reason,
+        )
+    }
+
+    @Test
+    fun `a spent unit disbands again after its owner's next turn start`() {
+        val engine = GameEngine(
+            strip(9, 0..5, 6..8).withUnit(owner = 0, tier = 1, at = hex(2), spent = true),
+        )
+        val soldier = engine.state.value.unitIdAt(hex(2))
+        assertEquals(
+            RejectionReason.UNIT_ALREADY_ACTED,
+            (engine.submit(GameAction.DisbandUnit(soldier)) as LegalityResult.Rejected).reason,
+        )
+        check(engine.submit(GameAction.EndTurn) is LegalityResult.Ok) // seat 1 (no units)
+        check(engine.submit(GameAction.EndTurn) is LegalityResult.Ok) // back to seat 0
+        val fresh = engine.state.value
+        assertEquals(PlayerId(0), fresh.currentPlayer)
+        assertFalse("the turn start refreshed the unit", fresh.units.getValue(soldier).spent)
+
+        assertTrue(engine.submit(GameAction.DisbandUnit(soldier)) is LegalityResult.Ok)
+        val after = engine.state.value
+        assertEquals(null, after.units[soldier])
+        assertEquals(null, after.tiles.getValue(hex(2)).unit)
+        val expected = rules.unitCost[0] * rules.demolishRefundPercent / 100
+        assertEquals(treasury(fresh) + expected, treasury(after))
+        assertInvariants(after)
     }
 
     @Test

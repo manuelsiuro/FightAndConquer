@@ -106,15 +106,17 @@ negative, treasury is set to 0 and **all** of that player's units die (graveston
 kills the quitter's units, and passes the turn.
 
 **Demolition & disbanding.** The current player may raze any own building except
-the Capital (`DemolishBuilding`) and dismiss any own unit, fresh or spent
-(`DisbandUnit`). Both refund `demolishRefundPercent` (50 %) of the piece's cost —
-for a Farm, of the **last** farm's price (base + step × (farms − 1)), so
-build-then-demolish always loses money; a loaded transport's refund includes its
-cargo (which goes down with the boat). Demolishing a bridge reverts the hex to
-open neutral water (refused while a unit stands on the span) and, like razing a
-Port, immediately recomputes starvation — cutting your own supply line is legal
-and instant. Disbanded units leave **no** gravestone and do not count as campaign
-"units lost". Both actions are undoable within the turn like any other.
+the Capital (`DemolishBuilding`) and dismiss any own unit **that has not acted
+this turn** (`DisbandUnit`; a spent unit is refused with `UNIT_ALREADY_ACTED` — a
+move is a commitment, the refund is not an escape hatch). Both refund
+`demolishRefundPercent` (50 %) of the piece's cost — for a Farm, of the **last**
+farm's price (base + step × (farms − 1)), so build-then-demolish always loses
+money; a loaded transport's refund includes its cargo (which goes down with the
+boat). Demolishing a bridge reverts the hex to open neutral water (refused while
+a unit stands on the span) and, like razing a Port, immediately recomputes
+starvation — cutting your own supply line is legal and instant. Disbanded units
+leave **no** gravestone and do not count as campaign "units lost". Both actions
+are undoable within the turn like any other.
 
 **Bridge rotation.** A bridge's deck is cosmetic but persistent: `RotateBuilding`
 stores one of 3 axes on the tile (`Tile.bridgeOrientation`; the deck is

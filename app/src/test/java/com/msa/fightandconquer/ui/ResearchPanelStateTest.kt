@@ -1,8 +1,10 @@
 package com.msa.fightandconquer.ui
 
+import com.msa.fightandconquer.R
 import com.msa.fightandconquer.core.hex.Hex
 import com.msa.fightandconquer.core.model.ActiveResearch
 import com.msa.fightandconquer.core.model.Building
+import com.msa.fightandconquer.core.model.Civilization
 import com.msa.fightandconquer.core.model.GameConfig
 import com.msa.fightandconquer.core.model.GameState
 import com.msa.fightandconquer.core.model.PlayerId
@@ -26,6 +28,7 @@ class ResearchPanelStateTest {
         treasury: Int = 100,
         universities: Int = 1,
         starvingUniversities: Int = 0,
+        civ: Civilization = Civilization.KINGDOM,
     ): GameState {
         val tiles = HashMap<Hex, Tile>()
         val me = PlayerId(0)
@@ -42,7 +45,14 @@ class ResearchPanelStateTest {
             tiles = tiles,
             units = emptyMap(),
             players = listOf(
-                PlayerState(me, PlayerKind.Human, treasury, Hex.of(0, 0), research = research),
+                PlayerState(
+                    me,
+                    PlayerKind.Human,
+                    treasury,
+                    Hex.of(0, 0),
+                    civ = civ,
+                    research = research,
+                ),
             ),
             currentPlayer = me,
             rngState = 1L,
@@ -132,5 +142,51 @@ class ResearchPanelStateTest {
         )!!
         assertEquals(2, panel.universityCount)
         assertEquals(2, panel.ratePerTurn)
+    }
+
+    @Test
+    fun `every technology carries its own glyph`() {
+        val panel = buildResearchPanel(state(), PlayerId(0))!!
+        val nodes = panel.branches.flatMap { it.nodes }
+        assertEquals(Tech.entries.size, nodes.size)
+        assertTrue(nodes.none { it.iconRes == 0 })
+        assertEquals(nodes.size, nodes.map { it.iconRes }.toSet().size)
+        for (tech in Tech.entries) {
+            assertEquals(techIconRes(tech), panel.node(tech).iconRes)
+        }
+    }
+
+    @Test
+    fun `techIconRes maps each technology to its ic_tech drawable`() {
+        assertEquals(R.drawable.ic_tech_smithing, techIconRes(Tech.SMITHING))
+        assertEquals(R.drawable.ic_tech_armory, techIconRes(Tech.ARMORY))
+        assertEquals(R.drawable.ic_tech_siegecraft, techIconRes(Tech.SIEGECRAFT))
+        assertEquals(R.drawable.ic_tech_coinage, techIconRes(Tech.COINAGE))
+        assertEquals(R.drawable.ic_tech_banking, techIconRes(Tech.BANKING))
+        assertEquals(R.drawable.ic_tech_treasury, techIconRes(Tech.TREASURY))
+        assertEquals(R.drawable.ic_tech_masonry, techIconRes(Tech.MASONRY))
+        assertEquals(R.drawable.ic_tech_engineering, techIconRes(Tech.ENGINEERING))
+        assertEquals(R.drawable.ic_tech_bastions, techIconRes(Tech.BASTIONS))
+        assertEquals(R.drawable.ic_tech_navigation, techIconRes(Tech.NAVIGATION))
+        assertEquals(R.drawable.ic_tech_shipwrights, techIconRes(Tech.SHIPWRIGHTS))
+        assertEquals(R.drawable.ic_tech_admiralty, techIconRes(Tech.ADMIRALTY))
+    }
+
+    @Test
+    fun `the active research carries the glyph`() {
+        val panel = buildResearchPanel(
+            state(research = ResearchState(active = ActiveResearch(Tech.ARMORY, 1))),
+            PlayerId(0),
+        )!!
+        assertEquals(R.drawable.ic_tech_armory, panel.active!!.iconRes)
+    }
+
+    @Test
+    fun `the panel carries the seat's civilization`() {
+        assertEquals(Civilization.KINGDOM, buildResearchPanel(state(), PlayerId(0))!!.civ)
+        assertEquals(
+            Civilization.SHOGUNATE,
+            buildResearchPanel(state(civ = Civilization.SHOGUNATE), PlayerId(0))!!.civ,
+        )
     }
 }

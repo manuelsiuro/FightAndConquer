@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Anvil (Smithing): horned top over a waist and a base bar. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M1.5,8 L7,6 L21.5,6 L21.5,10 L15,10 L15,14.5 L18,14.5 L18,17 L6,17 L6,14.5 L9,14.5 L9,10 L7,10 Z M4,18.5 L20,18.5 L20,21 L4,21 Z" />
+</vector>

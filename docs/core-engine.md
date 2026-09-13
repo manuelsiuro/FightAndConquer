@@ -69,7 +69,9 @@ only building upgrade: lights `Tile.beacon` on an own standing defense building
 for `beaconCost` in day-night games — `Rules.litHexes` ground is monster-proof,
 see game-rules.md "Day-night cycle"), `DemolishBuilding(at)` /
 `DisbandUnit(unit)` (raze an own non-capital building / dismiss an own unit for
-a `demolishRefundPercent` refund; a demolished bridge reverts to neutral sea,
+a `demolishRefundPercent` refund — **fresh units only**, a spent one is refused
+with `UNIT_ALREADY_ACTED`, and the disbanded leave no gravestone, so the scene
+mirrors `StateBuilder.killUnit`; a demolished bridge reverts to neutral sea,
 and both recompute starvation where relevant), `Disembark(boat, to)`,
 `Bombard(unit, target)`, `ProposePact(to, durationRounds)`,
 `RespondPact(from, accept)`, `SendTribute(to, amount)`,
@@ -402,9 +404,10 @@ otherwise) → war-chest fallback (save for a stronger invader, or span a
 income at or below zero, and no loaded transport is at sea, demobilize the
 costliest surplus soldier — never the capital guard, never the strongest
 one, never while invaded — or scuttle an idle hull no shipping-grade marine
-is waiting for; refunds and freed upkeep finance the fleet, and a standoff
-garrison is trimmed until income runs the surplus that refills the war chest
-instead of bleeding into bankruptcy). Every destination is a pure function
+is waiting for; both the upkeep trim and the scuttle pick fresh candidates
+only (disband is fresh-only); refunds and freed upkeep finance the fleet, and
+a standoff garrison is trimmed until income runs the surplus that refills the
+war chest instead of bleeding into bankruptcy). Every destination is a pure function
 of the state so consecutive turns can't oscillate. Hard adds sea control: when enemy boats are
 visible, buy one warship, shadow the ferries, and let the greedy loop land the
 kill. Easy gets no ladder at all — aimless at sea by design.

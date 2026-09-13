@@ -332,8 +332,9 @@ buttons **52 dp**, radius 16 — pastel primary (15 sp/800 `ink`), outlined seco
 
 Unchanged from the current implementation unless noted:
 
-- Tap a hex to select, tap again to deselect. The purchase tray opens on a friendly capital.
-  Undo reverts the last action. Banners dismiss on tap.
+- Tap a hex to select, tap again to deselect. Tapping an own Capital opens the Economy
+  sheet, an own University the Research sheet (2026-09-12). Undo reverts the last action.
+  Banners dismiss on tap.
 - **One glanceable sheet at a time**: Economy, Diplomacy, Research, War report, Objectives
   (campaign only) — all action-bar circles. Opening one closes the rest — see the 2026-08-26
   addendum: the 264 dp side panel became a bottom sheet.
@@ -383,7 +384,14 @@ panels, toasts, and the proposal strip can anchor to its bottom + 8 dp
   Campaign), hex + pencil (`ic_hex_pencil`, Map Editor), gear (`ic_gear`, Settings) and info
   disc (`ic_info`, About) — rendered at 24 dp on the 88 dp tiles and at 20 dp on the Continue
   bar, tinted `inkMuted` on a neutral tile and `onFaction` on the pastel primary; Guide
-  reuses the open book `ic_research`.
+  reuses the open book `ic_research`. The research sheet adds twelve tech glyphs
+  (2026-09-12) — `ic_tech_smithing` (anvil), `ic_tech_armory` (helmet),
+  `ic_tech_siegecraft` (catapult), `ic_tech_coinage` (coin stack), `ic_tech_banking`
+  (bank), `ic_tech_treasury` (chest), `ic_tech_masonry` (arch), `ic_tech_engineering`
+  (dividers), `ic_tech_bastions` (gatehouse), `ic_tech_navigation` (compass rose),
+  `ic_tech_shipwrights` (ribbed hull), `ic_tech_admiralty` (anchor) — and the bottom bar
+  `ic_end_turn` (play-to-bar); all 24 dp drawn, rendered at 16 dp on the tech tiles and
+  20 dp on the end-turn FAB.
 - **Baked piece renders**: transparent PNG at 32, 48, and 80 dp (× density buckets), one per unit
   and building, plus a capital render for the game-over overlay. Rendered against the light board
   palette so they read on the `controlFill` plinth in both themes.
@@ -485,3 +493,36 @@ only:
   buying clears the selection, so the next hex tap shows the pair again.
 - **Assets**: `ic_build` (mallet: broad rounded head over a straight handle) joins the
   tintable 24 dp vector set, rendered at 20 dp.
+
+---
+
+## Addendum — research glyph tiles, building taps, end-turn glyph, fresh-only disband (2026-09-12)
+
+Four deltas from playtesting the research sheet and the bottom bar. All within the chrome
+above; deltas only:
+
+- **Tech tiles**: every card in `ResearchSheetBody` leads its name row with a 28 dp square,
+  radius 8 (`size * 2 / 7`, so the tile scales without a second constant), carrying the
+  tech's own 16 dp glyph. Four washes, straight off the 12/30/100 % ladder: **available** =
+  `ink` @12 % with an `ink` glyph · **locked / busy** = the same `ink` @12 % with an
+  `inactiveGlyph` glyph (a lock is structural, never alarming) · **in progress** = the
+  faction pastel @30 % with an `ink` glyph · **done** = `positive` @30 % with a `positive`
+  glyph. No borders: the card already carries the faction border while it works.
+- **Card height** grows to **108 dp** to seat the tile beside the name without crushing the
+  effect lines. When all three techs of a lane are done, the lane header's own square turns
+  `positive` @30 % — the branch reads as finished from the lane rail alone.
+- **Footer**: the active research row leads with that tech's tile, so the progress track and
+  the card agree at a glance; the "build a University" nudge shows the **civ-correct**
+  University render on a **plinth S** beside its text.
+- **Building taps**: tapping an own **Capital** opens the Economy sheet, an own
+  **University** the Research sheet — the sheet the building *is*. Only on a clear hex (no
+  unit standing on it) and only for your own tile; a held unit's move or merge is attempted
+  first. No new chrome: the same bottom sheets the action-bar circles open.
+- **End-turn FAB**: §2's 9 sp "TURN" micro-label is retired. The FAB now shows a 20 dp
+  `ic_end_turn` glyph over "End" at 12 sp/800, letter-spacing 0.5, both `onFaction`, in the
+  current player's pastel. 56 dp, radius 20, hairline + `boardLift` and the armed
+  N-units-unmoved flow are unchanged.
+- **Disband**: the InfoCard's Disband action is gone. A unit that has moved this turn cannot
+  be dismissed (the engine refuses `UNIT_ALREADY_ACTED`), so an own spent unit's card shows
+  its name, "Already moved this turn" and its stats and offers nothing to press; the
+  selected-unit strip's "Disband +N" on a *fresh* held unit is unchanged.

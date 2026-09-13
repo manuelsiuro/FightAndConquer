@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ribbed hull (Shipwrights): a hull under construction with a mast stub. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:fillType="evenOdd"
+        android:pathData="M1.5,10 h21 c-0.5,6 -5,10.5 -10.5,10.5 c-5.5,0 -10,-4.5 -10.5,-10.5 Z M6,12 h1.6 v5 H6 Z M11.2,12 h1.6 v6.5 h-1.6 Z M16.4,12 h1.6 v5 h-1.6 Z" />
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M11.2,2.5 h1.6 v6.5 h-1.6 Z M8,4 h8 v1.6 H8 Z" />
+</vector>

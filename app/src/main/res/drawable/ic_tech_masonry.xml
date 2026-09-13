@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arch (Masonry): a keystone crowning a round arch. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M3,22 L3,11 A9,9 0 0 1 21,11 L21,22 L17,22 L17,12 A5,5 0 0 0 7,12 L7,22 Z M9.6,0.8 h4.8 l0.6,4 h-6 Z" />
+</vector>

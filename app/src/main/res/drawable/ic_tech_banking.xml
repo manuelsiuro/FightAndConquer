@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bank (Banking): pediment over four columns and a base. Tinted at use sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF3E3A36"
+        android:pathData="M12,2 L2,7.5 L22,7.5 Z M3,9 L21,9 L21,11 L3,11 Z M4,12 h2 v6 h-2 Z M9,12 h2 v6 h-2 Z M13,12 h2 v6 h-2 Z M18,12 h2 v6 h-2 Z M2.5,19 h19 v3 h-19 Z" />
+</vector>

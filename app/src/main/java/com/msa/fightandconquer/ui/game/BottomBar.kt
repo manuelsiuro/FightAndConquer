@@ -310,7 +310,6 @@ private fun InfoCardView(info: InfoCard, onAction: (InfoCardAction) -> Unit) {
                             is InfoCardAction.RotateBridge -> R.string.cd_info_action_rotate
                             is InfoCardAction.LightBeacon -> R.string.cd_info_action_light_beacon
                             is InfoCardAction.Demolish -> R.string.cd_info_action_destroy
-                            is InfoCardAction.Disband -> R.string.cd_hud_disband
                         },
                     )
                     // First action is the outlined primary; the rest take the
@@ -715,18 +714,19 @@ private fun EndTurnFab(pastel: Color, onClick: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        Icon(
+            painterResource(R.drawable.ic_end_turn),
+            contentDescription = null,
+            Modifier.size(20.dp),
+            tint = UiColors.onFaction,
+        )
+        Spacer(Modifier.height(2.dp))
         Text(
             stringResource(R.string.hud_end),
-            fontSize = 15.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.5.sp,
             color = UiColors.onFaction,
-        )
-        Text(
-            stringResource(R.string.hud_end_turn_micro).uppercase(),
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
-            color = UiColors.onFaction.copy(alpha = 0.62f),
         )
     }
 }

@@ -1106,9 +1106,15 @@ class BoardScene(
                 val piece = unitPieces.remove(event.unit) ?: return
                 val atSea = latestState.tiles[event.hex]?.terrain ==
                     com.msa.fightandconquer.core.model.Terrain.SEA
-                // The drowned go deeper and slower — and leave no gravestone.
+                // Mirrors StateBuilder.killUnit: the slain, the drowned and the
+                // disbanded leave no gravestone — only starvation/bankruptcy do.
+                val leavesGrave = event.cause != DeathCause.KILLED &&
+                    event.cause != DeathCause.SUNK &&
+                    event.cause != DeathCause.DISBANDED &&
+                    !atSea
+                // The drowned go deeper and slower.
                 sinkAway(piece, duration = if (atSea) 0.4f else 0.25f, depth = if (atSea) 0.3f else 0.1f) {
-                    if (event.cause != DeathCause.KILLED && event.cause != DeathCause.SUNK && !atSea) {
+                    if (leavesGrave) {
                         val grave = createPiece(PieceKind.GRAVESTONE, event.hex, null)
                         floraPieces[event.hex] = grave
                         spawnBounce(grave, duration = 0.25f)
